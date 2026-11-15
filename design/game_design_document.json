@@ -1,0 +1,78 @@
+{
+  "title": "Deep Belt",
+  "language": [
+    "en"
+  ],
+  "hook": "Space mining in Harrow system",
+  "game_overview": "Pilot the Ferrier mining frigate in the Harrow system. Warp to belts, lock targets, cycle mining lasers, and dock at Harrow Station to trade ore and fit upgraded ship modules.",
+  "artstyle": "cartoon",
+  "genre": "action_adventure",
+  "winning_condition": "None (sandbox economic and mining progression in the Harrow system).",
+  "losing_condition": "None (peaceful exploration, mining, and module fitting).",
+  "player_mode": "single_player",
+  "supported_orientations": [
+    "landscape"
+  ],
+  "input_methods": [
+    "keyboard",
+    "mouse",
+    "touch"
+  ],
+  "score_options": {
+    "score_type": "points",
+    "score_order": "higher_is_better"
+  },
+  "low_end_device_support": true,
+  "mobile_playable": true,
+  "tv_playable": false,
+  "content_descriptors": [],
+  "controls": [
+    {
+      "input": "WASD / Arrow Keys / Left-Click Empty Space",
+      "action": "Fly ship in space (W thrust, S brake, A/D turn); Left-click empty space flies to that point"
+    },
+    {
+      "input": "Left-Click Object / Tab",
+      "action": "Select object; Tab cycles nearest targets with target bracket"
+    },
+    {
+      "input": "Key L",
+      "action": "Lock selected target [L]"
+    },
+    {
+      "input": "Key 1 / Key 2",
+      "action": "Mine [1] / Fire Cannon [2]"
+    },
+    {
+      "input": "Key Q / Key O",
+      "action": "Approach [Q] / Orbit [O]"
+    },
+    {
+      "input": "Key M / Number Keys 1-9 & Enter",
+      "action": "Open Warp Menu [M]; number keys 1-9 select destination, Enter confirms"
+    },
+    {
+      "input": "Key F / Key U",
+      "action": "Dock [F] when in range; Undock [U] from station"
+    },
+    {
+      "input": "Key E",
+      "action": "Open Wreck [E] in space (<=2km) / Use nearest terminal [E] when docked"
+    },
+    {
+      "input": "Key H / Key Esc",
+      "action": "Help [H]; Esc closes top menu/help or re-opens game menu without double-toggle"
+    },
+    {
+      "input": "Docked: A/D or Left/Right / Click Floor",
+      "action": "Pilot walks corridor; Terminal menus: 1-4 switch tabs, Arrows+Enter select, Esc closes"
+    }
+  ],
+  "sections": [
+    {
+      "title": "Docked Tutorial Coach Responsive Gutter Layout",
+      "content": "Docked Training Coach Viewport & Panel Clearance Architecture:\n1. Corridor Mode (`stationTab === 'DOCK'`):\n   - Renders the full 260px Cel Ink tutorial coach card at `left: 16px, top: 56px, width: 260px, height: 116px, zIndex: 55`, cleanly clear of the bottom tab bar (`top: 712px`), Undock [U], and officer speech.\n2. Active Station Terminal Panel Mode (`stationTab !== 'DOCK'`):\n   - When any terminal modal (Market, Fitting, Hangar, Fabricator, Schematics, Agent, Skills) is active at `left: 96px, top: 60px`, the coach card dynamically transitions into the dedicated 96px left margin gutter at `left: 8px, top: 56px, width: 80px, maxHeight: 220px, zIndex: 55`.\n   - With an 80px card width and 4px offset shadow (ending at x: 92px), a clean 4px clearance gap is preserved before the panel boundary at x: 96px, completely preventing overlap with panel headers, officer dialogue, tab chips, and the Market 'Sell all [S]' action.\n   - Typographic scaling: Content wraps cleanly in the gutter (compact step indicator, pips, title, instruction key chips, and Skip [T] button) ensuring complete guidance accessibility across 1280x800 and 1024x640 viewports.",
+      "summary": "Dynamically shifts docked coach card into an 80px left gutter at left: 8px when terminal panels are open, preventing panel overlap while keeping full 260px card in corridor."
+    }
+  ]
+}
