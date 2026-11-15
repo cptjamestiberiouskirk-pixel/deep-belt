@@ -72,7 +72,11 @@ test('drones: an extraction drone deploys and mines on its own', async ({page}) 
   }).toPass({timeout: 20_000});
   await page.keyboard.press('Escape');
   await expect.poll(async () => (await readSave(page))!.cargoFerrite, {timeout: 60_000}).toBeGreaterThan(0);
-  expect((await readSave(page))!.cargoExtractDrone).toBe(0);
+  // The drone is still out: the bay shows it, and the save counts it as in the
+  // hold so that closing the game while it works does not lose it.
+  await page.keyboard.press('d');
+  await expect(page.getByText('Bandwidth: 1 / 2')).toBeVisible();
+  expect((await readSave(page))!.cargoExtractDrone).toBe(1);
   expectClean(problems);
 });
 

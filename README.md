@@ -109,7 +109,7 @@ Every push and pull request runs the type-check, the build and the play-test on 
 - The game is self-contained. It makes no network requests beyond its own files, and the fonts (Fredoka, Inter, JetBrains Mono) are bundled.
 - `index.html` carries a Content-Security-Policy that only allows the game's own files and blocks inline scripts. If you add something that loads from another site, the policy has to be widened to match.
 - Progress saves to the browser's `localStorage`, so a save belongs to one browser on one address. Clearing site data erases it.
-- Developer shortcuts (free marks, cargo grants, a teleport, forced laser heat and scan failures) are switched off in the released build. They work under `npm run dev`, or when the page is opened with `?dev` added to the address.
+- Developer shortcuts (free marks, cargo grants, a teleport, forced laser heat and scan failures, skipping a Rift stage) are switched off in the released build. They work under `npm run dev`, or when the page is opened with `?dev` added to the address.
 - New Game and Restart run erase the save and reload the page, after a confirmation.
 - Tuning values such as thrust, max speed, mining yield and cargo capacity live in the `CONFIG` object in `constants.ts`.
 - Images and audio in `assets/` are loaded by URL at runtime and are not bundled. `vite.config.ts` copies the folder into `dist/` on build.

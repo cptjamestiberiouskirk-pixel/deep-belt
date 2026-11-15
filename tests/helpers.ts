@@ -38,8 +38,11 @@ export async function openFresh(page: Page) {
   await expect(page.getByTestId('start-game-btn')).toBeVisible();
 }
 
-/** Opens the title screen with the given save, merged over a real fresh save. */
-export async function openWithSave(page: Page, patch: Record<string, unknown>) {
+/**
+ * Opens the title screen with the given save, merged over a real fresh save.
+ * `query` (such as '?dev') is added to the address the game is reopened at.
+ */
+export async function openWithSave(page: Page, patch: Record<string, unknown>, query = '') {
   await openFresh(page);
   await page.keyboard.press('Enter');
   await expect(page.getByText('Docked · safe')).toBeVisible();
@@ -54,7 +57,8 @@ export async function openWithSave(page: Page, patch: Record<string, unknown>) {
     },
     [SAVE_KEY, patch] as const,
   );
-  await page.reload();
+  if (query) await page.goto(`/${query}`);
+  else await page.reload();
   await expect(page.getByTestId('start-game-btn')).toBeVisible();
 }
 
@@ -211,9 +215,9 @@ export async function selectTarget(page: Page, what: RegExp) {
 }
 
 /** Starts docked at Harrow with the given save, then undocks. */
-export async function launch(page: Page, patch: Record<string, unknown> = {}) {
+export async function launch(page: Page, patch: Record<string, unknown> = {}, query = '') {
   const problems = watch(page);
-  await openWithSave(page, {...RICH, milestoneIndustrialistClaimed: true, ...patch});
+  await openWithSave(page, {...RICH, milestoneIndustrialistClaimed: true, ...patch}, query);
   await enterGame(page);
   await undock(page);
   return problems;

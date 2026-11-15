@@ -8087,9 +8087,11 @@ export default function App() {
         cargoSilicateLens: cargoSilicateLensRef.current,
         cargoMetallicLens: cargoMetallicLensRef.current,
         cargoExoticLens: cargoExoticLensRef.current,
-        cargoExtractDrone: cargoExtractDroneRef.current,
-        cargoDefenseDrone: cargoDefenseDroneRef.current,
-        cargoSalvageDrone: cargoSalvageDroneRef.current,
+        // Deployed drones are not saved as such; count them as back in the hold,
+        // or closing the game while they are out would lose them for good.
+        cargoExtractDrone: cargoExtractDroneRef.current + deployedDronesRef.current.filter((d) => d.type === 'extractDrone').length,
+        cargoDefenseDrone: cargoDefenseDroneRef.current + deployedDronesRef.current.filter((d) => d.type === 'defenseDrone').length,
+        cargoSalvageDrone: cargoSalvageDroneRef.current + deployedDronesRef.current.filter((d) => d.type === 'salvageDrone').length,
         cargoCommandHub: cargoCommandHubRef.current,
         cargoPolymer: cargoPolymerRef.current,
         cargoChemical: cargoChemicalRef.current,
@@ -9234,9 +9236,8 @@ export default function App() {
     if (activeHaulContractIdRef.current) {
       const contract = HAUL_CONTRACTS[activeHaulContractIdRef.current];
       if (contract) {
-        const isAtDest =
-          (contract.destStationId === 'vael_station' && currentSystem === 'Vael') ||
-          (contract.destStationId === 'station' && currentSystem === 'Harrow');
+        // The destination is one station, not its whole system: the outpost is in Harrow too.
+        const isAtDest = contract.destStationId === nearestStation.id;
         const heldParts = contract.partType === 'hullPlate' ? cargoHullPlateRef.current : cargoSensorCoreRef.current;
         if (isAtDest && heldParts >= contract.count) {
           setIsHaulDeliveryModalOpen(true);
@@ -9589,9 +9590,7 @@ export default function App() {
     const contract = HAUL_CONTRACTS[cId];
     if (!contract) return;
 
-    const isAtDest =
-      (contract.destStationId === 'vael_station' && currentSystemRef.current === 'Vael') ||
-      (contract.destStationId === 'station' && currentSystemRef.current === 'Harrow');
+    const isAtDest = contract.destStationId === dockedStationIdRef.current;
 
     if (!isAtDest) {
       soundManager.playFailBuzz();
@@ -9912,7 +9911,9 @@ export default function App() {
   };
 
   // Open Wreck & Salvage Loot (Guard 9: range validation <= 2 km)
-  const handleOpenWreck = (wreck: WreckEntity) => {
+  // A salvage drone opens wrecks on the pilot's behalf, so `byDrone` skips the
+  // pilot's own 2.0 km range check: the drone is the one at the wreck.
+  const handleOpenWreck = (wreck: WreckEntity, byDrone = false) => {
     if (isDocked) return;
     const p = playerRef.current;
     if (wreck.isLooted) {
@@ -9922,7 +9923,7 @@ export default function App() {
     }
 
     const distKm = calcDistanceKm(p.x, p.y, wreck.x, wreck.y);
-    if (distKm > 2.0) {
+    if (!byDrone && distKm > 2.0) {
       gameAudio.playErrorBuzz();
       addFloatingText('OUT OF SALVAGE RANGE (<2.0 km)', p.x, p.y - 40, '#ef4444');
       setToastNotice({
@@ -10765,12 +10766,13 @@ export default function App() {
     setIsJettisonModalOpen(true);
   }, [getCurrentCargoVolume, setToastNotice]);
 
-  const handleScoopCanister = useCallback((canister: CargoCanisterEntity) => {
+  const handleScoopCanister = useCallback((canister: CargoCanisterEntity, byDrone = false) => {
     if (isDockedRef.current) return;
     const p = playerRef.current;
     const distKm = calcDistanceKm(p.x, p.y, canister.x, canister.y);
 
-    if (distKm > 2.0) {
+    // A salvage drone does the scooping itself, wherever the ship is.
+    if (!byDrone && distKm > 2.0) {
       soundManager.playFailBuzz();
       addFloatingText('OUT OF RANGE (<2.0 km)', p.x, p.y - 40, '#ef4444');
       setToastNotice({
@@ -16809,9 +16811,7 @@ export default function App() {
               const contract = HAUL_CONTRACTS_LIST[contractIdx];
               if (contract) {
                 if (activeHaulContractIdRef.current === contract.id) {
-                  const isAtDest =
-                    (contract.destStationId === 'vael_station' && currentSystemRef.current === 'Vael') ||
-                    (contract.destStationId === 'station' && currentSystemRef.current === 'Harrow');
+                  const isAtDest = contract.destStationId === dockedStationIdRef.current;
                   const heldParts = contract.partType === 'hullPlate' ? cargoHullPlateRef.current : cargoSensorCoreRef.current;
 
                   if (isAtDest && heldParts >= contract.count) {
@@ -17269,6 +17269,16 @@ export default function App() {
             handleScanSuccess();
             return;
           }
+        }
+      }
+
+      // Dev testing hotkey [\]: in the Rift, skip to the next stage the way a conduit does
+      if (DEV_HOTKEYS && (e.key === '\\' || e.code === 'Backslash')) {
+        if (!isDocked && currentSystemRef.current === 'Rift' && riftRunRef.current && (riftRunRef.current.stage || 1) < 3) {
+          if (e.repeat) return;
+          e.preventDefault();
+          handleAdvanceRiftStage();
+          return;
         }
       }
 
@@ -20403,6 +20413,24 @@ export default function App() {
               gameAudio.playExplosion();
               createExplosion(nearestHostile.x, nearestHostile.y, 70, '#ef4444');
 
+              // A drone kill counts for the mission just as a kill by the ship's own guns does.
+              const isBountyTarget = isVaelTarget || nearestHostile.id === ashPirateRef.current.id || nearestHostile.id === riftPirateRef.current.id;
+              if (!isBountyTarget && missionIndexRef.current === 1 && missionStatusRef.current === 'active') {
+                setMissionPirateKills(1);
+                missionPirateKillsRef.current = 1;
+                setMissionStatus('ready_to_turn_in');
+                missionStatusRef.current = 'ready_to_turn_in';
+                setToastNotice({
+                  id: `toast_pest_${Date.now()}`,
+                  title: 'OBJECTIVE COMPLETE // PEST CONTROL',
+                  detail: 'Belt Two pirate neutralized! Speak with Osk Varran at Harrow Station to claim 1,500 MARKS.',
+                  type: 'success',
+                });
+              }
+              if (nearestHostile.id === 'pirate_frigate') {
+                beltTwoEncounterSpawnedRef.current = false;
+              }
+
               const bounty = (nearestHostile.id === 'pirate_frigate_vael' || nearestHostile.id === 'pirate_frigate_ash' || nearestHostile.id === 'rift_corsair') ? 600 : 250;
               setMarks((prev) => {
                 const updated = prev + bounty;
@@ -20487,10 +20515,10 @@ export default function App() {
             const dDroneToTarget = Math.hypot(nearestTarget.entity.x - drone.x, nearestTarget.entity.y - drone.y);
             if (dDroneToTarget <= 40) {
               if (nearestTarget.type === 'canister') {
-                handleScoopCanister(nearestTarget.entity);
+                handleScoopCanister(nearestTarget.entity, true);
                 addFloatingText('+Scooped', drone.x, drone.y - 15, '#8BD17C');
               } else {
-                handleOpenWreck(nearestTarget.entity);
+                handleOpenWreck(nearestTarget.entity, true);
                 addFloatingText('+Scooped', drone.x, drone.y - 15, '#8BD17C');
               }
             }
@@ -20538,7 +20566,10 @@ export default function App() {
           }
 
           // Aggro check: Aggro radius 12.0 km or damaged or targeted
-          const isAggro = distKm <= aggroKm || g.shield < g.maxShield || g.armor < g.maxArmor || g.hull < g.maxHull || selectedTargetId === g.id || p.targetLockedId === g.id;
+          // Selecting a guardian provokes it only from within sensor reach; from farther
+          // off it would charge across the stage and stall at its leash, healing.
+          const isProvoked = distKm <= HOSTILE_PROVOKE_RANGE_KM && (selectedTargetId === g.id || p.targetLockedId === g.id);
+          const isAggro = distKm <= aggroKm || g.shield < g.maxShield || g.armor < g.maxArmor || g.hull < g.maxHull || isProvoked;
 
           if (isAggro && !isDocked && p.warpState === 'IDLE' && !isRiftModalActive) {
             const angleToPlayer = Math.atan2(p.y - g.y, p.x - g.x);
@@ -20624,7 +20655,8 @@ export default function App() {
           const distToGatePx = Math.hypot(g.x - gateX, g.y - gateY);
           const distToGateKm = distToGatePx / PIXELS_PER_KM;
 
-          const isAggro = distKm <= 15.0 || g.shield < g.maxShield || g.armor < g.maxArmor || g.hull < g.maxHull || selectedTargetId === g.id || p.targetLockedId === g.id;
+          const isProvoked = distKm <= HOSTILE_PROVOKE_RANGE_KM && (selectedTargetId === g.id || p.targetLockedId === g.id);
+          const isAggro = distKm <= 15.0 || g.shield < g.maxShield || g.armor < g.maxArmor || g.hull < g.maxHull || isProvoked;
 
           // Stay within 10.0 km (500 px) of Collapse Gate [0, 6000]
           if (distToGateKm > 10.0 && !isRiftModalActive) {
@@ -25603,6 +25635,16 @@ export default function App() {
                 }
               }
 
+              if (currentSystem === 'Rift') {
+                for (const g of riftGuardiansRef.current) {
+                  if (!g.isAlive) continue;
+                  const cd = Math.hypot(worldX - g.x, worldY - g.y);
+                  if (cd <= (g.kind === 'warden' ? 80 : 64)) {
+                    candidates.push({ id: g.id, priority: 1, clickDist: cd });
+                  }
+                }
+              }
+
               for (const wrk of wrecksRef.current) {
                 if (wrk.system === currentSystem) {
                   const cd = Math.hypot(worldX - wrk.x, worldY - wrk.y);
@@ -26106,6 +26148,21 @@ export default function App() {
                     remainingOre: pc.qty,
                     initialOre: pc.qty,
                     isLocked: lockedTargetId === pc.id,
+                  };
+                }
+                // Sentinels and the Warden are fought like pirates: show their bars, Lock and Fire.
+                const guardian = riftGuardiansRef.current.find((g) => g.id === activeTargetId && g.isAlive);
+                if (guardian) {
+                  targetObj = {
+                    id: guardian.id,
+                    name: guardian.name,
+                    type: 'Pirate',
+                    distKm: calcDistanceKm(p.x, p.y, guardian.x, guardian.y),
+                    shield: guardian.shield,
+                    maxShield: guardian.maxShield,
+                    hull: guardian.hull,
+                    maxHull: guardian.maxHull,
+                    isLocked: lockedTargetId === guardian.id,
                   };
                 }
               }
@@ -36899,9 +36956,7 @@ export default function App() {
                               const isActive = activeHaulContractId === contract.id;
                               const isAnotherActive = activeHaulContractId !== null && !isActive;
 
-                              const isAtDest =
-                                (contract.destStationId === 'vael_station' && currentSystem === 'Vael') ||
-                                (contract.destStationId === 'station' && currentSystem === 'Harrow');
+                              const isAtDest = contract.destStationId === dockedStationId;
 
                               const held = contract.partType === 'hullPlate' ? cargoHullPlate : cargoSensorCore;
                               const hasRequiredParts = held >= contract.count;

@@ -1217,7 +1217,7 @@ export const HAUL_CONTRACTS: Record<string, HaulContract> = {
   haul_plates_vael: {
     id: 'haul_plates_vael',
     title: 'Haul: Hull Plates to Vael',
-    destName: 'Vael Mining Outpost',
+    destName: 'Vael Station',
     destStationId: 'vael_station',
     destSystem: 'Vael',
     partType: 'hullPlate',
