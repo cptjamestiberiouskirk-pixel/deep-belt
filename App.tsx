@@ -7024,6 +7024,46 @@ export default function App() {
     }
   }, [setSelectedTargetId, setLockedTargetId]);
 
+  // Every Rift guardian kill, by the ship's guns or a defense drone, goes through here,
+  // so the run's done list, the banked manifest and the Warden's gate unlock agree.
+  // Guardians leave no wreck and pay no wallet bounty: their reward is banked in the run.
+  const handleRiftGuardianDestroyed = useCallback((g: RiftGuardianEntity, byDrone: boolean) => {
+    g.isAlive = false;
+    g.hull = 0;
+    const run = riftRunRef.current;
+    if (run) {
+      if (!run.done) run.done = [];
+      if (!run.done.includes(g.id)) run.done.push(g.id);
+    }
+    if (g.kind === 'warden') {
+      if (run) {
+        run.manifest.marks = (run.manifest.marks || 0) + 2500;
+        if (!run.manifest.items) run.manifest.items = {};
+        run.manifest.items.integritySeal = (run.manifest.items.integritySeal || 0) + 1;
+      }
+      addFloatingText('+2,500 M + 1 Integrity Seal', g.x, g.y - 45, '#FFD166');
+      setToastNotice({
+        id: `toast_warden_${Date.now()}`,
+        title: 'Elite Warden destroyed! Gate unlocked.',
+        detail: `${byDrone ? 'Warden destroyed by defense drone. ' : ''}+2,500 M & 1 Integrity Seal added to banked Rift manifest. Collapse Gate unlocked!`,
+        type: 'success',
+        duration: 7000,
+      });
+    } else {
+      if (run) run.manifest.marks = (run.manifest.marks || 0) + 250;
+      addFloatingText('+250 M', g.x, g.y - 30, '#FFB547');
+      setToastNotice({
+        id: `toast_sentinel_${Date.now()}`,
+        title: 'Rift Sentinel neutralized (+250 M manifest)',
+        detail: `Sentinel defeated${byDrone ? ' by defense drone' : ''}. +250 M added to banked Rift manifest.`,
+        type: 'money',
+      });
+    }
+    retargetHostile(g.id);
+  }, [addFloatingText, setToastNotice, retargetHostile]);
+  const handleRiftGuardianDestroyedRef = useRef(handleRiftGuardianDestroyed);
+  handleRiftGuardianDestroyedRef.current = handleRiftGuardianDestroyed;
+
   // Feel Polish: Hover highlight, Screen shake & Typewriter dialogue
   const [hoveredEntityId, setHoveredEntityId] = useState<string | null>(null);
   const hoveredEntityIdRef = useRef<string | null>(null);
@@ -19421,13 +19461,7 @@ export default function App() {
                 activePirateTarget.isAlive = false;
                 activePirateTarget.hull = 0;
                 if (guardianTarget) {
-                  // No respawns within a run! Marked destroyed in riftRunRef.current.done
-                  if (riftRunRef.current) {
-                    if (!riftRunRef.current.done) riftRunRef.current.done = [];
-                    if (!riftRunRef.current.done.includes(guardianTarget.id)) {
-                      riftRunRef.current.done.push(guardianTarget.id);
-                    }
-                  }
+                  // No respawns within a run: the shared handler below marks it done.
                 } else if (!isTargetAshPirate && !raiderTarget && !isTargetRift) {
                   pirate.respawnTimer = 180;
                 } else if (isTargetRift) {
@@ -19459,34 +19493,7 @@ export default function App() {
                 createExplosion(activePirateTarget.x, activePirateTarget.y, isHeavyWreck ? 120 : 70, '#ef4444');
 
                   if (guardianTarget) {
-                    if (guardianTarget.kind === 'warden') {
-                      if (riftRunRef.current) {
-                        riftRunRef.current.manifest.marks = (riftRunRef.current.manifest.marks || 0) + 2500;
-                        if (!riftRunRef.current.manifest.items) riftRunRef.current.manifest.items = {};
-                        riftRunRef.current.manifest.items.integritySeal = (riftRunRef.current.manifest.items.integritySeal || 0) + 1;
-                      }
-                      addFloatingText('+2,500 M + 1 Integrity Seal', guardianTarget.x, guardianTarget.y - 45, '#FFD166');
-                      setToastNotice({
-                        id: `toast_warden_${Date.now()}`,
-                        title: 'Elite Warden destroyed! Gate unlocked.',
-                        detail: '+2,500 M & 1 Integrity Seal added to banked Rift manifest. Collapse Gate unlocked!',
-                        type: 'success',
-                        duration: 7000,
-                      });
-                    } else {
-                      if (riftRunRef.current) {
-                        riftRunRef.current.manifest.marks = (riftRunRef.current.manifest.marks || 0) + 250;
-                      }
-                      addFloatingText('+250 M', guardianTarget.x, guardianTarget.y - 30, '#FFB547');
-                      setToastNotice({
-                        id: `toast_sentinel_${Date.now()}`,
-                        title: 'Rift Sentinel neutralized (+250 M manifest)',
-                        detail: 'Sentinel defeated. +250 M added to banked Rift manifest.',
-                        type: 'money',
-                      });
-                    }
-
-                    retargetHostile(guardianTarget.id);
+                    handleRiftGuardianDestroyedRef.current(guardianTarget, false);
                   } else {
                     const bounty = (isVael || isTargetAshPirate || isTargetRift) ? 600 : 250;
                     setMarks((prev) => {
@@ -20372,6 +20379,20 @@ export default function App() {
             checkHostile(riftPirateRef.current);
           }
           raidersRef.current.forEach(checkHostile);
+          // Rift guardians, but only those already fighting the pilot: in aggro range,
+          // damaged or provoked, as in the guardian AI. A sentinel past its leash is
+          // heading home to heal and is left alone.
+          if (currentSystemRef.current === 'Rift') {
+            for (const g of riftGuardiansRef.current) {
+              if (!g.isAlive) continue;
+              const gDistKm = Math.hypot(g.x - p.x, g.y - p.y) / PIXELS_PER_KM;
+              if (g.kind === 'sentinel' && Math.hypot(g.x - g.homeX, g.y - g.homeY) / PIXELS_PER_KM > 30.0) continue;
+              const aggroKm = g.kind === 'warden' ? 15.0 : 12.0;
+              const isProvoked = gDistKm <= HOSTILE_PROVOKE_RANGE_KM && (selectedTargetIdRef.current === g.id || p.targetLockedId === g.id);
+              const isDamaged = g.shield < g.maxShield || g.armor < g.maxArmor || g.hull < g.maxHull;
+              if (gDistKm <= aggroKm || isDamaged || isProvoked) checkHostile(g);
+            }
+          }
 
           if (nearestHostile) {
             let remaining = 8;
@@ -20404,7 +20425,14 @@ export default function App() {
             gameAudio.playArcadeLaser();
             addFloatingText('-8', nearestHostile.x, nearestHostile.y - 20, '#4CC9F0');
 
-            if (nearestHostile.hull <= 0) {
+            const killedGuardian = nearestHostile.hull <= 0 && currentSystemRef.current === 'Rift'
+              ? riftGuardiansRef.current.find((g) => g === nearestHostile)
+              : undefined;
+            if (killedGuardian) {
+              gameAudio.playExplosion();
+              createExplosion(killedGuardian.x, killedGuardian.y, killedGuardian.kind === 'warden' ? 120 : 70, '#ef4444');
+              handleRiftGuardianDestroyedRef.current(killedGuardian, true);
+            } else if (nearestHostile.hull <= 0) {
               nearestHostile.isAlive = false;
               nearestHostile.hull = 0;
               if (nearestHostile.id === pirateRef.current.id) pirateRef.current.respawnTimer = 180;

@@ -568,6 +568,38 @@ test('rift: a data container is hacked and its reward banked in the run manifest
   expectClean(problems);
 });
 
+test('rift: defense drones destroy a sentinel that attacks the ship, and the kill is banked in the run', async ({page}) => {
+  test.setTimeout(300_000);
+  const problems = await launch(page, {...FIGHTER, cargoRiftSync: 1, cargoDefenseDrone: 2});
+  await flyTo(page, 'Rift Anomaly');
+  await pressUntil(page, 'z', async () => {
+    await expect(page.getByText('STABILIZE CINDER RIFT')).toBeVisible({timeout: 3000});
+  });
+  await page.keyboard.press('Enter');
+  await expect(page.getByText('Rift System ·')).toBeVisible({timeout: 30_000});
+  await page.keyboard.press('p');
+  await expect(page.getByText('Rift Pulse: Stage objectives revealed').first()).toBeVisible();
+  // Entering the Rift recalls drones, so they go out once inside.
+  await deployDrone(page, 1, 'Defense Drone');
+  await deployDrone(page, 1, 'Defense Drone');
+  const before = (await readSave(page))!;
+
+  // Fly at the first sentinel; it attacks once the ship is in its aggro range.
+  // The pilot never fires, so only the drones can kill it.
+  await page.getByText('Rift Sentinel 1', {exact: true}).click();
+  await expect.poll(() => targetPanel(page)).toMatch(/Sentinel/);
+  await page.keyboard.press('q');
+  await expect(page.getByText(/Sentinel defeated by defense drone/).first()).toBeVisible({timeout: 180_000});
+
+  // Banked in the run, as a kill by the ship's guns is; no wallet bounty and no wreck.
+  await expect.poll(async () => (await readSave(page))!.riftRun?.done ?? [], {timeout: 15_000}).toContain('sentinel_stage_1_0');
+  const save = (await readSave(page))!;
+  expect(save.riftRun.manifest.marks).toBe(250);
+  expect(save.marks, 'a guardian killed by a drone paid a wallet bounty').toBe(before.marks);
+  await expect(page.getByText(/BOUNTY CLAIMED/)).toHaveCount(0);
+  expectClean(problems);
+});
+
 /** Locks the selected hostile, flies at it and fires until `killed` shows. */
 async function fightSelected(page: Page, killed: RegExp) {
   await page.keyboard.press('q');
