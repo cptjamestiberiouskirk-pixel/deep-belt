@@ -13,6 +13,41 @@ Format, checked by `node dev/lessons.mjs --check`. A field's text may go on over
 - Status: open | promoted to PLAYBOOK "<section>" | closed: <why the rule no longer holds>
 ```
 
+## 2026-11-15: A push to main was refused because main had moved
+- What went wrong: `git push origin HEAD:main` for the late-game round was refused as not a fast-forward. Another session had pushed f4ea9ac and b0c71dd (docs only) during a 14-minute test run, after this session's last fetch.
+- Why: the fetch that showed main unchanged ran before the long test run, not right before the push.
+- Rule going forward: fetch right before a push to main. If main moved, read the new commits, rebase onto them, and run the lessons check for anything they add before pushing again. Never force-push main.
+- Evidence: the late-game round's commit, rebased onto b0c71dd; this entry was written before its push.
+- Status: open
+
+## 2026-11-15: A test read the save once, right after a toast, and saw old values
+- What went wrong: the Rift stage 3 test read `riftRun.manifest.marks` as soon as "Elite Warden destroyed!" showed and got 250 instead of 2750, in 2 of 3 runs.
+- Why: the Rift run is changed in a ref and saved by the periodic autosave (about every 5 s), so the save can trail what the page already shows.
+- Rule going forward: a test that checks game state through the save polls it with `expect.poll` after the event, and does not read it once.
+- Evidence: `tests/lategame.spec.ts`, search "The run is saved every few seconds".
+- Status: open
+
+## 2026-11-15: A seeded save mixed a hull with another hull's hold size
+- What went wrong: the Gantry refit test seeded `activeHull: 'gantry'` and found `cargoMax` 600, the Ferrier's.
+- Why: `cargoMax` is saved and loaded as is, not worked out from the hull on load. The seed patched the hull and left the hold size from the fresh save.
+- Rule going forward: a seeded save sets every saved value that follows from the one it changes, such as `cargoMax` with `activeHull`.
+- Evidence: `tests/lategame.spec.ts`, search "The hold size is saved as is".
+- Status: open
+
+## 2026-11-15: A right-click aimed at the canvas landed on a side panel
+- What went wrong: the pointer test right-clicked 400 px right of the ship to set a waypoint; the ship never moved, because the point was under the Overview panel.
+- Why: the side panels sit over the canvas, so a point on the canvas is not always clickable.
+- Rule going forward: a test that clicks the canvas aims at open space clear of the side panels and the bottom bar, and checks the screenshot when a click has no effect.
+- Evidence: `tests/lategame.spec.ts`, search "clear of the side panels".
+- Status: open
+
+## 2026-11-15: Two tests timed out once under full local load
+- What went wrong: in the first `--repeat-each 3` run of 61 tests, "colony: buildings are placed..." waited over 15 s for the title screen and "selecting a far-off pirate..." did not Tab to the Rift Corsair in 40 s. The same 183 runs then passed with no failures.
+- Why: INFERRED: load, with 8 workers running long Rift and combat tests side by side. Not reproduced.
+- Rule going forward: a one-off timeout gets a full rerun before any change, and both results are reported. If the same test times out again, raise its wait or fix its cause.
+- Evidence: the late-game round, 2026-11-15: 176 passed and 7 failed (3 expected from a test update, 2 Rift save reads, these 2), then 183 passed in 11.5 min.
+- Status: open
+
 ## 2026-11-15: Git Bash turned a `/J` switch into a drive letter
 - What went wrong: `cmd //c mklink /J <link> <target>`, run through the Bash tool to check the build, failed with `Invalid switch`. `cmd //c echo /J` printed `J:/`, and `MSYS_NO_PATHCONV=1 cmd /c echo /J` printed `/J`. This is the second time for "Git Bash turned a `rev:path` argument into a Windows path".
 - Why: Git Bash (MSYS) rewrites an argument that starts with `/` as a POSIX path before it starts a Windows program. `//c` works only because of that rewrite: with `MSYS_NO_PATHCONV=1`, `cmd //c` opens an interactive cmd and runs nothing.
