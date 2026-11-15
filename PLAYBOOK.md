@@ -26,6 +26,14 @@ From: 2026-11-14 "Docked state was never saved"; 2026-11-15 "More saved state wa
 1. Edit every place in `App.tsx` that writes or reads the state: search for `SAVE_SESSION_STORAGE_KEY`.
 2. Add a test that sets the state, reloads, and checks it after the reload.
 
+## Tests that time out
+
+From: 2026-11-15 "Two tests timed out once under full local load"; 2026-11-15 "Four tests waited over 15 s for the title screen"
+
+1. A one-off timeout gets a full rerun before any change, and both results are reported.
+2. If the same test times out again, raise its wait or fix its cause.
+3. A wait for the title screen after a page load allows for the asset load under full parallel load, not the 15 s default.
+
 ## Windows programs from the Bash tool
 
 From: 2026-11-15 "Git Bash turned a `rev:path` argument into a Windows path"; 2026-11-15 "Git Bash turned a `/J` switch into a drive letter"

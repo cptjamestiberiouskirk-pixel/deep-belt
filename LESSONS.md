@@ -13,6 +13,20 @@ Format, checked by `node dev/lessons.mjs --check`. A field's text may go on over
 - Status: open | promoted to PLAYBOOK "<section>" | closed: <why the rule no longer holds>
 ```
 
+## 2026-11-15: Four tests waited over 15 s for the title screen
+- What went wrong: the first full run of the polish round (62 tests, 8 workers, 5.8 min) had 4 failures, all in `openFresh` at `expect(getByTestId('start-game-btn')).toBeVisible()` after `localStorage.clear()` and a reload: "rift: a synchronizer opens the rift...", "rift: extracting at a conduit...", "flagship: a build survives a reload...", "pointer: a click selects...". The page snapshot at the timeout showed "INITIALIZING HARROW TELEMETRY..."; the failure screenshot a moment later showed the title screen. This is the second time for "Two tests timed out once under full local load", which had the colony test fail the same wait.
+- Why: the title screen waits for `useAssets(ASSETS_MANIFEST)` to load every image, among them three 8192x1792 portrait sheets of about 3.7 MB each. With 8 workers loading and decoding them at once, that took longer than the 15 s default.
+- Rule going forward: a wait for the title screen after a page load allows for the asset load under full parallel load, not the 15 s default.
+- Evidence: the polish round's first run, 2026-11-15, log in the session scratchpad; `test-results/*/error-context.md` for the four tests. The full rerun failed the same wait in 2 tests ("Ash Drift: the permit opens it...", "rift: extracting at a conduit...").
+- Status: promoted to PLAYBOOK "Tests that time out"
+
+## 2026-11-15: A key pressed until the save changed skipped a Rift stage too far
+- What went wrong: in the polish round's full rerun, "rift: stage 3 sentinel and Warden fall..." failed in `pressUntil(page, '\\', ...)`: it waited for `riftRun.stage` to be 2 and got 3.
+- Why: `pressUntil` presses again whenever its check fails, and the check polled the save for 3 s, shorter than the ~5 s autosave. The first press had already moved the run to stage 2; the second, sent before the save caught up, moved it to 3.
+- Rule going forward: a key that changes state each time it is pressed is pressed again only after a check that can see the change, either on the page or by polling the save for longer than the autosave interval.
+- Evidence: `tests/lategame.spec.ts`, search "skips a stage only in a ?dev build"; the rerun's log in the session scratchpad.
+- Status: open
+
 ## 2026-11-15: Tab never reached a pirate 44 km away under full load
 - What went wrong: "selecting a far-off pirate does not summon it across the system" failed in two full runs of 62 tests in a row, each time at `selectTarget(page, /Rift Corsair/)`: after 40 s of Tab presses the Target panel still showed an asteroid at 36 km. Alone it passed 2 of 2. It is the same test as in "Two tests timed out once under full local load", so that rule called for fixing its cause.
 - Why: Tab steps through every object in the system nearest first and re-sorts the list on each press. With the ship under fire and moving, and pages slowed by 8 workers, the corsair behind dozens of asteroids did not come up within 40 s.
@@ -53,7 +67,7 @@ Format, checked by `node dev/lessons.mjs --check`. A field's text may go on over
 - Why: INFERRED: load, with 8 workers running long Rift and combat tests side by side. Not reproduced.
 - Rule going forward: a one-off timeout gets a full rerun before any change, and both results are reported. If the same test times out again, raise its wait or fix its cause.
 - Evidence: the late-game round, 2026-11-15: 176 passed and 7 failed (3 expected from a test update, 2 Rift save reads, these 2), then 183 passed in 11.5 min.
-- Status: open
+- Status: promoted to PLAYBOOK "Tests that time out"
 
 ## 2026-11-15: Git Bash turned a `/J` switch into a drive letter
 - What went wrong: `cmd //c mklink /J <link> <target>`, run through the Bash tool to check the build, failed with `Invalid switch`. `cmd //c echo /J` printed `J:/`, and `MSYS_NO_PATHCONV=1 cmd /c echo /J` printed `/J`. This is the second time for "Git Bash turned a `rev:path` argument into a Windows path".
