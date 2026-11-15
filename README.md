@@ -1,6 +1,10 @@
 # Deep Belt
 
+[![CI](https://github.com/cptjamestiberiouskirk-pixel/deep-belt/actions/workflows/ci.yml/badge.svg)](https://github.com/cptjamestiberiouskirk-pixel/deep-belt/actions/workflows/ci.yml)
+
 Space mining in the Harrow system.
+
+**[Play it in your browser](https://cptjamestiberiouskirk-pixel.github.io/deep-belt/)**
 
 Pilot the Ferrier mining frigate: warp to asteroid belts, lock targets, cycle your mining lasers, then dock at Harrow Station to sell ore and fit upgraded ship modules. Deep Belt is a single-player sandbox with no win or lose condition. Progress comes from mining, trading and fitting.
 
@@ -81,6 +85,8 @@ To type-check the code:
 ```bash
 npm run typecheck
 ```
+
+Every push and pull request runs the type-check and the build on GitHub Actions (`.github/workflows/ci.yml`). A push to `main` that passes also publishes `dist/` to GitHub Pages.
 
 ### Notes
 
