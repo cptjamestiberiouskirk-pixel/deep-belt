@@ -21,6 +21,22 @@ test('combat: a pirate can be locked, destroyed and its wreck salvaged', async (
   expectClean(problems);
 });
 
+test('the Belt Two pirate has 84 shield and 42 hull, 1.4x the first tuning', async ({page}) => {
+  const problems = await launch(page);
+  await flyTo(page, 'Belt Two');
+  await selectTarget(page, /Pirate Frigate/);
+  // The panel shows current/max; the current values may already be falling. The
+  // ship's own SHIELD and HULL come first on the page, so read after the pirate's name.
+  const maxOf = async (label: string) => {
+    const text = await page.innerText('body');
+    const m = text.slice(text.indexOf('Pirate Frigate')).match(new RegExp(`${label}\\s*\\n\\s*\\d+/(\\d+)`));
+    return m ? Number(m[1]) : null;
+  };
+  await expect.poll(() => maxOf('SHIELD')).toBe(84);
+  await expect.poll(() => maxOf('HULL')).toBe(42);
+  expectClean(problems);
+});
+
 test('selecting a far-off pirate does not summon it across the system', async ({page}) => {
   const problems = await launch(page, FIGHTER);
   await flyTo(page, 'Belt Two');
@@ -190,5 +206,24 @@ test('mining: a tuned laser never overheats; a mistuned one locks out and the hi
   await page.keyboard.press(Number(f[1]) > 1 ? '[' : ']');
   await expect.poll(() => mineState(page), {timeout: 15_000}).toMatch(/OVERHEAT/);
   await expect(page.getByText(/Laser overheated: cooling for \ds/)).toBeVisible();
+  expectClean(problems);
+});
+
+test('overview: a rock is as far away in the Overview as in the Target panel', async ({page}) => {
+  const problems = await launch(page);
+  await flyTo(page, 'Belt One');
+  await selectTarget(page, /Asteroid ·/);
+  const km = (n: string, unit: string) => (unit === 'm' ? Number(n) / 1000 : Number(n));
+  // Both distances come from one read of the page, so a drifting ship moves both alike.
+  const gap = async () => {
+    const text = await page.innerText('body');
+    const panel = text.match(/Target\s*\n[^\n]*\n([^\n]+)\n[^\n]*Asteroid · ([\d.]+) (km|m)\b/);
+    if (!panel) return 'no rock in the Target panel';
+    const row = text.match(new RegExp(`\\n${panel[1]}\\n([\\d.]+) (km|m)\\n`));
+    if (!row) return `no Overview row for ${panel[1]}`;
+    return Math.abs(km(panel[2], panel[3]) - km(row[1], row[2]));
+  };
+  // The Overview used to measure to the rock's centre and the panel to its surface: 4.3 km against 2.6.
+  await expect.poll(gap).toBeLessThanOrEqual(0.2);
   expectClean(problems);
 });

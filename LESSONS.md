@@ -17,7 +17,7 @@ Format, checked by `node dev/lessons.mjs --check`. A field's text may go on over
 - What went wrong: in the text-fix round, two new tests failed on the code they were written for. "dock officer: the hold tip..." read the page after each Enter and never saw the new line, which the failure snapshot showed in full. "contracts: the hint after undocking..." asked that "Station in range: Press Dock [F]" appear nowhere, and the Target panel still shows it beside its Dock button.
 - Why: the corridor bubble types its line out, and Enter during typing finishes the line instead of moving on; `settle` waits for "[Enter] Skip", which this bubble does not show. The second test checked the whole page for text that the change was meant to remove from the hint bar only.
 - Rule going forward: a test of typed-out text waits for the full text on the page and presses Enter again only when it is not there. A check that text is gone is scoped to the element the change touched.
-- Evidence: `tests/station.spec.ts`, search "Enter first finishes the typing"; `tests/progression.spec.ts`, search "the hint bar is what changed".
+- Evidence: `tests/station.spec.ts`, search "Enter first finishes the typing"; `tests/progression.spec.ts`, search "the hint bar is what changed". Second time for the page-wide read, the next round: "the Belt Two pirate has 84 shield..." matched the ship's own SHIELD bar (100/100) before the pirate's; `tests/space.spec.ts`, search "read after the pirate's name".
 - Status: open
 
 ## 2026-11-15: Four tests waited over 15 s for the title screen

@@ -47,3 +47,17 @@ test('a new pilot can finish the whole training loop', async ({page}) => {
   expect(save.tutorialBonusClaimed).toBe(true);
   expectClean(problems);
 });
+
+test('training: the title button and the warp step say what happens next', async ({page}) => {
+  const problems = watch(page);
+  await openFresh(page);
+  // A new game starts docked, so the button does not promise an undock.
+  await expect(page.getByTestId('start-game-btn')).toContainText('Start at Harrow Station');
+  await expect(page.getByTestId('start-game-btn')).not.toContainText('Undock');
+  await enterGame(page);
+  await undock(page);
+  await expect.poll(() => coachStep(page)).toBe(2);
+  // Warp [M] opens a list; the coach says to press Enter in it.
+  await expect(page.getByText('In the list that opens, press Enter to jump.')).toBeVisible();
+  expectClean(problems);
+});

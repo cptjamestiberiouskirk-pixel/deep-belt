@@ -237,3 +237,35 @@ test('milestone: the 1,000 MARKS banner says the wallet passed it, not that it p
   await expect.poll(async () => (await readSave(page))!.marks).toBe(950 + 10 * 12);
   expectClean(problems);
 });
+
+test('fitting: at 800x600 each lens bonus stays on one line, clear of the hold count', async ({page}) => {
+  await page.setViewportSize({width: 800, height: 600});
+  const problems = await docked(page);
+  await page.keyboard.press('2');
+  await expect(page.getByText(/^FITTING$/).first()).toBeVisible();
+  await expect(page.getByText(/^\(?\+40% yield\)?$/).first()).toBeVisible();
+  const rows = await page.$$eval('span', (spans) =>
+    spans
+      .filter((s) => /^\(?\+\d+% yield\)?$/.test((s.textContent ?? '').trim()))
+      .map((bonus) => {
+        let row = bonus.parentElement;
+        while (row && !/Hold: \d/.test(row.textContent ?? '')) row = row.parentElement;
+        const hold = [...(row?.querySelectorAll('span') ?? [])].find((s) => /^Hold: \d+$/.test((s.textContent ?? '').trim()));
+        const b = bonus.getBoundingClientRect();
+        const h = hold!.getBoundingClientRect();
+        const style = getComputedStyle(bonus);
+        const lineHeight = parseFloat(style.lineHeight) || parseFloat(style.fontSize) * 1.3;
+        return {
+          text: bonus.textContent,
+          lines: Math.round(b.height / lineHeight),
+          overlaps: b.right > h.left && b.left < h.right && b.bottom > h.top && b.top < h.bottom,
+        };
+      }),
+  );
+  expect(rows).toHaveLength(3);
+  for (const r of rows) {
+    expect(r.lines, `${r.text} wraps`).toBe(1);
+    expect(r.overlaps, `${r.text} runs into the hold count`).toBe(false);
+  }
+  expectClean(problems);
+});

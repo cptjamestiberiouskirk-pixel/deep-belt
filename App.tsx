@@ -1423,7 +1423,7 @@ export const TUTORIAL_STEPS_CONFIG: TutorialStepConfig[] = [
   {
     step: 1,
     title: 'WARP TO BELT ONE',
-    instruction: "Select 'Belt One' in your Overview, then click Warp [M] or press M.",
+    instruction: "Select 'Belt One' in your Overview, then press Warp [M]: a list opens with it picked. Press Enter to jump.",
   },
   {
     step: 2,
@@ -1438,7 +1438,7 @@ export const TUTORIAL_STEPS_CONFIG: TutorialStepConfig[] = [
   {
     step: 4,
     title: 'WARP BACK TO HARROW STATION',
-    instruction: "Select 'Harrow Station Alpha' in your Overview, then click Warp [M] or press M.",
+    instruction: "Select 'Harrow Station Alpha' in your Overview, then press Warp [M]: a list opens with it picked. Press Enter to jump.",
   },
   {
     step: 5,
@@ -1553,7 +1553,7 @@ const TutorialCoachCard = React.memo(({
   if (tutorialStep === 0) {
     lines = ['Click Undock button or press [U] to launch.'];
   } else if (tutorialStep === 1) {
-    lines = ['Select Belt One in Overview, then Warp [M].'];
+    lines = ['Select Belt One in Overview, then Warp [M].', 'In the list that opens, press Enter to jump.'];
   } else if (tutorialStep === 2) {
     lines = ['Select an asteroid, then Lock [L].'];
   } else if (tutorialStep === 3) {
@@ -1571,7 +1571,7 @@ const TutorialCoachCard = React.memo(({
       lines = ['Press Mine [1] to cycle laser (range <= 8 km).'];
     }
   } else if (tutorialStep === 4) {
-    lines = ['Select Harrow Station, then Warp [M].'];
+    lines = ['Select Harrow Station, then Warp [M].', 'In the list that opens, press Enter to jump.'];
   } else if (tutorialStep === 5) {
     lines = ['Approach station (<= 2 km) and Dock [F].'];
   } else if (tutorialStep === 6) {
@@ -6042,12 +6042,13 @@ export default function App() {
     vx: 0,
     vy: 0,
     heading: 0,
-    shield: 60,
-    maxShield: 60,
-    armor: 40,
-    maxArmor: 40,
-    hull: 30,
-    maxHull: 30,
+    // 1.4x the first tuning: that one died in about 18 s and cost a new pilot 35 shield.
+    shield: 84,
+    maxShield: 84,
+    armor: 56,
+    maxArmor: 56,
+    hull: 42,
+    maxHull: 42,
     isAlive: true,
     respawnTimer: 0,
     fireTimer: 0,
@@ -27706,7 +27707,8 @@ export default function App() {
                   ...asteroidsRef.current
                     .filter((a) => a.oreReserve > 0)
                     .map((a, astIdx) => {
-                      const distKm = calcDistanceKm(p.x, p.y, a.x, a.y);
+                      // To the surface, as the Target panel and the lock range measure it.
+                      const distKm = calcSurfaceDistanceKm(p.x, p.y, a);
                       const isTutorial =
                         !tutorialDone &&
                         tutorialStep === 2 &&
@@ -31159,11 +31161,11 @@ export default function App() {
                                       <div
                                         key={ld.type}
                                         style={{
-                                          height: '36px',
+                                          minHeight: '40px',
                                           borderRadius: '8px',
                                           background: isFitFocused ? '#2C3854' : '#1E2536',
                                           border: isFitFocused ? '2px solid #2EC4B6' : '1.5px solid #0A0E1A',
-                                          padding: '0 10px',
+                                          padding: '4px 10px',
                                           display: 'flex',
                                           alignItems: 'center',
                                           justifyContent: 'space-between',
@@ -31175,7 +31177,8 @@ export default function App() {
                                           <div style={{ width: '20px', height: '20px', minWidth: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                             <MarketItemIcon itemKey={ld.type} assetsRecord={assets} unkeyedUrls={keyedModuleDataUrls} />
                                           </div>
-                                          <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', minWidth: 0 }}>
+                                          {/* Name above, bonus and ores below: on one line the bonus wrapped into the Hold count in narrow windows. */}
+                                          <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                                             <span
                                               style={{
                                                 fontFamily: "'Inter', sans-serif",
@@ -31183,29 +31186,36 @@ export default function App() {
                                                 fontSize: '12.5px',
                                                 color: '#F6EED8',
                                                 whiteSpace: 'nowrap',
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis',
                                               }}>
                                               {ld.name}
                                             </span>
-                                            <span
-                                              style={{
-                                                fontFamily: "'JetBrains Mono', monospace",
-                                                fontSize: '10.5px',
-                                                color: '#FFB547',
-                                                fontWeight: 700,
-                                              }}>
-                                              ({ld.bonus})
-                                            </span>
-                                            <span
-                                              style={{
-                                                fontFamily: "'Inter', sans-serif",
-                                                fontSize: '11px',
-                                                color: '#AEB6CA',
-                                                overflow: 'hidden',
-                                                textOverflow: 'ellipsis',
-                                                whiteSpace: 'nowrap',
-                                              }}>
-                                              · {ld.matches}
-                                            </span>
+                                            <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', minWidth: 0 }}>
+                                              <span
+                                                style={{
+                                                  fontFamily: "'JetBrains Mono', monospace",
+                                                  fontSize: '10.5px',
+                                                  color: '#FFB547',
+                                                  fontWeight: 700,
+                                                  whiteSpace: 'nowrap',
+                                                  flexShrink: 0,
+                                                }}>
+                                                {ld.bonus}
+                                              </span>
+                                              <span
+                                                style={{
+                                                  fontFamily: "'Inter', sans-serif",
+                                                  fontSize: '11px',
+                                                  color: '#AEB6CA',
+                                                  overflow: 'hidden',
+                                                  textOverflow: 'ellipsis',
+                                                  whiteSpace: 'nowrap',
+                                                  minWidth: 0,
+                                                }}>
+                                                · {ld.matches}
+                                              </span>
+                                            </div>
                                           </div>
                                         </div>
 
@@ -41828,7 +41838,7 @@ export default function App() {
               onClick={initGame}
               autoFocus
               data-testid="start-game-btn"
-              aria-label="Undock & begin flight [Enter]"
+              aria-label="Start at Harrow Station [Enter]"
               style={{
                 position: 'absolute',
                 left: '96px',
@@ -41863,7 +41873,7 @@ export default function App() {
                     fontSize: '16px',
                     color: '#0A0E1A',
                   }}>
-                  Undock &amp; begin flight
+                  Start at Harrow Station
                 </span>
                 <span
                   style={{
