@@ -1814,6 +1814,8 @@ export interface MissionDef {
   rewardPermit?: boolean;
   oskTurninQuote: string;
   inProgressQuote: string;
+  /** Said when the work is done but the contract is not yet turned in. */
+  readyQuote: string;
 }
 
 export interface WreckEntity {
@@ -1923,6 +1925,7 @@ export const MISSIONS_LIST: MissionDef[] = [
     rewardMarks: 1000,
     oskTurninQuote: "Ore's in the hopper. Here's your Marks. Try not to spend it on coffee.",
     inProgressQuote: "Still waiting on that 200 Ferrite. Hopper won't fill itself.",
+    readyQuote: "That's 200 Ferrite in your hold. Complete the contract and the Marks are yours.",
   },
   {
     id: 'mission_2',
@@ -1935,6 +1938,7 @@ export const MISSIONS_LIST: MissionDef[] = [
     rewardMarks: 1500,
     oskTurninQuote: "Heard the explosion from here. Well done. Take your pay.",
     inProgressQuote: "Pirate's still transmitting in Belt Two. Make it stop transmitting.",
+    readyQuote: "Heard the explosion from here. Complete the contract and collect your pay.",
   },
   {
     id: 'mission_3',
@@ -1948,6 +1952,7 @@ export const MISSIONS_LIST: MissionDef[] = [
     rewardPermit: true,
     oskTurninQuote: "300 units will be transferred into the hopper. Here's your pay and the Gate Access Permit. The system Gate is unlocked now. Safe travels, or whatever.",
     inProgressQuote: "Bring 300 Ferrite Ore so I can rubber-stamp your clearance papers.",
+    readyQuote: "300 Ferrite, finally. Complete the contract and I'll stamp your clearance.",
   },
 ];
 
@@ -1968,7 +1973,7 @@ export const DOCK_OFFICER_LINES = [
   "Welcome to Harrow Station, Captain. Dock clamps locked green. Try not to scratch the paint.",
   "Exchange desk is buying Ferrite Ore at 12 MARKS a unit today. Standard tariff applies.",
   "Out in Belt Two there are rare crystals... and an outlaw pirate frigate lurking. Watch your 6.",
-  "If your hold feels cramped, the market has cargo pods. Fit them in Bay 2 whenever you're ready.",
+  "If your hold feels cramped, the market sells an Expanded Hold: +500 m³, fitted to Slot 2 as soon as you buy it.",
   "The market has a Light Cannon for 600 MARKS. Destroying that Belt Two pirate will earn you a 250 MARK bounty!",
   "Neural injectors are active in the station terminal. Check the SKILLS tab to queue training in real time while you fly.",
 ];
@@ -5479,8 +5484,8 @@ export default function App() {
           ? (cargoPyrox >= 150 ? "You lived. Annoying. Hand over the 150 Pyrox Ore." : "Still waiting on that 150 Pyrox Ore from the Ash Drift.")
           : missionIndex >= MISSIONS_LIST.length
             ? "Here's your pay and the Gate Access Permit. The system Gate is unlocked now. Safe travels, or whatever."
-            : missionStatus === 'ready_to_turn_in' || (missionStatus === 'active' && missionIndex === 0 && cargoFerrite >= 200) || (missionStatus === 'active' && missionIndex === 2 && cargoFerrite >= 300)
-              ? MISSIONS_LIST[missionIndex].oskTurninQuote
+            : contractObjectiveMet(missionIndex, missionStatus, missionPirateKills, cargoFerrite)
+              ? MISSIONS_LIST[missionIndex].readyQuote
               : missionStatus === 'active'
                 ? MISSIONS_LIST[missionIndex].inProgressQuote
                 : OSK_DEFAULT_LINES[oskDialogueIndex % OSK_DEFAULT_LINES.length]))
@@ -25257,7 +25262,7 @@ export default function App() {
                 lineHeight: '16px',
                 fontWeight: 500,
               }}>
-              1,000 MARKS. The belt notices.
+              Your wallet passed 1,000 MARKS. The belt notices.
             </span>
           </div>
 
@@ -36600,7 +36605,7 @@ export default function App() {
                                 }`}>
                                 <div className="flex items-center justify-between text-[10px]">
                                   <span className="font-mono-val font-bold">0{m.number}</span>
-                                  <span>{isDone ? 'DONE' : isCur ? 'ACTIVE' : 'LOCKED'}</span>
+                                  <span>{isDone ? 'DONE' : !isCur ? 'LOCKED' : missionStatus === 'unaccepted' ? 'OFFERED' : contractObjectiveMet(missionIndex, missionStatus, missionPirateKills, cargoFerrite) ? 'READY' : 'ACTIVE'}</span>
                                 </div>
                                 <div className="font-fredoka truncate mt-0.5 text-xs">{m.title}</div>
                               </div>
@@ -37283,6 +37288,14 @@ export default function App() {
 
         const distToAnchorKm = Math.hypot(p.x - OUTPOST_ANCHOR.x, p.y - OUTPOST_ANCHOR.y) / PIXELS_PER_KM;
         const contractDone = tutorialDone && contractObjectiveMet(missionIndex, missionStatus, missionPirateKills, cargoFerrite);
+        // An accepted contract with work left: where to go next, instead of
+        // pointing a pilot who just undocked back at the dock.
+        const activeContract = tutorialDone && missionStatus === 'active' && !contractDone ? MISSIONS_LIST[missionIndex] : undefined;
+        const contractTodoHint = !activeContract
+          ? null
+          : activeContract.type === 'delivery_ore'
+            ? `Contract: warp to Belt One [M] and mine Ferrite Ore (${Math.min(cargoFerrite, activeContract.targetAmount)}/${activeContract.targetAmount})`
+            : 'Contract: warp to Belt Two [M] and destroy the pirate';
 
         if (!tutorialDone) {
           if (tutorialStep === 3) {
@@ -37313,7 +37326,7 @@ export default function App() {
         } else if (edgeDistKm <= 2.0) {
           currentHintText = contractDone
             ? "Station in range: Dock [F], then turn in the contract at the Agent [4]"
-            : "Station in range: Press Dock [F]";
+            : contractTodoHint ?? "Station in range: Press Dock [F]";
         } else if (contractDone) {
           currentHintText = "Contract done: warp to Harrow Station Alpha [M] and turn it in at the Agent [4]";
         } else if (p.miningLaserActive) {

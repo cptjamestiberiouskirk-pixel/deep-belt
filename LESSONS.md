@@ -13,6 +13,13 @@ Format, checked by `node dev/lessons.mjs --check`. A field's text may go on over
 - Status: open | promoted to PLAYBOOK "<section>" | closed: <why the rule no longer holds>
 ```
 
+## 2026-11-15: Two new text tests failed on fixed code
+- What went wrong: in the text-fix round, two new tests failed on the code they were written for. "dock officer: the hold tip..." read the page after each Enter and never saw the new line, which the failure snapshot showed in full. "contracts: the hint after undocking..." asked that "Station in range: Press Dock [F]" appear nowhere, and the Target panel still shows it beside its Dock button.
+- Why: the corridor bubble types its line out, and Enter during typing finishes the line instead of moving on; `settle` waits for "[Enter] Skip", which this bubble does not show. The second test checked the whole page for text that the change was meant to remove from the hint bar only.
+- Rule going forward: a test of typed-out text waits for the full text on the page and presses Enter again only when it is not there. A check that text is gone is scoped to the element the change touched.
+- Evidence: `tests/station.spec.ts`, search "Enter first finishes the typing"; `tests/progression.spec.ts`, search "the hint bar is what changed".
+- Status: open
+
 ## 2026-11-15: Four tests waited over 15 s for the title screen
 - What went wrong: the first full run of the polish round (62 tests, 8 workers, 5.8 min) had 4 failures, all in `openFresh` at `expect(getByTestId('start-game-btn')).toBeVisible()` after `localStorage.clear()` and a reload: "rift: a synchronizer opens the rift...", "rift: extracting at a conduit...", "flagship: a build survives a reload...", "pointer: a click selects...". The page snapshot at the timeout showed "INITIALIZING HARROW TELEMETRY..."; the failure screenshot a moment later showed the title screen. This is the second time for "Two tests timed out once under full local load", which had the colony test fail the same wait.
 - Why: the title screen waits for `useAssets(ASSETS_MANIFEST)` to load every image, among them three 8192x1792 portrait sheets of about 3.7 MB each. With 8 workers loading and decoding them at once, that took longer than the 15 s default.

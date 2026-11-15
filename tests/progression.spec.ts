@@ -114,3 +114,36 @@ test('contracts: the goal names the pirate, and a finished contract says to go b
   await expect(page.getByText('Contract done: warp to Harrow Station Alpha [M] and turn it in at the Agent [4]')).toBeVisible();
   expectClean(problems);
 });
+
+test('contracts: the hint after undocking points at the work', async ({page}) => {
+  // Rocks, Please accepted, nothing mined: undocking points at the belt, not back at the dock.
+  const problems = await launch(page, {missionIndex: 0, missionStatus: 'active', cargoFerrite: 0});
+  // The Target panel still says "Station in range" beside its Dock button; the hint bar is what changed.
+  const hint = page.getByText('HINT', {exact: true}).locator('..');
+  await expect(hint).toContainText('Contract: warp to Belt One [M] and mine Ferrite Ore (0/200)');
+  await expect(hint).not.toContainText('Station in range');
+  expectClean(problems);
+});
+
+test('contracts: the tab says OFFERED and READY, and Osk waits for the turn-in to say it is done', async ({page}) => {
+  // Not yet accepted: the tab says it is on offer.
+  let problems = watch(page);
+  await openWithSave(page, {...RICH, milestoneIndustrialistClaimed: true, missionIndex: 0, missionStatus: 'unaccepted'});
+  await enterGame(page);
+  await page.keyboard.press('4');
+  await expect(page.getByText('OPERATIONS (OSK)')).toBeVisible();
+  await expect(page.getByText('OFFERED', {exact: true})).toBeVisible();
+  await expect(page.getByText('ACTIVE', {exact: true})).toHaveCount(0);
+  expectClean(problems);
+
+  // The ore is aboard but not handed in: Osk asks for it and does not yet claim to have paid.
+  problems = watch(page);
+  await openWithSave(page, {...RICH, milestoneIndustrialistClaimed: true, missionIndex: 0, missionStatus: 'active', cargoFerrite: 200});
+  await enterGame(page);
+  await page.keyboard.press('4');
+  await expect(page.getByText('READY', {exact: true})).toBeVisible();
+  await settle(page);
+  await expect(page.getByText(/200 Ferrite in your hold\. Complete the contract/)).toBeVisible();
+  await expect(page.getByText(/Ore's in the hopper/)).toHaveCount(0);
+  expectClean(problems);
+});

@@ -214,3 +214,26 @@ test('fitting: a module can be unfitted and fitted again', async ({page}) => {
   await expect.poll(async () => (await readSave(page))!.fittedSlots.slot1MiningLaser).toBe(true);
   expectClean(problems);
 });
+
+test('dock officer: the hold tip names the Expanded Hold the market sells', async ({page}) => {
+  const problems = await docked(page, {...RICH, milestoneIndustrialistClaimed: true});
+  // The bubble types its line out, and Enter first finishes the typing, then
+  // moves on. So Enter is pressed again only while the tip is not on the page.
+  const tip = page.getByText(/the market sells an Expanded Hold: \+500 m³/);
+  await expect(async () => {
+    if (await tip.isVisible()) return;
+    await page.keyboard.press('Enter');
+    await expect(tip).toBeVisible({timeout: 2500});
+  }).toPass({timeout: 30_000});
+  expectClean(problems);
+});
+
+test('milestone: the 1,000 MARKS banner says the wallet passed it, not that it pays it', async ({page}) => {
+  const problems = await docked(page, {...RICH, marks: 950, milestoneIndustrialistClaimed: false, cargoFerrite: 10});
+  await page.keyboard.press('1');
+  await expect(page.getByText('Sell cargo')).toBeVisible();
+  await page.keyboard.press('s');
+  await expect(page.getByText('Your wallet passed 1,000 MARKS. The belt notices.')).toBeVisible();
+  await expect.poll(async () => (await readSave(page))!.marks).toBe(950 + 10 * 12);
+  expectClean(problems);
+});
