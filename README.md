@@ -51,7 +51,7 @@ The game plays with keyboard and mouse, or touch, in landscape orientation.
 
 ## Running it
 
-The game is written in TypeScript and React and built with [Vite](https://vite.dev). You need [Node.js](https://nodejs.org) 20.19 or newer.
+The game is written in TypeScript and React and built with [Vite](https://vite.dev). You need [Node.js](https://nodejs.org) 22.12 or newer (20.19 or later on the 20 line also works).
 
 ```bash
 npm install
