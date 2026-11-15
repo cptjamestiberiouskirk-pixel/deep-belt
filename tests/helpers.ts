@@ -48,6 +48,9 @@ export async function openWithSave(page: Page, patch: Record<string, unknown>) {
     ([key, p]) => {
       const base = JSON.parse(localStorage.getItem(key as string) || '{}');
       localStorage.setItem(key as string, JSON.stringify({...base, ...(p as object)}));
+      // The running game autosaves; stop it writing over the seed before the
+      // reload. The reload gives the page a fresh, unpatched Storage.
+      Storage.prototype.setItem = () => {};
     },
     [SAVE_KEY, patch] as const,
   );
@@ -106,8 +109,14 @@ export async function warpTo(page: Page, name: string) {
     }
     return null;
   }, name);
-  expect(key, `warp menu has no destination named ${name}`).toMatch(/^[0-9-]$/);
-  await page.keyboard.press(key!);
+  if (key) {
+    await page.keyboard.press(key);
+  } else {
+    // Rows past the shortcut keys can only be picked by clicking them.
+    const row = page.getByText(name, {exact: true}).last();
+    await expect(row, `warp menu has no destination named ${name}`).toBeVisible();
+    await row.click();
+  }
   if (await title.isVisible()) await page.keyboard.press('Enter');
   await expect(title).toBeHidden();
 }

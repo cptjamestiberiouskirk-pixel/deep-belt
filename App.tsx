@@ -7743,6 +7743,25 @@ export default function App() {
         setOutpostDeployed(data.outpostDeployed);
         outpostDeployedRef.current = data.outpostDeployed;
       }
+      // Installed outpost modules and the vault's contents belong to the save.
+      if (data.outpost && typeof data.outpost === 'object') {
+        if (data.outpost.modules && typeof data.outpost.modules === 'object') {
+          const loadedModules: Record<string, boolean> = {};
+          for (const [modId, on] of Object.entries(data.outpost.modules)) {
+            if (on === true) loadedModules[modId] = true;
+          }
+          outpostModulesRef.current = loadedModules;
+          setOutpostModules(loadedModules);
+        }
+        if (data.outpost.storage && typeof data.outpost.storage === 'object') {
+          const loadedStorage: Record<string, number> = {};
+          for (const [cargoKey, qty] of Object.entries(data.outpost.storage)) {
+            if (typeof qty === 'number' && Number.isFinite(qty) && qty > 0) loadedStorage[cargoKey] = Math.floor(qty);
+          }
+          outpostStorageRef.current = loadedStorage;
+          setOutpostStorage(loadedStorage);
+        }
+      }
       if (typeof data.dockedStationId === 'string') {
         setDockedStationId(data.dockedStationId);
         dockedStationIdRef.current = data.dockedStationId;
@@ -7814,6 +7833,30 @@ export default function App() {
         };
         setSeenTips(nextTips);
         seenTipsRef.current = nextTips;
+      }
+      if (typeof data.hasProbeLauncher === 'boolean') {
+        setHasProbeLauncher(data.hasProbeLauncher);
+        hasProbeLauncherRef.current = data.hasProbeLauncher;
+      }
+      if (typeof data.firstCacheOpened === 'boolean') {
+        setFirstCacheOpened(data.firstCacheOpened);
+        firstCacheOpenedRef.current = data.firstCacheOpened;
+      }
+      if (
+        data.dataCache && typeof data.dataCache === 'object' && !data.dataCache.isOpened &&
+        typeof data.dataCache.x === 'number' && typeof data.dataCache.y === 'number' &&
+        (data.dataCache.system === 'Harrow' || data.dataCache.system === 'Vael')
+      ) {
+        const loadedCache: DataCacheEntity = {
+          id: String(data.dataCache.id || 'data_cache'),
+          name: String(data.dataCache.name || 'Data Cache'),
+          system: data.dataCache.system,
+          x: data.dataCache.x,
+          y: data.dataCache.y,
+          isOpened: false,
+        };
+        dataCacheRef.current = loadedCache;
+        setDataCache(loadedCache);
       }
       if (typeof data.capBatteryCount === 'number') {
         setCapBatteryCount(data.capBatteryCount);
@@ -7913,6 +7956,40 @@ export default function App() {
           if (ar.materials?.chromiteBar) {
             cargoChromiteBarRef.current += ar.materials.chromiteBar;
             setCargoChromiteBar(cargoChromiteBarRef.current);
+          }
+        }
+      }
+      // A build that was running when the game closed took its parts out of the
+      // hold already: carry on with it if still docked, otherwise hand them back.
+      if (data.activeFabricate && typeof data.activeFabricate === 'object') {
+        const af = data.activeFabricate;
+        const fabRecipe = typeof af.recipeId === 'string' ? FABRICATOR_RECIPES[af.recipeId] : undefined;
+        const fabInputs: Record<string, number> = {};
+        if (af.inputs && typeof af.inputs === 'object') {
+          for (const [itemKey, qty] of Object.entries(af.inputs)) {
+            if (typeof qty === 'number' && Number.isFinite(qty) && qty > 0) fabInputs[itemKey] = qty;
+          }
+        }
+        if (fabRecipe && data.isDocked === true && typeof af.remainingMs === 'number' && af.remainingMs > 0) {
+          const now = Date.now();
+          const totalDurationMs = Math.max(af.remainingMs, fabRecipe.duration * 1000);
+          const task = {
+            recipeId: af.recipeId as string,
+            name: fabRecipe.name,
+            duration: totalDurationMs / 1000,
+            totalDurationMs,
+            inputs: fabInputs,
+            startedAt: now,
+            endsAt: now + af.remainingMs,
+          };
+          activeFabricateRef.current = task;
+          setActiveFabricate(task);
+          const remSec = Math.ceil(af.remainingMs / 1000);
+          fabricatorUiStateRef.current = { remainingSec: remSec, progress: 0 };
+          setFabricatorUiState({ remainingSec: remSec, progress: 0 });
+        } else {
+          for (const [itemKey, qty] of Object.entries(fabInputs)) {
+            addCargoItemQty(itemKey, qty);
           }
         }
       }
@@ -8026,7 +8103,12 @@ export default function App() {
         gantryRefit: gantryRefitRef.current,
         colonies: coloniesRef.current,
         cargoStationCore: cargoStationCoreRef.current,
-        outpost: { deployed: outpostDeployedRef.current },
+        outpost: {
+          deployed: outpostDeployedRef.current,
+          modules: outpostModulesRef.current,
+          storage: outpostStorageRef.current,
+        },
+        seenTips: seenTipsRef.current,
         outpostDeployed: outpostDeployedRef.current,
         dockedStationId: dockedStationIdRef.current,
         isDocked,
@@ -18083,6 +18165,9 @@ export default function App() {
     }
 
     // Belt Notice Accumulation & Decay in space
+    // A big ore sale can leave Notice at exactly 100 while docked; read it before
+    // this frame's decay so that still counts as reaching the raid threshold.
+    const noticeBeforeDecay = noticeRef.current;
     if (p.miningLaserActive) {
       noticeRef.current = Math.min(100, noticeRef.current + 0.8 * dt);
     } else {
@@ -18103,7 +18188,7 @@ export default function App() {
     }
 
     // Threshold check for 100 Notice & Raider Wave rate-limiting
-    if (noticeRef.current >= 100) {
+    if (noticeRef.current >= 100 || noticeBeforeDecay >= 100) {
       const now = performance.now();
       if (now - lastRaiderWaveTimeRef.current >= 90000) {
         lastRaiderWaveTimeRef.current = now;
