@@ -1385,6 +1385,7 @@ export const SKILL_DEFINITIONS: SkillDefinition[] = [
 ];
 
 const SAVE_SESSION_STORAGE_KEY = 'deep_belt_session_v4';
+const NEW_GAME_AUTOSTART_KEY = 'deep_belt_new_game';
 
 function checkHasValidSave(): boolean {
   try {
@@ -8526,9 +8527,13 @@ export default function App() {
   }, []);
 
   const handleRestartRun = useCallback(() => {
+    // Restarting erases the whole save, so it goes through the same
+    // confirmation as New Game on the title screen.
     setIsGameMenuOpen(false);
-    resetGame();
-  }, [resetGame]);
+    setGameState((prev) => ({ ...prev, status: 'START' }));
+    setShowNewGameModal(true);
+    showNewGameModalRef.current = true;
+  }, []);
 
   const handleQuitToTitle = useCallback(() => {
     setIsGameMenuOpen(false);
@@ -8543,7 +8548,16 @@ export default function App() {
     } catch (_) {}
     setHasValidSave(false);
     hasValidSaveRef.current = false;
-    resetGame();
+    // The loaded save lives in well over a hundred pieces of state (skills,
+    // contracts, training progress, permits, outposts). Reloading the page is
+    // the one reset that cannot miss any of them; the flag below starts the
+    // new game straight away once the page is back.
+    try {
+      sessionStorage.setItem(NEW_GAME_AUTOSTART_KEY, '1');
+      window.location.reload();
+    } catch (_) {
+      resetGame();
+    }
   }, [resetGame]);
 
   const initGame = useCallback(() => {
@@ -8557,9 +8571,14 @@ export default function App() {
   // Auto-play query param handling
   const hasAutoplayed = useRef(false);
   useEffect(() => {
+    let newGameRequested = false;
+    try {
+      newGameRequested = sessionStorage.getItem(NEW_GAME_AUTOSTART_KEY) === '1';
+      sessionStorage.removeItem(NEW_GAME_AUTOSTART_KEY);
+    } catch (_) {}
     if (
       !hasAutoplayed.current &&
-      new URLSearchParams(window.location.search).has('autoplay')
+      (newGameRequested || new URLSearchParams(window.location.search).has('autoplay'))
     ) {
       hasAutoplayed.current = true;
       if (hasValidSaveRef.current) {

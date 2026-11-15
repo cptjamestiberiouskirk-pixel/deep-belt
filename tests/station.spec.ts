@@ -1,0 +1,193 @@
+import {expect, test, type Page} from '@playwright/test';
+import {enterGame, expectClean, openWithSave, readSave, RICH, settle, watch} from './helpers';
+
+const STOCKED = {
+  ...RICH,
+  milestoneIndustrialistClaimed: true,
+  cargoFerrite: 250,
+  cargoAurite: 60,
+  cargoChromite: 60,
+  cargoTritanium: 100,
+  cargoChromiteBar: 50,
+};
+
+async function docked(page: Page, patch: Record<string, unknown> = STOCKED) {
+  const problems = watch(page);
+  await openWithSave(page, patch);
+  await enterGame(page);
+  return problems;
+}
+
+const TERMINALS: Array<[key: string, heading: string | RegExp]> = [
+  ['1', 'Sell cargo'],
+  ['2', /^FITTING$/],
+  ['3', 'SKILLS MATRIX'],
+  ['4', 'OPERATIONS (OSK)'],
+  ['5', 'HULL REPAIR'],
+  ['6', /^HANGAR$/],
+  ['r', 'ORE REFINING FACILITY'],
+  ['f', /^FABRICATOR$/],
+  ['k', /^SCHEMATICS$/],
+];
+
+test('every station terminal opens and closes', async ({page}) => {
+  const problems = await docked(page);
+  for (const [key, heading] of TERMINALS) {
+    await page.keyboard.press(key);
+    await expect(page.getByText(heading).first(), `terminal on key ${key}`).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByText(heading).first(), `terminal on key ${key} after Esc`).toBeHidden();
+    await expect(page.getByText('Docked · safe')).toBeVisible();
+  }
+  expectClean(problems);
+});
+
+test('market: selling one stack pays for it and empties it', async ({page}) => {
+  const problems = await docked(page);
+  const before = (await readSave(page))!;
+  await page.keyboard.press('1');
+  await expect(page.getByText('Sell cargo')).toBeVisible();
+  await settle(page);
+  await page.keyboard.press('Enter');
+  await expect.poll(async () => (await readSave(page))!.cargoFerrite).toBe(0);
+  const after = (await readSave(page))!;
+  expect(after.marks).toBe(before.marks + 250 * 12);
+  expect(after.cargoAurite).toBe(60);
+  expectClean(problems);
+});
+
+test('market: sell all empties every ore stack', async ({page}) => {
+  const problems = await docked(page);
+  const before = (await readSave(page))!;
+  await page.keyboard.press('1');
+  await page.keyboard.press('s');
+  await expect.poll(async () => (await readSave(page))!.cargoFerrite).toBe(0);
+  const after = (await readSave(page))!;
+  expect(after.cargoAurite).toBe(0);
+  expect(after.cargoChromite).toBe(0);
+  expect(after.marks).toBeGreaterThan(before.marks);
+  expectClean(problems);
+});
+
+test('market: buying costs marks', async ({page}) => {
+  const problems = await docked(page);
+  const before = (await readSave(page))!;
+  await page.keyboard.press('1');
+  await page.getByRole('button', {name: /^Buy$/, disabled: false}).first().click();
+  await expect.poll(async () => (await readSave(page))!.marks).toBeLessThan(before.marks);
+  expectClean(problems);
+});
+
+test('refinery: 50 ore becomes 25 refined for a fee', async ({page}) => {
+  const problems = await docked(page);
+  const before = (await readSave(page))!;
+  await page.keyboard.press('r');
+  await expect(page.getByText('ORE REFINING FACILITY')).toBeVisible();
+  await settle(page);
+  await page.keyboard.press('Enter');
+  await expect
+    .poll(async () => (await readSave(page))!.cargoTritanium, {timeout: 20_000})
+    .toBe(before.cargoTritanium + 25);
+  const after = (await readSave(page))!;
+  expect(after.cargoFerrite).toBe(before.cargoFerrite - 50);
+  expect(after.marks).toBeLessThan(before.marks);
+  expectClean(problems);
+});
+
+test('skills: training queues a skill and charges for it', async ({page}) => {
+  const problems = await docked(page);
+  const before = (await readSave(page))!;
+  await page.keyboard.press('3');
+  await expect(page.getByText('SKILLS MATRIX')).toBeVisible();
+  await settle(page);
+  await page.keyboard.press('Enter');
+  await expect.poll(async () => (await readSave(page))!.trainingQueue.length).toBe(1);
+  expect((await readSave(page))!.marks).toBe(before.marks - 100);
+  expectClean(problems);
+});
+
+test('agent: a contract can be accepted and turned in', async ({page}) => {
+  const problems = await docked(page);
+  const before = (await readSave(page))!;
+  await page.keyboard.press('4');
+  await expect(page.getByText('OPERATIONS (OSK)')).toBeVisible();
+  await settle(page);
+  await page.keyboard.press('Enter');
+  await expect
+    .poll(async () => (await readSave(page))!.missionStatus)
+    .toMatch(/active|ready_to_turn_in|completed/);
+  // 250 ferrite is already in the hold, so the 200-ore contract can be handed in.
+  await settle(page);
+  await page.keyboard.press('Enter');
+  await expect.poll(async () => (await readSave(page))!.missionIndex, {timeout: 20_000}).toBe(1);
+  const after = (await readSave(page))!;
+  expect(after.marks).toBe(before.marks + 1000);
+  expect(after.cargoFerrite).toBe(50);
+  expectClean(problems);
+});
+
+test('schematics: research starts, charges, and completes', async ({page}) => {
+  const problems = await docked(page);
+  const before = (await readSave(page))!;
+  await page.keyboard.press('k');
+  await expect(page.getByText(/^SCHEMATICS$/).first()).toBeVisible();
+  await settle(page);
+  await page.keyboard.press('Enter');
+  await expect.poll(async () => (await readSave(page))!.activeResearch).not.toBeNull();
+  expect((await readSave(page))!.marks).toBeLessThan(before.marks);
+  await expect
+    .poll(async () => Object.keys((await readSave(page))!.schematicLevels).length, {
+      timeout: 60_000,
+      intervals: [2000],
+    })
+    .toBeGreaterThan(0);
+  expectClean(problems);
+});
+
+test('fabricator: a recipe with materials on hand can be built', async ({page}) => {
+  const problems = await docked(page, {
+    ...RICH,
+    milestoneIndustrialistClaimed: true,
+    cargoTritanium: 100,
+    cargoChromiteBar: 40,
+    cargoAuriteConc: 40,
+    cargoPyroxite: 40,
+  });
+  await page.keyboard.press('f');
+  await expect(page.getByText(/^FABRICATOR$/).first()).toBeVisible();
+  const before = (await readSave(page))!;
+  await settle(page);
+  await page.keyboard.press('Enter');
+  await expect.poll(async () => (await readSave(page))!.activeFabricate).not.toBeNull();
+  await expect
+    .poll(async () => (await readSave(page))!.activeFabricate, {timeout: 90_000, intervals: [2000]})
+    .toBeNull();
+  const after = (await readSave(page))!;
+  const made = ['cargoHullPlate', 'cargoThrusterCoil', 'cargoSensorCore'].filter((k) => after[k] > before[k]);
+  expect(made, 'no fabricated part appeared in the hold').not.toEqual([]);
+  expectClean(problems);
+});
+
+test('hangar: a new hull can be bought', async ({page}) => {
+  const problems = await docked(page);
+  const before = (await readSave(page))!;
+  await page.keyboard.press('6');
+  await expect(page.getByText(/^HANGAR$/).first()).toBeVisible();
+  await page.getByRole('button', {name: /^Buy$/, disabled: false}).first().click();
+  await expect.poll(async () => (await readSave(page))!.ownedHulls.length).toBe(2);
+  expect((await readSave(page))!.marks).toBeLessThan(before.marks);
+  expectClean(problems);
+});
+
+test('fitting: a module can be unfitted and fitted again', async ({page}) => {
+  const problems = await docked(page);
+  await page.keyboard.press('2');
+  await expect(page.getByText(/^FITTING$/).first()).toBeVisible();
+  await settle(page);
+  await page.keyboard.press('Enter');
+  await expect.poll(async () => (await readSave(page))!.fittedSlots.slot1MiningLaser).toBe(false);
+  await settle(page);
+  await page.locator('button:visible', {hasText: /^Fit$/}).first().click();
+  await expect.poll(async () => (await readSave(page))!.fittedSlots.slot1MiningLaser).toBe(true);
+  expectClean(problems);
+});

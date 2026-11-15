@@ -79,8 +79,12 @@ export async function coachStep(page: Page): Promise<number | null> {
 }
 
 export async function undock(page: Page) {
-  await page.keyboard.press('u');
-  await expect(page.getByText('Docked · safe')).toBeHidden();
+  // A key pressed in the first moments after docking or loading can land
+  // inside the station's 0.3 s input debounce, so press until it takes.
+  await expect(async () => {
+    await page.keyboard.press('u');
+    await expect(page.getByText('Docked · safe')).toBeHidden({timeout: 1500});
+  }).toPass({timeout: 20_000});
   await expect(page.getByText('Overview', {exact: true})).toBeVisible();
 }
 
@@ -152,4 +156,15 @@ export async function mineUntil(page: Page, done: () => Promise<boolean>, timeou
     await page.waitForTimeout(1500);
   }
   throw new Error(`mining did not finish in ${timeoutMs} ms; Mine button shows "${await mineState(page)}"`);
+}
+
+/**
+ * Wait until a station terminal is ready for Enter. Two things swallow an
+ * early key press by design: the 0.3 s station input debounce, and the
+ * officer's line still typing (Enter then means "[Enter] Skip").
+ */
+export async function settle(page: Page) {
+  await page.waitForTimeout(450);
+  await expect(page.getByText('[Enter] Skip')).toHaveCount(0, {timeout: 20_000});
+  await page.waitForTimeout(100);
 }
