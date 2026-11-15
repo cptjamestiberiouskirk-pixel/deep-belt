@@ -30,6 +30,10 @@ export default defineConfig({
     // Keep the hashed bundle files out of assets/, which holds the game's own files.
     assetsDir: 'bundle',
     chunkSizeWarningLimit: 4000,
+    // Never inline files as data: URLs. The Content-Security-Policy in
+    // index.html only allows fonts from this site, and small font subsets
+    // would otherwise be inlined and blocked.
+    assetsInlineLimit: 0,
   },
   plugins: [copyGameAssets()],
 });

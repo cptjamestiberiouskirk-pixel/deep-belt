@@ -85,6 +85,7 @@ npm run typecheck
 ### Notes
 
 - The game is self-contained. It makes no network requests beyond its own files, and the fonts (Fredoka, Inter, JetBrains Mono) are bundled.
+- `index.html` carries a Content-Security-Policy that only allows the game's own files and blocks inline scripts. If you add something that loads from another site, the policy has to be widened to match.
 - Progress saves to the browser's `localStorage`, so a save belongs to one browser on one address. Clearing site data erases it.
 - Tuning values such as thrust, max speed, mining yield and cargo capacity live in the `CONFIG` object in `constants.ts`.
 - Images and audio in `assets/` are loaded by URL at runtime and are not bundled. `vite.config.ts` copies the folder into `dist/` on build.

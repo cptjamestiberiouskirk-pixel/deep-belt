@@ -3,6 +3,18 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!--
+      The game loads nothing from other origins, so the policy allows only its
+      own files. Scripts must come from this site: no inline or injected script
+      can run. Styles allow inline because the game and the dev server add
+      <style> elements. Images allow data: for sprites the game renders to
+      canvas and reuses.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'"
+    />
+    <meta name="referrer" content="no-referrer" />
     <title>Deep Belt</title>
     <style>
       html,
