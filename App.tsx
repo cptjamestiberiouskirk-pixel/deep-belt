@@ -116,12 +116,6 @@ import {
   useInput,
   useIsMobile,
 } from './utils/helper';
-import {
-  usePlayground,
-  usePlaygroundGameLifecycle,
-  usePlaygroundResume,
-  useRpc,
-} from './utils/usePlayground';
 import {SpriteRenderer, SpriteActionConfig, SpriteAnimationState, drawCorridorCharacter} from './SpriteRenderer';
 
 // Core Probe Sweep Minigame Modal
@@ -1077,10 +1071,6 @@ export function normalizeAngleDiff(diff: number): number {
   let d = (diff + Math.PI) % (Math.PI * 2);
   if (d < 0) d += Math.PI * 2;
   return d - Math.PI;
-}
-
-interface CustomWindow extends Window {
-  canHandleBackKey?: boolean;
 }
 
 // System points of interest in Harrow
@@ -3306,7 +3296,7 @@ export default function App() {
   showNewGameModalRef.current = showNewGameModal;
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const stepperRef = useRef<ReturnType<typeof createFixedStepper>>();
+  const stepperRef = useRef<ReturnType<typeof createFixedStepper> | undefined>(undefined);
   const lastCancelRef = useRef(false);
 
   // Performance Telemetry & Commit Counting
@@ -3552,14 +3542,9 @@ export default function App() {
     };
   }, []);
 
-  // Set document title cleanly and inject Google Fonts
+  // Set document title cleanly. Fonts are bundled; see index.tsx.
   useEffect(() => {
     document.title = 'Deep Belt';
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href =
-      'https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@700&display=swap';
-    document.head.appendChild(link);
 
     return () => {
       if (irisAnimRef.current) {
@@ -3567,10 +3552,6 @@ export default function App() {
       }
     };
   }, []);
-
-  // Playground SDK integration
-  const {sdk, isReady} = usePlayground();
-  const [exitChat] = useRpc<Record<string, unknown>, void>('ExitChat');
 
   // Asset preloading
   const {assets, isReady: assetsReady} = useAssets(ASSETS_MANIFEST);
@@ -3868,20 +3849,10 @@ export default function App() {
     stepperRef.current = createFixedStepper(stepMs, maxSubSteps);
   }
 
-  // Do not remove: Playground save/resume
-  const {initialLevel, initialScore, persistenceEnabled, autoStartPending} =
-    usePlaygroundResume({
-      isReady,
-      assetsReady,
-      onAutoStart: () => {
-        if (gameStateRef.current.status === 'START') {
-          initGame();
-        }
-      },
-    });
-
-  const startLevel = initialLevel;
-  const startScore = initialScore;
+  // A run always begins at level 1 with no score. Progress is restored from
+  // the localStorage save (SAVE_SESSION_STORAGE_KEY), not from a host.
+  const startLevel = 1;
+  const startScore = 0;
 
   const levelStartScoreRef = useRef(startScore);
   const prevLevelRef = useRef(startLevel);
@@ -7424,20 +7395,6 @@ export default function App() {
     }
   }, [gameState.status]);
 
-  useEffect(() => {
-    const canHandleBackKey = gameState.status !== 'START';
-    (window as CustomWindow).canHandleBackKey = canHandleBackKey;
-    if (window.parent && window.parent !== window) {
-      window.parent.postMessage(
-        {
-          type: 'PLAYGROUND_CAN_HANDLE_BACK_KEY',
-          value: canHandleBackKey,
-        },
-        '*',
-      );
-    }
-  }, [gameState.status]);
-
   const inputRef = useInput(canvasRef, true, {
     width: canvasWidth,
     height: canvasHeight,
@@ -8346,12 +8303,8 @@ export default function App() {
         }
       }
       gameAudio.resume();
-
-      if (sdk) {
-        sdk.startGame();
-      }
     },
-    [sdk, populateAsteroids, applyHullLayout],
+    [populateAsteroids, applyHullLayout],
   );
 
   const resetGame = useCallback(() => {
@@ -8549,10 +8502,7 @@ export default function App() {
   const handleContinueGame = useCallback(() => {
     setGameState((prev) => ({ ...prev, status: 'PLAYING' }));
     gameAudio.resume();
-    if (sdk) {
-      sdk.startGame();
-    }
-  }, [sdk]);
+  }, []);
 
   const handleResume = useCallback(() => {
     setIsGameMenuOpen(false);
@@ -8587,14 +8537,10 @@ export default function App() {
   const initGame = useCallback(() => {
     if (gameStateRef.current.status === 'START' && hasValidSaveRef.current) {
       handleContinueGame();
-    } else if (persistenceEnabled && !runWonRef.current) {
-      startRun(gameStateRef.current.level, levelStartScoreRef.current);
     } else {
       resetGame();
     }
-  }, [startRun, resetGame, handleContinueGame, persistenceEnabled]);
-
-  usePlaygroundGameLifecycle(gameState, sdk);
+  }, [resetGame, handleContinueGame]);
 
   // Auto-play query param handling
   const hasAutoplayed = useRef(false);
@@ -24242,17 +24188,6 @@ export default function App() {
         perfTelemetryRef.current.commitsPerSec = perfTelemetryRef.current.commitsThisSecond;
         perfTelemetryRef.current.commitsThisSecond = 0;
         perfTelemetryRef.current.lastCommitSecond = curSec;
-      }
-
-      if (inputRef.current) {
-        const cancelPressed = inputRef.current.actions.cancel;
-        if (cancelPressed && !lastCancelRef.current) {
-          const currentStatus = gameStateRef.current.status;
-          if (currentStatus === 'START') {
-            void exitChat({});
-          }
-        }
-        lastCancelRef.current = cancelPressed;
       }
 
       if (!isGameMenuOpen && !isHowToPlayOpen && !isControlsHelpOpen) {
@@ -41327,7 +41262,7 @@ export default function App() {
       })()}
 
       {/* START SCREEN (FULL-SCREEN 1280x800 COMPOSITION) */}
-      {gameState.status === 'START' && !autoStartPending && assetsReady && (
+      {gameState.status === 'START' && assetsReady && (
         <div
           style={{
             position: 'relative',

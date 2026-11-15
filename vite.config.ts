@@ -13,7 +13,8 @@ function copyGameAssets(): Plugin {
     name: 'copy-game-assets',
     apply: 'build',
     closeBundle() {
-      cpSync(resolve(__dirname, 'assets'), resolve(__dirname, 'dist/assets'), {
+      const root = import.meta.dirname;
+      cpSync(resolve(root, 'assets'), resolve(root, 'dist/assets'), {
         recursive: true,
       });
     },

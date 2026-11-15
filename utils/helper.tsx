@@ -83,7 +83,7 @@ function getActiveTvScope(): HTMLElement | null {
  * with `tv.tsx` (`useTvFocusRover`, `useTvModalStack`, and `TvScrollArea`).
  */
 export function useOverlayFocusNavigation(
-  containerRef: RefObject<HTMLDivElement>,
+  containerRef: RefObject<HTMLDivElement | null>,
   autoFocus = true,
 ): void {
   useEffect(() => {
@@ -391,7 +391,7 @@ const getPointerPosition = (
  * @returns A mutable ref containing the current input snapshot.
  */
 export const useInput = (
-  canvasRef: RefObject<HTMLCanvasElement>,
+  canvasRef: RefObject<HTMLCanvasElement | null>,
   enabled = true,
   logicalSize?: LogicalSize,
 ): MutableRefObject<InputSnapshot> => {
@@ -644,10 +644,6 @@ class GameAudio {
         }
       } catch (_) {}
 
-      window.addEventListener('playground-mute', (e: Event) => {
-        const customEvent = e as CustomEvent<{muted: boolean}>;
-        this.setMuted(customEvent.detail.muted);
-      });
       this.attachUnlock();
     }
   }
@@ -3284,12 +3280,6 @@ export interface MusicTrack {
   name: string;
   url: string;
   description: string;
-}
-
-declare global {
-  interface Window {
-    PlaygroundSDK: any;
-  }
 }
 
 /**

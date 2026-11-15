@@ -825,18 +825,6 @@ export const CONFIG = {
   },
 };
 
-// Merge customized config values if present (injected by Playground)
-const {playgroundConfig} = globalThis as {
-  playgroundConfig?: Record<string, unknown>;
-};
-if (playgroundConfig) {
-  for (const [key, value] of Object.entries(playgroundConfig)) {
-    if (key in CONFIG) {
-      Object.assign(CONFIG[key as keyof typeof CONFIG], {value});
-    }
-  }
-}
-
 /**
  * Type helper for reading values in game code
  */

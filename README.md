@@ -35,6 +35,8 @@ The game plays with keyboard and mouse, or touch, in landscape orientation.
 | `Esc` | Close the terminal |
 | `U` | Undock |
 
+These are the core controls. Press `H` in the game for the full list, which includes more module and menu keys.
+
 ## Project layout
 
 | Path | Contents |
@@ -44,8 +46,7 @@ The game plays with keyboard and mouse, or touch, in landscape orientation.
 | `App.tsx` | The game |
 | `constants.ts` | Game data and tuning constants |
 | `SpriteRenderer.ts` | Sprite drawing |
-| `utils/` | Background music, helpers and the tuning-value hook |
-| `playground_config.json` | Tunable values such as thrust, max speed, mining yield and cargo capacity |
+| `utils/helper.tsx` | Input, audio, asset loading and overlay helpers |
 | `assets/` | Images and audio |
 | `design/` | Game design document and asset manifest |
 
@@ -75,10 +76,17 @@ npm run preview
 
 The build uses relative paths, so the contents of `dist/` can be hosted from any folder on a static web server. It does not work when `dist/index.html` is opened directly from disk, because browsers block module scripts on `file://` pages.
 
+To type-check the code:
+
+```bash
+npm run typecheck
+```
+
 ### Notes
 
-- The game was made for a host platform that supplies a "Playground" SDK. `index.html` sets `window.__PLAYGROUND_PREVIEW__ = true`, which makes the game use the stand-in SDK in `utils/playground-fake.ts` instead of fetching the real one.
-- Fonts (Fredoka, Inter, JetBrains Mono) load from Google Fonts at runtime, so the first load needs a network connection to look right.
+- The game is self-contained. It makes no network requests beyond its own files, and the fonts (Fredoka, Inter, JetBrains Mono) are bundled.
+- Progress saves to the browser's `localStorage`, so a save belongs to one browser on one address. Clearing site data erases it.
+- Tuning values such as thrust, max speed, mining yield and cargo capacity live in the `CONFIG` object in `constants.ts`.
 - Images and audio in `assets/` are loaded by URL at runtime and are not bundled. `vite.config.ts` copies the folder into `dist/` on build.
 
 ## Third-party software
@@ -87,4 +95,4 @@ See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## License
 
-No license has been chosen yet.
+[MIT](LICENSE).
