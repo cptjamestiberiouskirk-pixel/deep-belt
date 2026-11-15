@@ -28,7 +28,11 @@ test('selecting a far-off pirate does not summon it across the system', async ({
     const m = (await page.innerText('body')).match(/Rift Corsair\s+([\d.]+) km/);
     return m ? Number(m[1]) : null;
   };
-  await selectTarget(page, /Rift Corsair/);
+  // Picked from the Overview: Tab steps through every object nearest first and
+  // re-sorts on each press, so under load it may not reach one 44 km out.
+  await page.getByText('Ships', {exact: true}).click();
+  await page.getByText('Rift Corsair', {exact: true}).first().click();
+  await expect.poll(() => targetPanel(page)).toMatch(/Rift Corsair/);
   expect(await corsairKm()).toBeGreaterThan(35);
   await page.keyboard.press('l');
   await page.waitForTimeout(12_000);
