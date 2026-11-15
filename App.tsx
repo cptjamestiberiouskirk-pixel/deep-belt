@@ -1386,6 +1386,14 @@ export const SKILL_DEFINITIONS: SkillDefinition[] = [
 
 const SAVE_SESSION_STORAGE_KEY = 'deep_belt_session_v4';
 const NEW_GAME_AUTOSTART_KEY = 'deep_belt_new_game';
+// Beyond this range, selecting or locking a hostile does not draw it to the player.
+const HOSTILE_PROVOKE_RANGE_KM = 20;
+
+// Developer shortcuts (free marks, cargo grants, teleport, forced heat and
+// scan failures). They stay out of the released game: on only under
+// `npm run dev`, or when the page is opened with ?dev in the address.
+const DEV_HOTKEYS: boolean =
+  import.meta.env.DEV || (typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('dev'));
 
 function checkHasValidSave(): boolean {
   try {
@@ -1950,6 +1958,13 @@ export const DOCK_OFFICER_LINES = [
   "If your hold feels cramped, the market has cargo pods. Fit them in Bay 2 whenever you're ready.",
   "The market has a Light Cannon for 600 MARKS. Destroying that Belt Two pirate will earn you a 250 MARK bounty!",
   "Neural injectors are active in the station terminal. Check the SKILLS tab to queue training in real time while you fly.",
+];
+
+// The player's own outpost has no dock officer; its core AI speaks instead.
+export const OUTPOST_CORE_AI_LINES = [
+  "Outpost core online. Dock clamps engaged. You are the only pilot on the manifest.",
+  "Four hardpoints are available. Open Build to install modules with Hull Plates, Thruster Coils, Sensor Cores and MARKS.",
+  "Storage Bay, Refinery Annex, Fab Bay and Docking Ring are the modules this frame can carry.",
 ];
 
 export const VAEL_DOCK_OFFICER_LINES = [
@@ -5440,7 +5455,9 @@ export default function App() {
     height: 110,
   });
 
-  const currentCorridorSpeechText = currentSystem === 'Vael'
+  const currentCorridorSpeechText = dockedStationId === 'outpost'
+    ? OUTPOST_CORE_AI_LINES[dialogueIndex % OUTPOST_CORE_AI_LINES.length]
+    : currentSystem === 'Vael'
     ? VAEL_DOCK_OFFICER_LINES[vaelDialogueIndex % VAEL_DOCK_OFFICER_LINES.length]
     : stationTab === 'AGENT'
       ? (oskCustomDialogue ??
@@ -15073,7 +15090,7 @@ export default function App() {
       // COLONY MODAL INPUT ISOLATION
       if (activeColonyPlanetIdRef.current) {
         const k = e.key.toLowerCase();
-        if (e.key === '0' || e.code === 'Digit0' || e.code === 'Numpad0') {
+        if (DEV_HOTKEYS && (e.key === '0' || e.code === 'Digit0' || e.code === 'Numpad0')) {
           e.preventDefault();
           e.stopPropagation();
           tickColonies(600);
@@ -15519,7 +15536,7 @@ export default function App() {
       }
 
       // Dev testing hotkey [0]
-      if (e.key === '0') {
+      if (DEV_HOTKEYS && (e.key === '0')) {
         e.preventDefault();
         scanReadyAtRef.current = 0;
         if (scanIntervalRef.current !== null) {
@@ -15568,7 +15585,7 @@ export default function App() {
       }
 
       // Dev testing hotkey [7]: Notice 95 in space / +1 Standing in docked Agent tab
-      if (e.key === '7' || e.code === 'Digit7' || e.code === 'Numpad7' || e.code === 'Key7') {
+      if (DEV_HOTKEYS && (e.key === '7' || e.code === 'Digit7' || e.code === 'Numpad7' || e.code === 'Key7')) {
         const targetTag = (e.target as HTMLElement)?.tagName;
         const isInputFocused = targetTag === 'INPUT' || targetTag === 'TEXTAREA';
         const isAnyModalOpen = isControlsHelpOpen || isHowToPlayOpen || isGameMenuOpen || isScanMinigameOpen || isHaulDeliveryModalOpen || isJettisonModalOpenRef.current || showCompressModalRef.current || showDronesModalRef.current;
@@ -15618,7 +15635,7 @@ export default function App() {
       }
 
       // Dev testing hotkey [=] / [+]: Grant exotics, flagship assembly parts, command hub, and 4000 M (works in space and docked)
-      if (e.key === '=' || e.key === '+' || e.code === 'Equal' || e.code === 'NumpadEqual') {
+      if (DEV_HOTKEYS && (e.key === '=' || e.key === '+' || e.code === 'Equal' || e.code === 'NumpadEqual')) {
         const targetTag = (e.target as HTMLElement)?.tagName;
         const isInputFocused = targetTag === 'INPUT' || targetTag === 'TEXTAREA';
         const isAnyModalOpen = isControlsHelpOpen || isHowToPlayOpen || isGameMenuOpen || isScanMinigameOpen || isHaulDeliveryModalOpen || isJettisonModalOpenRef.current || showCompressModalRef.current || showDronesModalRef.current;
@@ -15827,7 +15844,7 @@ export default function App() {
         const isAnyModalOpen = isControlsHelpOpen || isHowToPlayOpen || isGameMenuOpen || isScanMinigameOpen || isHaulDeliveryModalOpen;
         if (!isInputFocused && !isAnyModalOpen && !isWarpMenuOpen) {
 
-          if (e.key === '-' || e.code === 'Minus' || e.code === 'DigitMinus' || e.code === 'NumpadSubtract') {
+          if (DEV_HOTKEYS && (e.key === '-' || e.code === 'Minus' || e.code === 'DigitMinus' || e.code === 'NumpadSubtract')) {
             if (e.repeat) return;
             e.preventDefault();
 
@@ -15920,7 +15937,7 @@ export default function App() {
             return;
           }
 
-          if (e.key === '8' || e.code === 'Digit8' || e.code === 'Numpad8' || e.code === 'Key8') {
+          if (DEV_HOTKEYS && (e.key === '8' || e.code === 'Digit8' || e.code === 'Numpad8' || e.code === 'Key8')) {
             if (e.repeat) return;
             e.preventDefault();
 
@@ -15964,7 +15981,7 @@ export default function App() {
             return;
           }
 
-          if (e.key === '9' || e.code === 'Digit9' || e.code === 'Numpad9' || e.code === 'Key9') {
+          if (DEV_HOTKEYS && (e.key === '9' || e.code === 'Digit9' || e.code === 'Numpad9' || e.code === 'Key9')) {
             if (e.repeat) return;
             e.preventDefault();
 
@@ -17050,7 +17067,7 @@ export default function App() {
       }
 
       // Space developer teleport key [I]: 6.0 km east of the corsair park
-      if (e.key.toLowerCase() === 'i' || e.code === 'KeyI') {
+      if (DEV_HOTKEYS && (e.key.toLowerCase() === 'i' || e.code === 'KeyI')) {
         const targetTag = (e.target as HTMLElement)?.tagName;
         const isInputFocused = targetTag === 'INPUT' || targetTag === 'TEXTAREA';
         const isAnyModalOpen = isControlsHelpOpen || isHowToPlayOpen || isGameMenuOpen || isScanMinigameOpen || isHaulDeliveryModalOpen || isJettisonModalOpenRef.current || showCompressModalRef.current || showDronesModalRef.current;
@@ -17110,7 +17127,7 @@ export default function App() {
       }
 
       // Dev testing hotkey [6]: space-only laser heat set to 95%
-      if (e.key === '6' || e.code === 'Digit6' || e.code === 'Numpad6' || e.code === 'Key6') {
+      if (DEV_HOTKEYS && (e.key === '6' || e.code === 'Digit6' || e.code === 'Numpad6' || e.code === 'Key6')) {
         const targetTag = (e.target as HTMLElement)?.tagName;
         const isInputFocused = targetTag === 'INPUT' || targetTag === 'TEXTAREA';
         const isAnyModalOpen = isControlsHelpOpen || isHowToPlayOpen || isGameMenuOpen || isScanMinigameOpen;
@@ -17131,7 +17148,7 @@ export default function App() {
       }
 
       // Dev testing hotkey [8]: test scan failure in space
-      if (e.key === '8' || e.code === 'Digit8' || e.code === 'Numpad8' || e.code === 'Key8') {
+      if (DEV_HOTKEYS && (e.key === '8' || e.code === 'Digit8' || e.code === 'Numpad8' || e.code === 'Key8')) {
         const targetTag = (e.target as HTMLElement)?.tagName;
         const isInputFocused = targetTag === 'INPUT' || targetTag === 'TEXTAREA';
         const isAnyModalOpen = isControlsHelpOpen || isHowToPlayOpen || isGameMenuOpen || isScanMinigameOpen;
@@ -17145,7 +17162,7 @@ export default function App() {
       }
 
       // Dev testing hotkey [9]: spawn Data Cache in space
-      if (e.key === '9' || e.code === 'Digit9' || e.code === 'Numpad9' || e.code === 'Key9') {
+      if (DEV_HOTKEYS && (e.key === '9' || e.code === 'Digit9' || e.code === 'Numpad9' || e.code === 'Key9')) {
         const targetTag = (e.target as HTMLElement)?.tagName;
         const isInputFocused = targetTag === 'INPUT' || targetTag === 'TEXTAREA';
         const isAnyModalOpen = isControlsHelpOpen || isHowToPlayOpen || isGameMenuOpen || isScanMinigameOpen || isHaulDeliveryModalOpen;
@@ -19460,7 +19477,9 @@ export default function App() {
 
       const sigKm = getShipSignatureKm(activeHullRef.current);
       const isPirateAggressor = (aggressorIdsRef.current.get(pirate.id) ?? 0) > Date.now() || aggressorIdsRef.current.has(pirate.id);
-      const isPirateTargeted = selectedTargetId === pirate.id || p.targetLockedId === pirate.id || p.targetLockingId === pirate.id;
+      // Selecting a pirate provokes it, but only from within sensor reach:
+      // picking it out of the Overview from across the system must not summon it.
+      const isPirateTargeted = distanceKm <= HOSTILE_PROVOKE_RANGE_KM && (selectedTargetId === pirate.id || p.targetLockedId === pirate.id || p.targetLockingId === pirate.id);
       const isPirateDamaged = pirate.shield < pirate.maxShield || pirate.armor < pirate.maxArmor || pirate.hull < pirate.maxHull;
 
       if (!isVael) {
@@ -19832,7 +19851,7 @@ export default function App() {
       if (ashPirate.isAlive) {
         const distanceKm = calcDistanceKm(p.x, p.y, ashPirate.x, ashPirate.y);
         const sigKm = getShipSignatureKm(activeHullRef.current);
-        const isTargeted = selectedTargetId === ashPirate.id || p.targetLockedId === ashPirate.id || p.targetLockingId === ashPirate.id;
+        const isTargeted = distanceKm <= HOSTILE_PROVOKE_RANGE_KM && (selectedTargetId === ashPirate.id || p.targetLockedId === ashPirate.id || p.targetLockingId === ashPirate.id);
         const isAggressor = (aggressorIdsRef.current.get(ashPirate.id) ?? 0) > Date.now() || aggressorIdsRef.current.has(ashPirate.id);
         const isDamaged = ashPirate.shield < ashPirate.maxShield || ashPirate.armor < ashPirate.maxArmor || ashPirate.hull < ashPirate.maxHull;
         const hasAggro = distanceKm <= sigKm || isAggressor || isTargeted || isDamaged;
@@ -19953,11 +19972,18 @@ export default function App() {
         const distPx = Math.hypot(p.x - riftCorsair.x, p.y - riftCorsair.y);
         const distanceKm = distPx / PIXELS_PER_KM;
         const sigKm = getShipSignatureKm(activeHullRef.current);
-        const isTargeted = selectedTargetId === riftCorsair.id || p.targetLockedId === riftCorsair.id || p.targetLockingId === riftCorsair.id;
+        const isTargeted = distanceKm <= HOSTILE_PROVOKE_RANGE_KM && (selectedTargetId === riftCorsair.id || p.targetLockedId === riftCorsair.id || p.targetLockingId === riftCorsair.id);
+        // Leash: once the player is more than 20 km from the corsair's park in
+        // Cinder Rift it gives up the chase and flies home, as the Belt Two frigate does.
+        const playerFarFromPark = Math.hypot(p.x - -3500, p.y - 2200) > HOSTILE_PROVOKE_RANGE_KM * PIXELS_PER_KM;
+        if (playerFarFromPark) {
+          aggressorIdsRef.current.delete(riftCorsair.id);
+          riftCorsair.fireTimer = 0;
+        }
         const isAggressor = (aggressorIdsRef.current.get(riftCorsair.id) ?? 0) > Date.now() || aggressorIdsRef.current.has(riftCorsair.id);
         const isDamaged = riftCorsair.shield < riftCorsair.maxShield || riftCorsair.armor < riftCorsair.maxArmor || riftCorsair.hull < riftCorsair.maxHull;
 
-        const isEngaged = (!isDocked && p.warpState === 'IDLE') && (
+        const isEngaged = !playerFarFromPark && (!isDocked && p.warpState === 'IDLE') && (
           distanceKm <= sigKm || isAggressor || isTargeted || isDamaged
         );
         const pirateMaxSpeed = basePlayerMaxSpeed * 0.75;

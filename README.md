@@ -22,9 +22,12 @@ The game plays with keyboard and mouse, or touch, in landscape orientation.
 | `L` | Lock the selected target |
 | `1` / `2` | Mine / fire cannon |
 | `Q` / `O` | Approach / orbit |
-| `M` | Open the warp menu; `1`-`9` pick a destination, `Enter` confirms |
+| `[` / `]` | Tune the mining laser to the rock's frequency (a mismatch overheats it) |
+| `M` | Open the warp menu; `1`-`9`, `0`, `-` warp to a destination |
 | `F` | Dock when in range |
-| `E` | Open a wreck within 2 km |
+| `J` | Use a jump gate, or open the Rift at the anomaly with `Z` |
+| `E` | Salvage the nearest wreck |
+| `C` / `D` / `X` / `V` | Compress exotic ore / drones / jettison cargo / deploy an outpost |
 | `H` | Help |
 | `Esc` | Close the top menu, or open the game menu |
 
@@ -34,7 +37,7 @@ The game plays with keyboard and mouse, or touch, in landscape orientation.
 | --- | --- |
 | `A` `D`, left/right arrows, or click the floor | Walk the corridor |
 | `E` | Use the nearest terminal |
-| `1`-`4` | Switch terminal tabs |
+| `1`-`6`, `R`, `F`, `K` | Market, Fitting, Skills, Agent, Repair, Hangar, Refinery, Fabricator, Schematics |
 | Arrow keys and `Enter` | Select in terminal menus |
 | `Esc` | Close the terminal |
 | `U` | Undock |
@@ -53,6 +56,7 @@ These are the core controls. Press `H` in the game for the full list, which incl
 | `utils/helper.tsx` | Input, audio, asset loading and overlay helpers |
 | `assets/` | Images and audio |
 | `design/` | Game design document and asset manifest |
+| `tests/` | Playwright tests that play the built game in a browser |
 
 ## Running it
 
@@ -86,13 +90,27 @@ To type-check the code:
 npm run typecheck
 ```
 
-Every push and pull request runs the type-check and the build on GitHub Actions (`.github/workflows/ci.yml`). A push to `main` that passes also publishes `dist/` to GitHub Pages.
+To play-test the game automatically:
+
+```bash
+npx playwright install chromium
+```
+
+```bash
+npm test
+```
+
+The tests build the game, serve the build, and play it in a headless browser: the full training loop, every station terminal, saving and loading, combat, being destroyed, the jump gate to Vael, an outpost, the Rift, and several window sizes. They set up each situation by writing a save into `localStorage` and check results in the page and in the save.
+
+Every push and pull request runs the type-check, the build and the play-test on GitHub Actions (`.github/workflows/ci.yml`). A push to `main` that passes all three also publishes `dist/` to GitHub Pages.
 
 ### Notes
 
 - The game is self-contained. It makes no network requests beyond its own files, and the fonts (Fredoka, Inter, JetBrains Mono) are bundled.
 - `index.html` carries a Content-Security-Policy that only allows the game's own files and blocks inline scripts. If you add something that loads from another site, the policy has to be widened to match.
 - Progress saves to the browser's `localStorage`, so a save belongs to one browser on one address. Clearing site data erases it.
+- Developer shortcuts (free marks, cargo grants, a teleport, forced laser heat and scan failures) are switched off in the released build. They work under `npm run dev`, or when the page is opened with `?dev` added to the address.
+- New Game and Restart run erase the save and reload the page, after a confirmation.
 - Tuning values such as thrust, max speed, mining yield and cargo capacity live in the `CONFIG` object in `constants.ts`.
 - Images and audio in `assets/` are loaded by URL at runtime and are not bundled. `vite.config.ts` copies the folder into `dist/` on build.
 

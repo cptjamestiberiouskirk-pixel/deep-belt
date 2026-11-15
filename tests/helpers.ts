@@ -57,7 +57,9 @@ export async function openWithSave(page: Page, patch: Record<string, unknown>) {
 
 /** Starts or continues from the title screen and waits for the docked view. */
 export async function enterGame(page: Page) {
+  await expect(page.getByTestId('start-game-btn')).toBeVisible();
   await page.keyboard.press('Enter');
+  await expect(page.getByTestId('start-game-btn')).toBeHidden();
   await expect(page.getByText('Docked · safe')).toBeVisible();
 }
 
@@ -167,4 +169,43 @@ export async function settle(page: Page) {
   await page.waitForTimeout(450);
   await expect(page.getByText('[Enter] Skip')).toHaveCount(0, {timeout: 20_000});
   await page.waitForTimeout(100);
+}
+
+/** The place named in the top bar, e.g. "Belt Two" in "Harrow System · Belt Two". */
+export async function whereAmI(page: Page): Promise<string | null> {
+  const m = (await page.innerText('body')).match(/System ·\s*\n?\s*([^\n]+)/);
+  return m ? m[1].trim() : null;
+}
+
+/** Warps and waits until the ship has dropped out at the destination. */
+export async function flyTo(page: Page, name: string) {
+  await warpTo(page, name);
+  // The top bar names the destination as soon as the warp starts, so wait for
+  // the arrival notice too; anything selected mid-warp is left far behind.
+  await expect(page.getByText(`Dropped out of warp at ${name}.`).first()).toBeVisible({timeout: 60_000});
+  await expect.poll(() => whereAmI(page), {timeout: 60_000}).toBe(name);
+}
+
+/** The three lines under the Target panel heading, joined. */
+export async function targetPanel(page: Page): Promise<string> {
+  const m = (await page.innerText('body')).match(/Target\s*\n[^\n]*\n[^\n]*\n[^\n]*/);
+  return m ? m[0].replace(/\s+/g, ' ') : '';
+}
+
+/** Tab through nearby objects until the Target panel matches. */
+export async function selectTarget(page: Page, what: RegExp) {
+  await expect(async () => {
+    await page.keyboard.press('Tab');
+    await page.waitForTimeout(200);
+    expect(await targetPanel(page)).toMatch(what);
+  }).toPass({timeout: 40_000, intervals: [50]});
+}
+
+/** Starts docked at Harrow with the given save, then undocks. */
+export async function launch(page: Page, patch: Record<string, unknown> = {}) {
+  const problems = watch(page);
+  await openWithSave(page, {...RICH, milestoneIndustrialistClaimed: true, ...patch});
+  await enterGame(page);
+  await undock(page);
+  return problems;
 }

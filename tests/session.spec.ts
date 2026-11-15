@@ -96,3 +96,26 @@ test('restart from the game menu asks first, then starts a clean new game', asyn
   expect(save.tutorialDone).toBe(false);
   expectClean(problems);
 });
+
+for (const [width, height] of [[1024, 640], [1920, 1080], [800, 600], [844, 390]] as const) {
+  test(`the stage fits a ${width}x${height} window with every HUD control on screen`, async ({page}) => {
+    const problems = watch(page);
+    await page.setViewportSize({width, height});
+    await openWithSave(page, RICH);
+    await enterGame(page);
+    await undock(page);
+    const cutOff = await page.$$eval('button', (buttons) => {
+      const names: string[] = [];
+      for (const b of buttons) {
+        const r = b.getBoundingClientRect();
+        if (r.width < 2 || r.height < 2) continue;
+        if (r.left < -1 || r.top < -1 || r.right > innerWidth + 1 || r.bottom > innerHeight + 1) {
+          names.push((b.innerText || '').replace(/\s+/g, ' ').slice(0, 30));
+        }
+      }
+      return names;
+    });
+    expect(cutOff, 'controls outside the window').toEqual([]);
+    expectClean(problems);
+  });
+}
