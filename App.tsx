@@ -7325,6 +7325,21 @@ export default function App() {
       });
     }
 
+    // Rocks are scattered at random, and one that lands on the outpost anchor
+    // makes deployment impossible for the whole session (the clearance check
+    // in handleDeployOutpost refuses it). Slide any such rock straight out
+    // of the anchor's clearance zone.
+    for (const rock of harrowItems) {
+      const dx = rock.x - OUTPOST_ANCHOR.x;
+      const dy = rock.y - OUTPOST_ANCHOR.y;
+      const dist = Math.hypot(dx, dy);
+      const clear = rock.radius + 120;
+      if (dist < clear) {
+        const angle = dist > 0.001 ? Math.atan2(dy, dx) : 0;
+        rock.x = OUTPOST_ANCHOR.x + Math.cos(angle) * clear;
+        rock.y = OUTPOST_ANCHOR.y + Math.sin(angle) * clear;
+      }
+    }
     harrowAsteroidsRef.current = harrowItems;
 
     // Vael Belt (Aurite Ore Asteroids & Chromite Ore Asteroids)
