@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Deep Belt</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+        background: #000;
+      }
+    </style>
+    <script>
+      // Outside its original host the game has no Playground SDK to talk to.
+      // This flag makes utils/usePlayground.ts load the bundled fake SDK
+      // instead of fetching the real one from a remote server.
+      window.__PLAYGROUND_PREVIEW__ = true;
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>

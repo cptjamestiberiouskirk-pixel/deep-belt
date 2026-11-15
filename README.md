@@ -39,6 +39,7 @@ The game plays with keyboard and mouse, or touch, in landscape orientation.
 
 | Path | Contents |
 | --- | --- |
+| `index.html` | Page that hosts the game |
 | `index.tsx` | Entry point; mounts `App` into `#root` |
 | `App.tsx` | The game |
 | `constants.ts` | Game data and tuning constants |
@@ -50,7 +51,35 @@ The game plays with keyboard and mouse, or touch, in landscape orientation.
 
 ## Running it
 
-The game is written in TypeScript and React. This repo holds the source only: there is no `package.json`, bundler config or HTML page yet, so it does not run from a fresh clone as it stands. To run it you need a bundler that handles TSX (the `tsconfig.json` is set up for esbuild-style isolated modules) and a page with a `<div id="root">`.
+The game is written in TypeScript and React and built with [Vite](https://vite.dev). You need [Node.js](https://nodejs.org) 20.19 or newer.
+
+```bash
+npm install
+```
+
+```bash
+npm run dev
+```
+
+Then open the address Vite prints, normally <http://localhost:5173>.
+
+To make a production build in `dist/`, and to serve that build locally:
+
+```bash
+npm run build
+```
+
+```bash
+npm run preview
+```
+
+The build uses relative paths, so the contents of `dist/` can be hosted from any folder on a static web server. It does not work when `dist/index.html` is opened directly from disk, because browsers block module scripts on `file://` pages.
+
+### Notes
+
+- The game was made for a host platform that supplies a "Playground" SDK. `index.html` sets `window.__PLAYGROUND_PREVIEW__ = true`, which makes the game use the stand-in SDK in `utils/playground-fake.ts` instead of fetching the real one.
+- Fonts (Fredoka, Inter, JetBrains Mono) load from Google Fonts at runtime, so the first load needs a network connection to look right.
+- Images and audio in `assets/` are loaded by URL at runtime and are not bundled. `vite.config.ts` copies the folder into `dist/` on build.
 
 ## Third-party software
 
