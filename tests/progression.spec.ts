@@ -93,3 +93,24 @@ test('colony: a command hub founds a colony on a planet', async ({page}) => {
   await expect(page.getByText('COLONY COMMAND - Harrow II')).toBeHidden();
   expectClean(problems);
 });
+
+test('contracts: the goal names the pirate, and a finished contract says to go back to Osk', async ({page}) => {
+  // Pest Control accepted, pirate not yet dead.
+  let problems = await launch(page, {missionIndex: 1, missionStatus: 'active', missionPirateKills: 0});
+  await expect(page.getByText('Current goal: Destroy the pirate at Belt Two')).toBeVisible();
+  await expect(page.getByText(/Gate Key/)).toHaveCount(0);
+  expectClean(problems);
+
+  // Pirate dead: the pay waits at the Agent.
+  problems = await launch(page, {missionIndex: 1, missionStatus: 'ready_to_turn_in', missionPirateKills: 1});
+  await expect(page.getByText('Current goal: Return to Agent Osk for 1,500 MARKS')).toBeVisible();
+  await expect(page.getByText('Station in range: Dock [F], then turn in the contract at the Agent [4]')).toBeVisible();
+  expectClean(problems);
+
+  // Rocks, Please with the 200 ferrite aboard, out at the belt.
+  problems = await launch(page, {missionIndex: 0, missionStatus: 'active', cargoFerrite: 200});
+  await expect(page.getByText('Current goal: Return to Agent Osk for 1,000 MARKS')).toBeVisible();
+  await flyTo(page, 'Belt One');
+  await expect(page.getByText('Contract done: warp to Harrow Station Alpha [M] and turn it in at the Agent [4]')).toBeVisible();
+  expectClean(problems);
+});

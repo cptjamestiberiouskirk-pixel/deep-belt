@@ -1,5 +1,5 @@
 import {expect, test} from '@playwright/test';
-import {expectClean, flyTo, launch, readSave, selectTarget, settle, targetPanel, whereAmI} from './helpers';
+import {expectClean, expectTitle, flyTo, launch, mineState, readSave, selectTarget, settle, targetPanel, tuneLaser, whereAmI} from './helpers';
 
 const FIGHTER = {skills: {gunnery: 5, shieldOp: 5}};
 
@@ -77,7 +77,7 @@ test('jump gate: with a permit the ship reaches Vael and docks there', async ({p
 
   // A save made in another system has to come back in that system.
   await page.reload();
-  await expect(page.getByTestId('start-game-btn')).toBeVisible();
+  await expectTitle(page);
   await page.keyboard.press('Enter');
   await expect(page.getByText('Vael System ·')).toBeVisible();
   await expect(page.getByText('Docked · safe')).toBeVisible();
@@ -105,7 +105,7 @@ test('outpost: a station core deploys at the anchor and the outpost can be docke
   await page.keyboard.press('Escape');
 
   await page.reload();
-  await expect(page.getByTestId('start-game-btn')).toBeVisible();
+  await expectTitle(page);
   await page.keyboard.press('Enter');
   await expect(page.getByText('Docked · safe')).toBeVisible();
   expect(await whereAmI(page)).toBe('Your Outpost');
@@ -123,7 +123,7 @@ test('rift: a synchronizer opens the rift, and a reload mid-run recovers safely'
   await expect.poll(async () => (await readSave(page))!.cargoRiftSync).toBe(0);
 
   await page.reload();
-  await expect(page.getByTestId('start-game-btn')).toBeVisible();
+  await expectTitle(page);
   await page.keyboard.press('Enter');
   await expect(page.getByTestId('start-game-btn')).toBeHidden();
   await expect(page.getByText(/(Harrow|Vael|Rift) System ·/)).toBeVisible();
@@ -162,5 +162,33 @@ test('developer cheat keys do nothing in the released build', async ({page}) => 
   expect(save.marks).toBe(1234);
   expect(save.cargoFerrite).toBe(0);
   await expect(page.getByText(/DEV CHEAT/)).toHaveCount(0);
+  expectClean(problems);
+});
+
+test('mining: a tuned laser never overheats; a mistuned one locks out and the hint counts down', async ({page}) => {
+  test.setTimeout(180_000);
+  const problems = await launch(page, {}, '?dev');
+  await flyTo(page, 'Belt One');
+  await selectTarget(page, /Asteroid/);
+  await page.keyboard.press('l');
+  await expect.poll(() => targetPanel(page), {timeout: 30_000}).toMatch(/Locked/);
+  await tuneLaser(page);
+  const before = (await readSave(page))!.cargoFerrite ?? 0;
+  await page.keyboard.press('1');
+  // A matched laser used to reach 100% heat after about 20 s (two cycles).
+  const states: string[] = [];
+  for (let i = 0; i < 32; i++) {
+    states.push(await mineState(page));
+    await page.waitForTimeout(1000);
+  }
+  expect(states.filter((s) => /OVERHEAT/.test(s)), `Mine button over 32 s: ${states.join(' | ')}`).toEqual([]);
+  await expect.poll(async () => ((await readSave(page))!.cargoFerrite ?? 0) - before, {timeout: 15_000}).toBeGreaterThanOrEqual(100);
+
+  // Dev key 6 sets the heat to 95%; one step off the rock's frequency tips it over.
+  await page.keyboard.press('6');
+  const f = (await page.innerText('body')).match(/FREQ\s+(\d)\s*\/\s*(\d)/)!;
+  await page.keyboard.press(Number(f[1]) > 1 ? '[' : ']');
+  await expect.poll(() => mineState(page), {timeout: 15_000}).toMatch(/OVERHEAT/);
+  await expect(page.getByText(/Laser overheated: cooling for \ds/)).toBeVisible();
   expectClean(problems);
 });

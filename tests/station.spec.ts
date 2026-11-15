@@ -1,5 +1,5 @@
 import {expect, test, type Page} from '@playwright/test';
-import {enterGame, expectClean, openWithSave, readSave, RICH, settle, watch} from './helpers';
+import {enterGame, expectClean, expectTitle, openWithSave, readSave, RICH, settle, watch} from './helpers';
 
 const STOCKED = {
   ...RICH,
@@ -66,6 +66,29 @@ test('market: sell all empties every ore stack', async ({page}) => {
   expect(after.cargoAurite).toBe(0);
   expect(after.cargoChromite).toBe(0);
   expect(after.marks).toBeGreaterThan(before.marks);
+  expectClean(problems);
+});
+
+test('market: a bought Expanded Hold still holds 1,100 m³ after a reload', async ({page}) => {
+  const problems = await docked(page, {...RICH, milestoneIndustrialistClaimed: true});
+  await page.keyboard.press('1');
+  await expect(page.getByText('Sell cargo')).toBeVisible();
+  // The innermost box holding both the name and a Buy button is the module's card.
+  const card = page.locator('div', {hasText: 'Expanded Hold', has: page.getByRole('button', {name: 'Buy'})}).last();
+  await card.getByRole('button', {name: 'Buy'}).click();
+  await expect(page.getByText(/\/1100m³/)).toBeVisible();
+  await expect.poll(async () => (await readSave(page))!.cargoMax).toBe(1100);
+
+  // The loader used to work the hold out before the fitted modules were back.
+  await page.reload();
+  await expectTitle(page);
+  await page.keyboard.press('Enter');
+  await expect(page.getByText('Docked · safe')).toBeVisible();
+  await expect(page.getByText(/\/1100m³/)).toBeVisible();
+  await page.waitForTimeout(6000); // past one autosave, which would write a wrong value back
+  const save = (await readSave(page))!;
+  expect(save.cargoMax).toBe(1100);
+  expect(save.fittedSlots.slot2CargoExpander).toBe(true);
   expectClean(problems);
 });
 

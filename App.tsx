@@ -1951,6 +1951,19 @@ export const MISSIONS_LIST: MissionDef[] = [
   },
 ];
 
+/** True when an accepted Osk contract's work is done and only the turn-in at the Agent is left. */
+export function contractObjectiveMet(
+  missionIndex: number,
+  missionStatus: MissionStatus,
+  missionPirateKills: number,
+  cargoFerrite: number,
+): boolean {
+  const cur = MISSIONS_LIST[missionIndex];
+  if (!cur || (missionStatus !== 'active' && missionStatus !== 'ready_to_turn_in')) return false;
+  if (cur.type === 'delivery_ore') return cargoFerrite >= cur.targetAmount;
+  return missionStatus === 'ready_to_turn_in' || missionPirateKills >= cur.targetAmount;
+}
+
 export const DOCK_OFFICER_LINES = [
   "Welcome to Harrow Station, Captain. Dock clamps locked green. Try not to scratch the paint.",
   "Exchange desk is buying Ferrite Ore at 12 MARKS a unit today. Standard tariff applies.",
@@ -1996,7 +2009,9 @@ const ASSETS_MANIFEST: Record<string, string> = {
   module_mining_laser_icon: 'assets/images/module_mining_laser_icon.png',
   module_shield_booster_icon: 'assets/images/module_shield_booster_icon.png',
   module_cargo_expander_icon: 'assets/images/module_cargo_expander_icon.png',
-  dock_officer: 'assets/images/dock_officer.png',
+  // The full 8192x1792 sheets dock_officer.png and mission_agent_osk.png are not
+  // preloaded: nothing draws them (the _idle and _teal sheets are drawn), and
+  // the title screen waits for every image here to load and decode.
   dock_officer_idle: 'assets/images/dock_officer_idle.png',
   dock_officer_teal: 'assets/images/dock_officer_teal.png',
   player_captain_idle: 'assets/images/player_captain_idle.png',
@@ -2004,7 +2019,6 @@ const ASSETS_MANIFEST: Record<string, string> = {
   pirate_ship: 'assets/images/pirate_ship.png',
   pirate_ship_vael: 'assets/images/pirate_ship_vael.png',
   module_cannon_icon: 'assets/images/module_cannon_icon.png',
-  mission_agent_osk: 'assets/images/mission_agent_osk.png',
   mission_agent_osk_idle: 'assets/images/mission_agent_osk_idle.png',
   ship_wreck_debris: 'assets/images/ship_wreck_debris.png',
   milestone_badge: 'assets/images/milestone_badge.png',
@@ -7542,6 +7556,9 @@ export default function App() {
 
       setUpgrades(loadedUpgrades);
       setFittedSlots(loadedFittedSlots);
+      // applyHullLayout() below works out the hold size from this ref; the
+      // render that would copy the state into it comes too late.
+      fittedSlotsRef.current = loadedFittedSlots;
 
       const loadedSkills: SkillsState = {
         mining: data.skills?.mining ?? 0,
@@ -14234,6 +14251,18 @@ export default function App() {
     }
 
     if (missionStatus === 'active' || missionStatus === 'ready_to_turn_in') {
+      const cur = MISSIONS_LIST[missionIndex];
+      if (cur && contractObjectiveMet(missionIndex, missionStatus, missionPirateKills, cargoFerrite)) {
+        // The work is done; the pay is waiting at the Agent terminal.
+        return {
+          goalPrefix: 'Current goal:',
+          mainText: `Return to Agent Osk for ${cur.rewardMarks.toLocaleString()} MARKS`,
+          progressCount: undefined,
+          goalText: `Current goal: Return to Agent Osk for ${cur.rewardMarks.toLocaleString()} MARKS`,
+          hintText: `Goal: Dock at Harrow Station Alpha and turn in "${cur.title}" at the Agent terminal [4].`,
+          badgeColor: '#7DDC6F',
+        };
+      }
       if (missionIndex === 0) {
         const prog = `(${Math.min(200, cargoFerrite)}/200)`;
         return {
@@ -14248,10 +14277,10 @@ export default function App() {
       if (missionIndex === 1) {
         return {
           goalPrefix: 'Current goal:',
-          mainText: 'Recover Gate Key at Belt Two',
+          mainText: 'Destroy the pirate at Belt Two',
           progressCount: undefined,
-          goalText: 'Current goal: Recover Gate Key at Belt Two',
-          hintText: 'Goal: Destroy the pirate frigate at Belt Two to recover the Gate Key for Agent Osk.',
+          goalText: 'Current goal: Destroy the pirate at Belt Two',
+          hintText: 'Goal: Warp to Belt Two, select the Pirate Frigate in the Overview and fire on it [2].',
           badgeColor: '#FFB547',
         };
       }
@@ -18127,7 +18156,10 @@ export default function App() {
 
           if (d === 0) {
             rock.strain = Math.max(0, (rock.strain || 0) - 10.0 * dt);
-            heatRate = 5.0;
+            // A laser tuned to the rock never overheats: it sheds heat while it
+            // cuts (slower than the 15/s of an idle laser). Only a mistuned laser
+            // builds heat, so tuning is what keeps the laser running.
+            heatRate = -5.0;
           } else if (d === 1) {
             rock.strain = (rock.strain || 0) + 8.0 * (1 + prevHeat / 100) * dt;
             heatRate = 6.5;
@@ -18136,7 +18168,7 @@ export default function App() {
             heatRate = 8.0;
           }
 
-          laserHeatRef.current = Math.min(100, prevHeat + heatRate * dt);
+          laserHeatRef.current = Math.max(0, Math.min(100, prevHeat + heatRate * dt));
 
           const isProtectedTutorialRock = tutorialRockIdRef.current === rock.id && !miningFirstYieldDoneRef.current && !tutorialDone;
           if (isProtectedTutorialRock) {
@@ -37250,6 +37282,7 @@ export default function App() {
         );
 
         const distToAnchorKm = Math.hypot(p.x - OUTPOST_ANCHOR.x, p.y - OUTPOST_ANCHOR.y) / PIXELS_PER_KM;
+        const contractDone = tutorialDone && contractObjectiveMet(missionIndex, missionStatus, missionPirateKills, cargoFerrite);
 
         if (!tutorialDone) {
           if (tutorialStep === 3) {
@@ -37278,9 +37311,15 @@ export default function App() {
         } else if (nearbyWreck) {
           currentHintText = "Wreck in range: Press Open Wreck [E] to salvage";
         } else if (edgeDistKm <= 2.0) {
-          currentHintText = "Station in range: Press Dock [F]";
+          currentHintText = contractDone
+            ? "Station in range: Dock [F], then turn in the contract at the Agent [4]"
+            : "Station in range: Press Dock [F]";
+        } else if (contractDone) {
+          currentHintText = "Contract done: warp to Harrow Station Alpha [M] and turn it in at the Agent [4]";
         } else if (p.miningLaserActive) {
           currentHintText = "Mining laser active: cycling (10s)...";
+        } else if (lockoutRemainingSec > 0) {
+          currentHintText = `Laser overheated: cooling for ${lockoutRemainingSec}s. Tune [ / ] to the rock's FREQ to stop it overheating`;
         } else if (lockedAst && !p.miningLaserActive) {
           currentHintText = "Target locked: Press Mine [1] to start laser cycle";
         } else if ((selectedAst && !lockedTargetId) || (!lockedTargetId && nearestAstDist <= 450)) {

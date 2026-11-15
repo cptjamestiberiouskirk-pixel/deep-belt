@@ -53,7 +53,7 @@ Format, checked by `node dev/lessons.mjs --check`. A field's text may go on over
 - Why: `cargoMax` is saved and loaded as is, not worked out from the hull on load. The seed patched the hull and left the hold size from the fresh save.
 - Rule going forward: a seeded save sets every saved value that follows from the one it changes, such as `cargoMax` with `activeHull`.
 - Evidence: `tests/lategame.spec.ts`, search "The hold size is saved as is".
-- Status: open
+- Status: closed: the game works the hold size out from the hull and fitted modules on every load, so a seeded cargoMax is overwritten (a Gantry seeded with 600 loads as 2000, probe of 2026-11-15); the Why above was wrong, and a mismatched seed no longer matters
 
 ## 2026-11-15: A right-click aimed at the canvas landed on a side panel
 - What went wrong: the pointer test right-clicked 400 px right of the ship to set a waypoint; the ship never moved, because the point was under the Overview panel.

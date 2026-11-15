@@ -30,12 +30,24 @@ export function expectClean(problems: Problems) {
   expect(problems.external, 'requests to other origins').toEqual([]);
 }
 
+/**
+ * The title screen appears only after every image has loaded and decoded. With
+ * 8 workers loading at once that took over 15 s (PLAYBOOK "Tests that time out"),
+ * so a wait for it after a page load allows a minute.
+ */
+export const TITLE_TIMEOUT = 60_000;
+
+/** Waits for the title screen after a page load. */
+export async function expectTitle(page: Page) {
+  await expect(page.getByTestId('start-game-btn')).toBeVisible({timeout: TITLE_TIMEOUT});
+}
+
 /** Opens the title screen with no save data. */
 export async function openFresh(page: Page) {
   await page.goto('/');
   await page.evaluate(() => localStorage.clear());
   await page.reload();
-  await expect(page.getByTestId('start-game-btn')).toBeVisible();
+  await expectTitle(page);
 }
 
 /**
@@ -59,12 +71,12 @@ export async function openWithSave(page: Page, patch: Record<string, unknown>, q
   );
   if (query) await page.goto(`/${query}`);
   else await page.reload();
-  await expect(page.getByTestId('start-game-btn')).toBeVisible();
+  await expectTitle(page);
 }
 
 /** Starts or continues from the title screen and waits for the docked view. */
 export async function enterGame(page: Page) {
-  await expect(page.getByTestId('start-game-btn')).toBeVisible();
+  await expectTitle(page);
   await page.keyboard.press('Enter');
   await expect(page.getByTestId('start-game-btn')).toBeHidden();
   await expect(page.getByText('Docked · safe')).toBeVisible();

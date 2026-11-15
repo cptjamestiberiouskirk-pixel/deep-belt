@@ -2,6 +2,7 @@ import {expect, test, type Page} from '@playwright/test';
 import {
   enterGame,
   expectClean,
+  expectTitle,
   flyTo,
   launch,
   mineUntil,
@@ -29,7 +30,7 @@ async function docked(page: Page, patch: Record<string, unknown>) {
 
 async function reloadAndContinue(page: Page) {
   await page.reload();
-  await expect(page.getByTestId('start-game-btn')).toBeVisible();
+  await expectTitle(page);
   await page.keyboard.press('Enter');
   await expect(page.getByTestId('start-game-btn')).toBeHidden();
 }
@@ -296,7 +297,7 @@ test('flagship: the Gantry hold refit raises the hold to 2,500 m³ and survives 
   const problems = await docked(page, {
     ownedHulls: ['ferrier', 'gantry'],
     activeHull: 'gantry',
-    // The hold size is saved as is, not worked out from the hull on load.
+    // Matches the hull, so the save read before the first autosave agrees.
     cargoMax: 2000,
     cargoPolymerComposite: 4,
     cargoIntegritySeal: 1,
@@ -614,11 +615,15 @@ test('rift: stage 3 sentinel and Warden fall, and the collapse gate extracts the
   test.setTimeout(420_000);
   // `\` skips a stage only in a ?dev build; stages 1 and 2 are covered by the tests above.
   const problems = await enterRift(page, '?dev');
+  // Each press moves the run one stage on. Check the page, which shows the new
+  // stage at once: the save trails by up to one autosave (~5 s), and a press
+  // repeated before it caught up skipped a stage too far.
   for (const stage of [2, 3]) {
     await pressUntil(page, '\\', async () => {
-      await expect.poll(async () => (await readSave(page))!.riftRun?.stage, {timeout: 3000}).toBe(stage);
+      await expect(page.getByText(`Advanced to Stage ${stage} -`).first()).toBeVisible({timeout: 3000});
     });
   }
+  await expect.poll(async () => (await readSave(page))!.riftRun?.stage, {timeout: 20_000}).toBe(3);
   await expect(page.getByText(/Advanced to Stage 3 - Core Breach/).first()).toBeVisible();
   await pressUntil(page, 'p', async () => {
     await expect(page.getByText('Rift Pulse: Stage objectives revealed').first()).toBeVisible({timeout: 2000});

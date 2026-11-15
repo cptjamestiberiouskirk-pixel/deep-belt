@@ -1,11 +1,28 @@
 import {expect, test} from '@playwright/test';
-import {enterGame, expectClean, openFresh, openWithSave, readSave, RICH, undock, watch} from './helpers';
+import {enterGame, expectClean, openFresh, openWithSave, readSave, RICH, undock, watch, expectTitle} from './helpers';
 
 test('title screen loads clean with no save', async ({page}) => {
   const problems = watch(page);
   await openFresh(page);
   await expect(page.getByText('Mine ore. Haul it home.')).toBeVisible();
   await expect(page.getByTestId('new-game-btn')).toHaveCount(0);
+  expectClean(problems);
+});
+
+test('the title screen does not wait for images over 1 MB', async ({page}) => {
+  const problems = watch(page);
+  const images: Array<{url: string; bytes: number}> = [];
+  page.on('response', async (r) => {
+    if (!/\.(png|jpe?g|webp)$/.test(new URL(r.url()).pathname)) return;
+    const bytes = Number(r.headers()['content-length'] ?? (await r.body().catch(() => Buffer.alloc(0))).length);
+    images.push({url: r.url().split('/').pop()!, bytes});
+  });
+  await openFresh(page);
+  // The full portrait sheets (8192x1792, about 3.7 MB each) were preloaded but never drawn.
+  expect(images.map((i) => i.url)).not.toContain('dock_officer.png');
+  expect(images.map((i) => i.url)).not.toContain('mission_agent_osk.png');
+  expect(images.filter((i) => i.bytes > 1_000_000)).toEqual([]);
+  expect(images.length, 'no images were seen loading').toBeGreaterThan(20);
   expectClean(problems);
 });
 
@@ -25,6 +42,7 @@ test('a save made in space resumes in space', async ({page}) => {
   await undock(page);
   await expect.poll(async () => (await readSave(page))!.isDocked).toBe(false);
   await page.reload();
+  await expectTitle(page);
   await page.keyboard.press('Enter');
   await expect(page.getByText('Overview', {exact: true})).toBeVisible();
   await expect(page.getByText('Docked · safe')).toBeHidden();
@@ -36,6 +54,7 @@ test('quitting training at step one and continuing still allows an undock', asyn
   await openFresh(page);
   await enterGame(page);
   await page.reload();
+  await expectTitle(page);
   await page.keyboard.press('Enter');
   await expect(page.getByText('Docked · safe')).toBeVisible();
   await undock(page);
@@ -72,7 +91,7 @@ test('help and the game menu open and close', async ({page}) => {
 
   await page.getByTestId('menu-button').click();
   await page.getByRole('button', {name: /^Quit/}).click();
-  await expect(page.getByTestId('start-game-btn')).toBeVisible();
+  await expectTitle(page);
   await expect(page.getByText(/Resume saved session/)).toBeVisible();
   expectClean(problems);
 });
