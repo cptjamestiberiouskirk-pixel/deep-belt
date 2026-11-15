@@ -1,5 +1,6 @@
 import {cpSync} from 'node:fs';
 import {resolve} from 'node:path';
+import tailwindcss from '@tailwindcss/vite';
 import {defineConfig, type Plugin} from 'vite';
 
 /**
@@ -35,5 +36,5 @@ export default defineConfig({
     // would otherwise be inlined and blocked.
     assetsInlineLimit: 0,
   },
-  plugins: [copyGameAssets()],
+  plugins: [tailwindcss(), copyGameAssets()],
 });

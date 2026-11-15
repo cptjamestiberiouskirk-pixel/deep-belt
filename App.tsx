@@ -7714,6 +7714,17 @@ export default function App() {
         setDockedStationId(data.dockedStationId);
         dockedStationIdRef.current = data.dockedStationId;
       }
+      // Resume where the pilot left off: inside the station if they saved while
+      // docked. Saves from before this field existed only stored a docked pilot
+      // reliably at the very first training step, so treat that case as docked.
+      const wasDocked =
+        typeof data.isDocked === 'boolean'
+          ? data.isDocked
+          : !data.tutorialDone && (data.tutorialStep ?? 0) === 0;
+      setIsDocked(wasDocked);
+      if (wasDocked) {
+        setStationTab('DOCK');
+      }
       if (typeof data.missionIndex === 'number') {
         setMissionIndex(data.missionIndex);
         missionIndexRef.current = data.missionIndex;
@@ -7985,6 +7996,7 @@ export default function App() {
         outpost: { deployed: outpostDeployedRef.current },
         outpostDeployed: outpostDeployedRef.current,
         dockedStationId: dockedStationIdRef.current,
+        isDocked,
         cargoMax,
         upgrades,
         fittedSlots,
@@ -8045,7 +8057,7 @@ export default function App() {
       };
       localStorage.setItem(SAVE_SESSION_STORAGE_KEY, JSON.stringify(data));
     } catch (e) {}
-  }, [currentSystem, marks, cargoFerrite, cargoRare, cargoAurite, cargoChromite, cargoPyrox, cargoScrap, cargoTritanium, cargoAuriteConc, cargoChromiteBar, cargoPyroxite, cargoHullPlate, cargoThrusterCoil, cargoSensorCore, cargoLatticeAlloy, cargoConductiveMesh, cargoThermalAlloy, cargoQuantumCore, cargoIntegritySeal, cargoThermalGrid, cargoPrismite, cargoNimbus, cargoRadflux, cargoPackedPrismite, cargoPackedNimbus, cargoPackedRadflux, cargoSilicateLens, cargoMetallicLens, cargoExoticLens, cargoExtractDrone, cargoDefenseDrone, cargoSalvageDrone, cargoCommandHub, cargoPolymer, cargoChemical, cargoPolymerComposite, cargoRiftSync, cargoPristinePrismite, cargoPristineNimbus, cargoPristineRadflux, riftRun, riftStats, gantryRefit, colonies, colonySaveCount, cargoStationCore, outpostDeployed, outpostModules, outpostStorage, dockedStationId, cargoMax, upgrades, fittedSlots, hullLayouts, skills, trainingQueue, missionIndex, missionStatus, missionPirateKills, hasGatePermit, beltRunActive, activeHaulContractId, tutorialDone, tutorialStep, tutorialBonusClaimed, milestoneIndustrialistClaimed, ashDriftVisited, hasProbeLauncher, firstCacheOpened, capBatteryInstalled, capBatteryCount, agentStanding, chartTheDriftStatus, ownedHulls, activeHull, activeFabricate, schematicLevels, activeResearch, dataCache, shipCapacitor, scanCooldownSec, laserFreq, fittedLens, lensCharges]);
+  }, [isDocked, currentSystem, marks, cargoFerrite, cargoRare, cargoAurite, cargoChromite, cargoPyrox, cargoScrap, cargoTritanium, cargoAuriteConc, cargoChromiteBar, cargoPyroxite, cargoHullPlate, cargoThrusterCoil, cargoSensorCore, cargoLatticeAlloy, cargoConductiveMesh, cargoThermalAlloy, cargoQuantumCore, cargoIntegritySeal, cargoThermalGrid, cargoPrismite, cargoNimbus, cargoRadflux, cargoPackedPrismite, cargoPackedNimbus, cargoPackedRadflux, cargoSilicateLens, cargoMetallicLens, cargoExoticLens, cargoExtractDrone, cargoDefenseDrone, cargoSalvageDrone, cargoCommandHub, cargoPolymer, cargoChemical, cargoPolymerComposite, cargoRiftSync, cargoPristinePrismite, cargoPristineNimbus, cargoPristineRadflux, riftRun, riftStats, gantryRefit, colonies, colonySaveCount, cargoStationCore, outpostDeployed, outpostModules, outpostStorage, dockedStationId, cargoMax, upgrades, fittedSlots, hullLayouts, skills, trainingQueue, missionIndex, missionStatus, missionPirateKills, hasGatePermit, beltRunActive, activeHaulContractId, tutorialDone, tutorialStep, tutorialBonusClaimed, milestoneIndustrialistClaimed, ashDriftVisited, hasProbeLauncher, firstCacheOpened, capBatteryInstalled, capBatteryCount, agentStanding, chartTheDriftStatus, ownedHulls, activeHull, activeFabricate, schematicLevels, activeResearch, dataCache, shipCapacitor, scanCooldownSec, laserFreq, fittedLens, lensCharges]);
 
   // Master Industrialist milestone threshold trigger (>= 1,000 MARKS)
   useEffect(() => {

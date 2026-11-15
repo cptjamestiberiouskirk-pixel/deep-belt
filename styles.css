@@ -1,0 +1,7 @@
+/*
+ * The game's panels mix inline styles with Tailwind utility classes
+ * (flex, items-center, text-[#2EC4B6], ...). Tailwind scans the source for
+ * the classes in use and emits only those, plus its base reset, which the
+ * layouts were written against.
+ */
+@import 'tailwindcss';

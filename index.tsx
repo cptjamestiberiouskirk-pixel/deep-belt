@@ -1,5 +1,6 @@
 import {createRoot} from 'react-dom/client';
 import App from './App';
+import './styles.css';
 
 // Fonts are bundled with the game so it needs no network access to look right.
 // Only the weights the game uses are included.
