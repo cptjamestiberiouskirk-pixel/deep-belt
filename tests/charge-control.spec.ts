@@ -10,7 +10,7 @@ import {MODULES} from '../content/modules';
 const BASE = {...RICH, milestoneIndustrialistClaimed: true};
 // The four skills a save had before step 7: Charge Control is missing and loads at 0.
 const OLD_SKILLS = (gunnery: number) => ({mining: 0, gunnery, shieldOp: 0, navigation: 0});
-const ZERO = {mining: 0, gunnery: 0, chargeControl: 0, shieldOp: 0, navigation: 0, cargoTrim: 0};
+const ZERO = {mining: 0, laserTuning: 0, gunnery: 0, chargeControl: 0, shieldOp: 0, navigation: 0, cargoTrim: 0};
 
 test('catalog: Charge Control is a rank 2 Gunnery skill after Gunnery III, cutting 8% Cap a level', () => {
   expect(SKILLS.chargeControl).toEqual({
@@ -51,16 +51,14 @@ test('skills screen: before Gunnery III, Charge Control says what it needs and E
   await expect(gunnery).toContainText('Needs: Gunnery III');
   await expect(gunnery.getByRole('button', {name: 'NEEDS GUNNERY III'})).toBeDisabled();
 
-  // Keyboard order is Mining, Gunnery, Charge Control: Enter on the third is refused.
-  await page.keyboard.press('ArrowDown');
-  await page.keyboard.press('ArrowDown');
+  // Keyboard order is Mining, Laser Tuning, Gunnery, Charge Control: Enter on the fourth is refused.
+  for (let i = 0; i < 3; i++) await page.keyboard.press('ArrowDown');
   await settle(page);
   await page.keyboard.press('Enter');
   await page.waitForTimeout(6000); // past one autosave
   expect((await readSave(page))!.trainingQueue).toEqual([]);
   // The keys work: back up to Mining, and Enter queues it.
-  await page.keyboard.press('ArrowUp');
-  await page.keyboard.press('ArrowUp');
+  for (let i = 0; i < 3; i++) await page.keyboard.press('ArrowUp');
   await page.keyboard.press('Enter');
   await expect.poll(async () => (await readSave(page))!.trainingQueue.map((q: {skillId: string}) => q.skillId)).toEqual(['mining']);
   expectClean(problems);

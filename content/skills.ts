@@ -4,7 +4,7 @@
 //
 // The bonus each level gives stays in App.tsx's SKILL_DEFINITIONS for now.
 
-export type SkillId = 'mining' | 'gunnery' | 'chargeControl' | 'shieldOp' | 'navigation' | 'cargoTrim';
+export type SkillId = 'mining' | 'laserTuning' | 'gunnery' | 'chargeControl' | 'shieldOp' | 'navigation' | 'cargoTrim';
 export type SkillCategory = 'Extraction' | 'Gunnery' | 'Defense' | 'Navigation' | 'Industry' | 'Science';
 
 export interface SkillDef {
@@ -21,6 +21,8 @@ export const SKILL_CATEGORY_ORDER: SkillCategory[] = ['Extraction', 'Gunnery', '
 
 export const SKILLS: Record<SkillId, SkillDef> = {
   mining: {id: 'mining', name: 'Mining', category: 'Extraction', rank: 1, prerequisites: []},
+  // Step 10: a shorter mining cycle, so ore comes faster. Rank 2, after Mining III.
+  laserTuning: {id: 'laserTuning', name: 'Laser Tuning', category: 'Extraction', rank: 2, prerequisites: [{skill: 'mining', level: 3}]},
   gunnery: {id: 'gunnery', name: 'Gunnery', category: 'Gunnery', rank: 1, prerequisites: []},
   // Step 7, the first new skill: less Cap per weapon shot, so a weapon keeps
   // firing while a shield booster runs. Rank 2, after Gunnery III.
@@ -39,6 +41,14 @@ export function skillLevels(saved: unknown): Record<SkillId, number> {
   return Object.fromEntries(
     SKILL_IDS.map((id) => [id, typeof from[id] === 'number' ? (from[id] as number) : 0]),
   ) as Record<SkillId, number>;
+}
+
+/** Laser Tuning: each level cuts the mining cycle by this share. */
+export const LASER_TUNING_CUT = 0.04;
+
+/** A mining cycle in seconds at a Laser Tuning level, to 0.1 s: the MK1's 10 s is 8 s at level 5. */
+export function minerCycleAt(baseSec: number, laserTuningLevel: number): number {
+  return Math.round(baseSec * (1 - LASER_TUNING_CUT * laserTuningLevel) * 10) / 10;
 }
 
 /** Charge Control: each level cuts a weapon shot's Cap by this share. */

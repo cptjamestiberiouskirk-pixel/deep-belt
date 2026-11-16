@@ -1,7 +1,7 @@
 import {appendFileSync, mkdirSync} from 'node:fs';
 import {dirname} from 'node:path';
 import {expect, test, type Page} from '@playwright/test';
-import {enterGame, flyTo, openWithSave, RICH, targetPanel, undock, warpTo} from './helpers';
+import {enterGame, flyTo, openWithSave, RICH, selectTarget, targetPanel, tuneLaser, undock, warpTo} from './helpers';
 
 // Balance probe (design/content-tree.md rule 5: tuning is measured). It plays
 // the production build and records numbers the screen doesn't show, through
@@ -20,13 +20,13 @@ function record(row: Record<string, unknown>) {
   appendFileSync(OUT, JSON.stringify(row) + '\n');
 }
 
-type Player = {speed: number; capacitor: number; maxCapacitor: number; shield: number; armor: number; hull: number; warpState: string; cannonActive: boolean; boosterActive: boolean};
+type Player = {speed: number; capacitor: number; maxCapacitor: number; shield: number; armor: number; hull: number; warpState: string; cannonActive: boolean; boosterActive: boolean; miningActive: boolean; miningTimer: number};
 type Pirate = {isAlive: boolean; shield: number; armor: number; hull: number; speed: number};
 const player = (page: Page) => page.evaluate(() => (window as any).__DEEP_BELT_PROBE__.player() as Player);
 const pirate = (page: Page) => page.evaluate(() => (window as any).__DEEP_BELT_PROBE__.pirate() as Pirate);
 
 const BASE = {...RICH, milestoneIndustrialistClaimed: true};
-const skills = (s: Record<string, number>) => ({skills: {mining: 0, gunnery: 0, chargeControl: 0, shieldOp: 0, navigation: 0, cargoTrim: 0, ...s}});
+const skills = (s: Record<string, number>) => ({skills: {mining: 0, laserTuning: 0, gunnery: 0, chargeControl: 0, shieldOp: 0, navigation: 0, cargoTrim: 0, ...s}});
 const fitting = (fitted: Array<string | null>) => ({fitting: {hangar: {}, fitted, loadouts: {}}});
 const PLAIN = ['miner_mk1', null, null, 'light_cannon'];
 const BULK = ['miner_mk1', 'bulk_hold', null, 'light_cannon'];
@@ -139,5 +139,35 @@ for (const f of FIGHTS) {
       boosterStillOn: p.boosterActive,
       pirateTopSpeed: Math.round(pirateTop),
     });
+  });
+}
+
+// --- Mining cycle: seconds per laser cycle in flight, from the probe's mining timer.
+for (const lt of [0, 5]) {
+  test(`mining cycle: Miner MK1, Laser Tuning ${lt}`, async ({page}) => {
+    test.setTimeout(120_000);
+    await openWithSave(page, {...BASE, ...skills({mining: 3, laserTuning: lt})});
+    await enterGame(page);
+    await undock(page);
+    await flyTo(page, 'Belt One');
+    await selectTarget(page, /Asteroid/);
+    await page.keyboard.press('l');
+    await expect.poll(() => targetPanel(page), {timeout: 30_000}).toMatch(/Locked/);
+    await tuneLaser(page);
+    // The timer counts up through a cycle and drops back at its end; keep each peak.
+    await page.evaluate(() => {
+      const w = ((window as any).__probeMine = {peaks: [] as number[], last: 0});
+      const tick = () => {
+        const t = (window as any).__DEEP_BELT_PROBE__.player().miningTimer as number;
+        if (t < w.last - 1) w.peaks.push(w.last);
+        w.last = t;
+        if (w.peaks.length < 2) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    });
+    await page.keyboard.press('1');
+    await expect.poll(() => page.evaluate(() => (window as any).__probeMine.peaks.length), {timeout: 40_000}).toBeGreaterThanOrEqual(1);
+    const peaks = await page.evaluate(() => (window as any).__probeMine.peaks as number[]);
+    record({probe: 'mining cycle', case: `Miner MK1, Laser Tuning ${lt}`, cycleSec: Math.round(peaks[0] * 10) / 10});
   });
 }

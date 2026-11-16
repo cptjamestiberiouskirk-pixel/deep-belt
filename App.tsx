@@ -119,7 +119,7 @@ import {MARKET_MODULE_IDS, MODULES, minerFor, missingSkill, type ModuleId} from 
 import type {SlotType} from './content/types';
 import {LENSES, LENS_IDS, lensBonusLabel} from './content/lenses';
 import {readItem} from './content/inventory';
-import {CARGO_TRIM_CUT, CHARGE_CONTROL_CUT, effectiveLoad, prerequisiteText, SKILL_CATEGORY_ORDER, skillLevels, SKILLS, unmetPrerequisites, weaponCapPerShot} from './content/skills';
+import {CARGO_TRIM_CUT, CHARGE_CONTROL_CUT, effectiveLoad, LASER_TUNING_CUT, minerCycleAt, prerequisiteText, SKILL_CATEGORY_ORDER, skillLevels, SKILLS, unmetPrerequisites, weaponCapPerShot} from './content/skills';
 import {FULL_HOLD_THRUST_CUT, flightLimits, topSpeed} from './content/flight';
 import {
   buy as buyModule,
@@ -1391,6 +1391,14 @@ export const SKILL_DEFINITIONS: SkillDefinition[] = [
     description: '+10% ore per laser cycle per level',
     getBonusText: (level: number) =>
       `+${level * 10}% ore yield (${Math.round(50 * (1 + 0.1 * level))} ore/cycle)`,
+  },
+  {
+    id: 'laserTuning',
+    name: 'Laser Tuning',
+    category: SKILLS.laserTuning.category,
+    description: `-${Math.round(LASER_TUNING_CUT * 100)}% mining cycle time per level`,
+    getBonusText: (level: number) =>
+      `-${Math.round(LASER_TUNING_CUT * 100 * level)}% cycle time (Miner MK1: ${minerCycleAt(MODULES.miner_mk1.stats.cycleSec ?? 10, level).toFixed(1)} s)`,
   },
   {
     id: 'gunnery',
@@ -5309,7 +5317,8 @@ export default function App() {
   // The mining laser in slot 1: its catalog yield and cycle drive mining.
   const minerRef = useRef(minerFor(upgrades.laserMk2));
   minerRef.current = minerFor(upgrades.laserMk2);
-  const minerCycleSec = () => minerRef.current.stats.cycleSec ?? 10;
+  // Laser Tuning shortens it (content/skills.ts minerCycleAt).
+  const minerCycleSec = () => minerCycleAt(minerRef.current.stats.cycleSec ?? 10, skillsRef.current.laserTuning || 0);
   // Yield against the MK1's: 1.5 for the MK2 (+50%), on every ore type.
   const minerYieldMult = () => (minerRef.current.stats.oreYield ?? 50) / (MODULES.miner_mk1.stats.oreYield ?? 50);
   // The fitted weapon and shield booster: their catalog stats drive combat. Each falls
@@ -6138,7 +6147,7 @@ export default function App() {
     (window as any).__DEEP_BELT_PROBE__ = {
       player: () => {
         const p = playerRef.current;
-        return {speed: Math.hypot(p.vx, p.vy), capacitor: p.capacitor, maxCapacitor: p.maxCapacitor, shield: p.shield, armor: p.armor, hull: p.hull, warpState: p.warpState, cannonActive: p.cannonActive, boosterActive: p.shieldBoosterActive};
+        return {speed: Math.hypot(p.vx, p.vy), capacitor: p.capacitor, maxCapacitor: p.maxCapacitor, shield: p.shield, armor: p.armor, hull: p.hull, warpState: p.warpState, cannonActive: p.cannonActive, boosterActive: p.shieldBoosterActive, miningActive: p.miningLaserActive, miningTimer: p.miningTimer};
       },
       pirate: () => {
         const q = pirateRef.current;
@@ -31302,7 +31311,7 @@ export default function App() {
                               <div style={statRowStyle}>
                                 <span style={statLabelStyle}>Mining cycle</span>
                                 <span style={statValueStyle}>
-                                  {fittedSlots.slot1MiningLaser ? `${(minerFor(upgrades.laserMk2).stats.cycleSec ?? 0).toFixed(1)} s` : 'None'}
+                                  {fittedSlots.slot1MiningLaser ? `${minerCycleAt(minerFor(upgrades.laserMk2).stats.cycleSec ?? 0, skills.laserTuning || 0).toFixed(1)} s` : 'None'}
                                 </span>
                               </div>
 
