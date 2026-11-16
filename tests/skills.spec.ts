@@ -6,13 +6,16 @@ import {prerequisiteText, SKILL_CATEGORY_ORDER, SKILLS, unmetPrerequisites, type
 // prerequisites (4.5). The four existing skills are rank 1 with none, so their
 // times and costs do not change.
 
-test('skills model: the four skills are rank 1 with no prerequisites, one per category', () => {
-  for (const def of Object.values(SKILLS)) {
+test('skills model: the four first skills are rank 1 with no prerequisites, one per category', () => {
+  // Charge Control (step 7, tests/charge-control.spec.ts) is the first that is not.
+  const firstFour = [SKILLS.mining, SKILLS.gunnery, SKILLS.shieldOp, SKILLS.navigation];
+  for (const def of firstFour) {
     expect(def.rank, def.id).toBe(1);
     expect(def.prerequisites, def.id).toEqual([]);
     expect(SKILL_CATEGORY_ORDER).toContain(def.category);
   }
-  expect(Object.values(SKILLS).map((d) => d.category)).toEqual(['Extraction', 'Gunnery', 'Defense', 'Navigation']);
+  expect(firstFour.map((d) => d.category)).toEqual(['Extraction', 'Gunnery', 'Defense', 'Navigation']);
+  expect(SKILLS.chargeControl.category).toBe('Gunnery');
 });
 
 test('skills model: a prerequisite counts as met only at its level', () => {
@@ -46,7 +49,8 @@ test('skills: the Skills screen has a header per category, and training time and
   ]);
   await expect(page.getByTestId('skill-category-Extraction')).toContainText('MINING');
   await expect(page.getByTestId('skill-category-Defense')).toContainText('SHIELD OPERATION');
-  await expect(page.getByText(/^Needs:/)).toHaveCount(0);
+  // Only Charge Control has a prerequisite.
+  await expect(page.getByText(/^Needs:/)).toHaveCount(1);
   await expect(page.getByTestId('skill-category-Extraction')).toContainText('LVL I (100 MARKS • 1:00)');
 
   // Enter trains the first skill: level 1 is 60 s for 100 MARKS, as before.

@@ -119,7 +119,7 @@ import {MARKET_MODULE_IDS, MODULES, minerFor, missingSkill, type ModuleId} from 
 import type {SlotType} from './content/types';
 import {LENSES, LENS_IDS, lensBonusLabel} from './content/lenses';
 import {readItem} from './content/inventory';
-import {prerequisiteText, SKILL_CATEGORY_ORDER, SKILLS, unmetPrerequisites} from './content/skills';
+import {CHARGE_CONTROL_CUT, prerequisiteText, SKILL_CATEGORY_ORDER, skillLevels, SKILLS, unmetPrerequisites, weaponCapPerShot} from './content/skills';
 import {
   buy as buyModule,
   canBuyMore,
@@ -1360,12 +1360,8 @@ export interface QueuedSkill {
   cost: number;
 }
 
-export interface SkillsState {
-  mining: number;
-  gunnery: number;
-  shieldOp: number;
-  navigation: number;
-}
+/** Each skill's trained level, for every skill in content/skills.ts. */
+export type SkillsState = Record<SkillId, number>;
 
 const ROMAN_NUMERALS = ['', 'I', 'II', 'III', 'IV', 'V'];
 
@@ -1396,6 +1392,14 @@ export const SKILL_DEFINITIONS: SkillDefinition[] = [
     description: '+10% cannon damage per level',
     getBonusText: (level: number) =>
       `+${level * 10}% kinetic damage (${Math.round((MODULES.light_cannon.stats.damage ?? 30) * (1 + 0.1 * level))} dmg/shot)`,
+  },
+  {
+    id: 'chargeControl',
+    name: 'Charge Control',
+    category: SKILLS.chargeControl.category,
+    description: `-${Math.round(CHARGE_CONTROL_CUT * 100)}% weapon Cap per shot per level`,
+    getBonusText: (level: number) =>
+      `-${Math.round(CHARGE_CONTROL_CUT * 100 * level)}% weapon Cap (Lance Driver ${weaponCapPerShot(MODULES.lance_driver.stats.capPerCycle ?? 14, level)} Cap/shot)`,
   },
   {
     id: 'shieldOp',
@@ -4702,12 +4706,7 @@ export default function App() {
   });
 
   // Stage 3 Skills & Neural Training Queue state
-  const [skills, setSkills] = useState<SkillsState>({
-    mining: 0,
-    gunnery: 0,
-    shieldOp: 0,
-    navigation: 0,
-  });
+  const [skills, setSkills] = useState<SkillsState>(() => skillLevels(undefined));
   const skillsRef = useRef<SkillsState>(skills);
   skillsRef.current = skills;
 
@@ -5301,7 +5300,11 @@ export default function App() {
   // The fitted weapon and shield booster: their catalog stats drive combat. Each falls
   // back to today's module for the timers and labels read while none is fitted.
   const fittedWeapon = () => fittedWith(fittingRef.current.fitted, 'damage') ?? MODULES.light_cannon;
-  const weaponStats = () => fittedWeapon().stats;
+  // Charge Control cuts its Cap per shot (content/skills.ts weaponCapPerShot).
+  const weaponStats = () => {
+    const stats = fittedWeapon().stats;
+    return {...stats, capPerCycle: weaponCapPerShot(stats.capPerCycle ?? 8, skillsRef.current.chargeControl || 0)};
+  };
   const boosterStats = () => {
     const boosters = fittingRef.current.fitted.flatMap((m) => (m && MODULES[m].stats.shieldHpPerSec !== undefined ? [MODULES[m].stats] : []));
     if (boosters.length === 0) return MODULES.shield_booster.stats;
@@ -7584,12 +7587,8 @@ export default function App() {
       // setFitting updates the ref at once: applyHullLayout() below works out the hold from it.
       setFitting(parseFitting(data.fitting, fittingHull) ?? fromLegacy(data, fittingHull));
 
-      const loadedSkills: SkillsState = {
-        mining: data.skills?.mining ?? 0,
-        gunnery: data.skills?.gunnery ?? 0,
-        shieldOp: data.skills?.shieldOp ?? 0,
-        navigation: data.skills?.navigation ?? 0,
-      };
+      // A save from before a skill existed loads that skill at 0.
+      const loadedSkills: SkillsState = skillLevels(data.skills);
 
       const loadedQueue: QueuedSkill[] = Array.isArray(data.trainingQueue) ? [...data.trainingQueue] : [];
       let loadedElapsed: number = typeof data.trainingElapsed === 'number' ? data.trainingElapsed : 0;
@@ -9553,7 +9552,7 @@ export default function App() {
         triggerFeatureTip({
           id: 'tip_skills',
           title: 'SKILLS TERMINAL',
-          detail: 'Queue up to 3 pilot neural skills (Mining, Gunnery, Shield Op, Navigation) to train in real-time while you fly.',
+          detail: 'Queue up to 3 pilot neural skills to train in real-time while you fly. Some need another skill trained first.',
         });
       } else if (tab === 'AGENT' && !seenTipsRef.current.agent) {
         const updatedTips = {...seenTipsRef.current, agent: true};
@@ -31360,7 +31359,7 @@ export default function App() {
                                     const bonus = totalDmg - baseDmg;
                                     return (
                                       <span>
-                                        {totalDmg} dmg / {weapon.cycleSec ?? 3}s
+                                        {totalDmg} dmg / {weapon.cycleSec ?? 3}s · {weaponStats().capPerCycle} Cap
                                         {bonus > 0 && (
                                           <span style={{ color: '#8BD17C', fontSize: '12px', marginLeft: '4px' }}>
                                             (+{bonus}{activeHull === 'skirmisher' ? ' +25%' : ''})
