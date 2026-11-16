@@ -25,6 +25,7 @@ Format, checked by `node dev/lessons.mjs --check`. A field's text may go on over
 - Why: the test's text was copied from SKILL_DEFINITIONS, and the card upper-cases the name with `toUpperCase()` when it renders it.
 - Rule going forward: a test of on-screen text takes the text from the rendered page (a failure's "Received string", or the page text), not from the source that feeds it.
 - Evidence: tests/skills.spec.ts, search "toContainText('MINING')"; the failing run's "Received string" began "EXTRACTIONMINING".
+  Again 2026-11-16, content-tree step 9: an exact match for "307 m/s" failed because the value holds its "(-20%)" in a nested span; the failure's page snapshot showed the row text "Max speed 307 m/s(-20%)".
   Again 2026-11-16, content-tree step 7: a test expected the "Needs: Gunnery III" line to go once Gunnery III was trained. The page keeps it (design 4.5) and only the button changes; tests/charge-control.spec.ts, search "stays once met".
 - Status: open
 

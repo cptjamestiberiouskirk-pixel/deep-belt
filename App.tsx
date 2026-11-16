@@ -119,7 +119,7 @@ import {MARKET_MODULE_IDS, MODULES, minerFor, missingSkill, type ModuleId} from 
 import type {SlotType} from './content/types';
 import {LENSES, LENS_IDS, lensBonusLabel} from './content/lenses';
 import {readItem} from './content/inventory';
-import {CHARGE_CONTROL_CUT, prerequisiteText, SKILL_CATEGORY_ORDER, skillLevels, SKILLS, unmetPrerequisites, weaponCapPerShot} from './content/skills';
+import {CARGO_TRIM_CUT, CHARGE_CONTROL_CUT, effectiveLoad, FULL_HOLD_SPEED_CUT, prerequisiteText, SKILL_CATEGORY_ORDER, skillLevels, SKILLS, unmetPrerequisites, weaponCapPerShot} from './content/skills';
 import {
   buy as buyModule,
   canBuyMore,
@@ -1417,6 +1417,14 @@ export const SKILL_DEFINITIONS: SkillDefinition[] = [
     description: '+10% ship max speed and 10% faster warp spool duration per level',
     getBonusText: (level: number) =>
       `+${level * 10}% max speed (${Math.round(320 * (1 + 0.1 * level))} m/s), -${level * 10}% warp spool (${(3.0 * (1 - 0.1 * level)).toFixed(1)}s)`,
+  },
+  {
+    id: 'cargoTrim',
+    name: 'Cargo Trim',
+    category: SKILLS.cargoTrim.category,
+    description: `-${Math.round(CARGO_TRIM_CUT * 100)}% of the slowdown a loaded hold gives, per level`,
+    getBonusText: (level: number) =>
+      `-${Math.round(CARGO_TRIM_CUT * 100 * level)}% load slowdown (full hold: -${Math.round(FULL_HOLD_SPEED_CUT * 100 * effectiveLoad(1, level))}% top speed)`,
   },
 ];
 
@@ -9100,7 +9108,8 @@ export default function App() {
 
     const currentCargoVolume = getCurrentCargoVolume();
     const maxCargoVolume = Math.max(1, cargoMaxRef.current);
-    const loadFrac = Math.min(1.0, Math.max(0.0, currentCargoVolume / maxCargoVolume));
+    // Cargo Trim lessens how much the load slows the spool (content/skills.ts effectiveLoad).
+    const loadFrac = effectiveLoad(Math.min(1.0, Math.max(0.0, currentCargoVolume / maxCargoVolume)), skillsRef.current.cargoTrim || 0);
 
     const navLevel = skillsRef.current.navigation || 0;
     const baseWarpSpoolTime = Math.max(1.0, 3.0 * (1 - 0.10 * navLevel));
@@ -18860,7 +18869,8 @@ export default function App() {
 
     const currentCargoVolume = getCurrentCargoVolume();
     const maxCargoVolume = Math.max(1, cargoMaxRef.current);
-    const loadFrac = Math.min(1.0, Math.max(0.0, currentCargoVolume / maxCargoVolume));
+    // The load as the ship handles it: Cargo Trim cuts its effect (content/skills.ts effectiveLoad).
+    const loadFrac = effectiveLoad(Math.min(1.0, Math.max(0.0, currentCargoVolume / maxCargoVolume)), skillsRef.current.cargoTrim || 0);
 
     const baseTurnRate = getConfig('playerTurnSpeed') as number;
     const turnRate = baseTurnRate * (1.0 - 0.35 * loadFrac);
@@ -18924,7 +18934,7 @@ export default function App() {
     // Fitted modules: 0.8 with a Bulk Hold (content/fitting.ts fittedSpeedMult).
     const moduleSpeedMult = fittedSpeedMult(fittingRef.current.fitted);
     const thrustPower = baseThrust * (1 + 0.10 * navLevel) * hullSpeedMultRef.current * moduleSpeedMult * (1.0 - 0.40 * loadFrac) * decaySpeedMult;
-    const maxSpeed = basePlayerMaxSpeed * hullSpeedMultRef.current * moduleSpeedMult * (1.0 - 0.30 * loadFrac) * decaySpeedMult;
+    const maxSpeed = basePlayerMaxSpeed * hullSpeedMultRef.current * moduleSpeedMult * (1.0 - FULL_HOLD_SPEED_CUT * loadFrac) * decaySpeedMult;
     const plumeScale = (1.0 - 0.40 * loadFrac) * decaySpeedMult;
 
     if (thrusting) {
@@ -31313,6 +31323,26 @@ export default function App() {
                                             ({pct}%)
                                           </span>
                                         )}
+                                      </span>
+                                    );
+                                  })()}
+                                </span>
+                              </div>
+
+                              {/* Stat 3c: Max speed with a full hold, after Cargo Trim */}
+                              <div style={statRowStyle}>
+                                <span style={statLabelStyle}>Speed, full hold</span>
+                                <span style={statValueStyle}>
+                                  {(() => {
+                                    const thrusterMult = 1 + (hullLayouts[activeHull]?.thruster ? 0.15 : 0);
+                                    const empty = (getConfig('playerMaxSpeed') as number) * (1 + 0.1 * (skills.navigation || 0)) * thrusterMult * fittedSpeedMult(fitting.fitted);
+                                    const cut = FULL_HOLD_SPEED_CUT * effectiveLoad(1, skills.cargoTrim || 0);
+                                    return (
+                                      <span>
+                                        {Math.round(empty * (1 - cut))} m/s
+                                        <span style={{ color: '#FF5A5F', fontSize: '12px', marginLeft: '4px' }}>
+                                          (-{Math.round(cut * 100 * 10) / 10}%)
+                                        </span>
                                       </span>
                                     );
                                   })()}
