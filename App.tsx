@@ -7171,7 +7171,7 @@ export default function App() {
         hostiles.push({ id: pirateRef.current.id, x: pirateRef.current.x, y: pirateRef.current.y });
       }
       if (ashPirateRef.current.isAlive && ashPirateRef.current.id !== destroyedId) {
-        hostiles.push({ id: ashPirateRef.current.id, x: ashPirateRef.current.y, y: ashPirateRef.current.y });
+        hostiles.push({ id: ashPirateRef.current.id, x: ashPirateRef.current.x, y: ashPirateRef.current.y });
       }
       if (riftPirateRef.current.isAlive && riftPirateRef.current.id !== destroyedId) {
         hostiles.push({ id: riftPirateRef.current.id, x: riftPirateRef.current.x, y: riftPirateRef.current.y });
