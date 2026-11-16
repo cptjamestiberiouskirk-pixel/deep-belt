@@ -62,3 +62,26 @@ test('skills: the Skills screen has a header per category, and training time and
   expect(after.marks).toBe(before.marks - 100);
   expectClean(problems);
 });
+
+test('skills screen: each card gives its numbers for the fitted miner and weapon', async ({page}) => {
+  const problems = watch(page);
+  await openWithSave(page, {
+    ...RICH,
+    milestoneIndustrialistClaimed: true,
+    skills: {mining: 5, laserTuning: 0, gunnery: 3, chargeControl: 0, shieldOp: 0, navigation: 0, cargoTrim: 0},
+    fitting: {hangar: {miner_mk1: 1, light_cannon: 1}, fitted: ['miner_mk2', null, null, 'lance_driver'], loadouts: {}},
+  });
+  await enterGame(page);
+  await settle(page);
+  await page.keyboard.press('3');
+  await expect(page.getByText('SKILLS MATRIX')).toBeVisible();
+  const extraction = page.getByTestId('skill-category-Extraction');
+  const gunnery = page.getByTestId('skill-category-Gunnery');
+  // The MK2 mines 75 a cycle: at Mining V, round(75 × 1.5) = 113, as flight does.
+  await expect(extraction).toContainText('+50% ore yield (Miner MK2: 113 ore/cycle)');
+  await expect(extraction).toContainText('-0% cycle time (Miner MK2: 8.0 s)');
+  // The Lance Driver hits for 45: at Gunnery III, round(45 × 1.3) = 59.
+  await expect(gunnery).toContainText('+30% kinetic damage (Lance Driver: 59 dmg/shot)');
+  await expect(gunnery).toContainText('-0% cycle time (Lance Driver: 4.0 s)');
+  expectClean(problems);
+});

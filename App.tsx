@@ -121,6 +121,7 @@ import {LENSES, LENS_IDS, lensBonusLabel} from './content/lenses';
 import {readItem} from './content/inventory';
 import {CARGO_TRIM_CUT, CHARGE_CONTROL_CUT, effectiveLoad, LASER_TUNING_CUT, minerCycleAt, prerequisiteText, SKILL_CATEGORY_ORDER, skillLevels, SKILLS, unmetPrerequisites, weaponCycleAt} from './content/skills';
 import {formatSpeed, FULL_HOLD_THRUST_CUT, flightLimits, PIXELS_PER_KM, topSpeed} from './content/flight';
+import type {ModuleDef} from './content/types';
 import {
   buy as buyModule,
   canBuyMore,
@@ -1382,7 +1383,13 @@ export interface SkillDefinition {
   name: string;
   category: string;
   description: string;
-  getBonusText: (level: number) => string;
+  /** The bonus at a level, in numbers for the fitted miner and weapon (MK1 and Light Cannon when none is given). */
+  getBonusText: (level: number, fitted?: FittedForSkills) => string;
+}
+
+export interface FittedForSkills {
+  miner?: ModuleDef;
+  weapon?: ModuleDef;
 }
 
 export interface QueuedSkill {
@@ -1430,32 +1437,41 @@ export const SKILL_DEFINITIONS: SkillDefinition[] = [
     name: 'Mining',
     category: SKILLS.mining.category,
     description: '+10% ore per laser cycle per level',
-    getBonusText: (level: number) =>
-      `+${level * 10}% ore yield (${Math.round(50 * (1 + 0.1 * level))} ore/cycle)`,
+    // Per cycle in flight: round(yield × (1 + 0.1 × level)), before any lens.
+    getBonusText: (level: number, fitted?: FittedForSkills) => {
+      const miner = fitted?.miner ?? MODULES.miner_mk1;
+      return `+${level * 10}% ore yield (${miner.name}: ${Math.round((miner.stats.oreYield ?? 50) * (1 + 0.1 * level))} ore/cycle)`;
+    },
   },
   {
     id: 'laserTuning',
     name: 'Laser Tuning',
     category: SKILLS.laserTuning.category,
     description: `-${Math.round(LASER_TUNING_CUT * 100)}% mining cycle time per level`,
-    getBonusText: (level: number) =>
-      `-${Math.round(LASER_TUNING_CUT * 100 * level)}% cycle time (Miner MK1: ${minerCycleAt(MODULES.miner_mk1.stats.cycleSec ?? 10, level).toFixed(1)} s)`,
+    getBonusText: (level: number, fitted?: FittedForSkills) => {
+      const miner = fitted?.miner ?? MODULES.miner_mk1;
+      return `-${Math.round(LASER_TUNING_CUT * 100 * level)}% cycle time (${miner.name}: ${minerCycleAt(miner.stats.cycleSec ?? 10, level).toFixed(1)} s)`;
+    },
   },
   {
     id: 'gunnery',
     name: 'Gunnery',
     category: SKILLS.gunnery.category,
     description: '+10% cannon damage per level',
-    getBonusText: (level: number) =>
-      `+${level * 10}% kinetic damage (${Math.round((MODULES.light_cannon.stats.damage ?? 30) * (1 + 0.1 * level))} dmg/shot)`,
+    getBonusText: (level: number, fitted?: FittedForSkills) => {
+      const weapon = fitted?.weapon ?? MODULES.light_cannon;
+      return `+${level * 10}% kinetic damage (${weapon.name}: ${Math.round((weapon.stats.damage ?? 30) * (1 + 0.1 * level))} dmg/shot)`;
+    },
   },
   {
     id: 'chargeControl',
     name: 'Charge Control',
     category: SKILLS.chargeControl.category,
     description: `-${Math.round(CHARGE_CONTROL_CUT * 100)}% weapon cycle time per level`,
-    getBonusText: (level: number) =>
-      `-${Math.round(CHARGE_CONTROL_CUT * 100 * level)}% cycle time (Light Cannon: ${weaponCycleAt(MODULES.light_cannon.stats.cycleSec ?? 3, level).toFixed(1)} s)`,
+    getBonusText: (level: number, fitted?: FittedForSkills) => {
+      const weapon = fitted?.weapon ?? MODULES.light_cannon;
+      return `-${Math.round(CHARGE_CONTROL_CUT * 100 * level)}% cycle time (${weapon.name}: ${weaponCycleAt(weapon.stats.cycleSec ?? 3, level).toFixed(1)} s)`;
+    },
   },
   {
     id: 'shieldOp',
@@ -8394,7 +8410,7 @@ export default function App() {
     setToastNotice({
       id: `toast_skill_${Date.now()}`,
       title: `TRAINING COMPLETE // ${skillName.toUpperCase()} ${roman}`,
-      detail: `${skillDef?.getBonusText(active.targetLevel) ?? 'Skill bonuses applied immediately.'}`,
+      detail: `${skillDef?.getBonusText(active.targetLevel, {miner: minerRef.current, weapon: fittedWeapon()}) ?? 'Skill bonuses applied immediately.'}`,
       type: 'success',
     });
 
@@ -36394,7 +36410,7 @@ export default function App() {
                                   <div className="text-xs text-[#F6EED8] pt-1 leading-snug">
                                     <span className="text-[#AEB6CA] block text-[11px]">{def.description}</span>
                                     <span className="text-[#2EC4B6] font-mono-val block text-[11px] mt-0.5">
-                                      {def.getBonusText(curLvl)}
+                                      {def.getBonusText(curLvl, {miner: minerFor(upgrades.laserMk2), weapon: fittedWith(fitting.fitted, 'damage') ?? MODULES.light_cannon})}
                                     </span>
                                   </div>
 
