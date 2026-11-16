@@ -119,7 +119,7 @@ import {MARKET_MODULE_IDS, MODULES, minerFor, missingSkill, type ModuleId} from 
 import type {SlotType} from './content/types';
 import {LENSES, LENS_IDS, lensBonusLabel} from './content/lenses';
 import {readItem} from './content/inventory';
-import {CARGO_TRIM_CUT, CHARGE_CONTROL_CUT, effectiveLoad, LASER_TUNING_CUT, minerCycleAt, prerequisiteText, SKILL_CATEGORY_ORDER, skillLevels, SKILLS, unmetPrerequisites, weaponCapPerShot} from './content/skills';
+import {CARGO_TRIM_CUT, CHARGE_CONTROL_CUT, effectiveLoad, LASER_TUNING_CUT, minerCycleAt, prerequisiteText, SKILL_CATEGORY_ORDER, skillLevels, SKILLS, unmetPrerequisites, weaponCycleAt} from './content/skills';
 import {FULL_HOLD_THRUST_CUT, flightLimits, topSpeed} from './content/flight';
 import {
   buy as buyModule,
@@ -1412,9 +1412,9 @@ export const SKILL_DEFINITIONS: SkillDefinition[] = [
     id: 'chargeControl',
     name: 'Charge Control',
     category: SKILLS.chargeControl.category,
-    description: `-${Math.round(CHARGE_CONTROL_CUT * 100)}% weapon Cap per shot per level`,
+    description: `-${Math.round(CHARGE_CONTROL_CUT * 100)}% weapon cycle time per level`,
     getBonusText: (level: number) =>
-      `-${Math.round(CHARGE_CONTROL_CUT * 100 * level)}% weapon Cap (Lance Driver ${weaponCapPerShot(MODULES.lance_driver.stats.capPerCycle ?? 14, level)} Cap/shot)`,
+      `-${Math.round(CHARGE_CONTROL_CUT * 100 * level)}% cycle time (Light Cannon: ${weaponCycleAt(MODULES.light_cannon.stats.cycleSec ?? 3, level).toFixed(1)} s)`,
   },
   {
     id: 'shieldOp',
@@ -5324,10 +5324,10 @@ export default function App() {
   // The fitted weapon and shield booster: their catalog stats drive combat. Each falls
   // back to today's module for the timers and labels read while none is fitted.
   const fittedWeapon = () => fittedWith(fittingRef.current.fitted, 'damage') ?? MODULES.light_cannon;
-  // Charge Control cuts its Cap per shot (content/skills.ts weaponCapPerShot).
+  // Charge Control shortens its cycle (content/skills.ts weaponCycleAt).
   const weaponStats = () => {
     const stats = fittedWeapon().stats;
-    return {...stats, capPerCycle: weaponCapPerShot(stats.capPerCycle ?? 8, skillsRef.current.chargeControl || 0)};
+    return {...stats, cycleSec: weaponCycleAt(stats.cycleSec ?? 3, skillsRef.current.chargeControl || 0)};
   };
   const boosterStats = () => {
     const boosters = fittingRef.current.fitted.flatMap((m) => (m && MODULES[m].stats.shieldHpPerSec !== undefined ? [MODULES[m].stats] : []));
@@ -31451,7 +31451,7 @@ export default function App() {
                                     const bonus = totalDmg - baseDmg;
                                     return (
                                       <span>
-                                        {totalDmg} dmg / {weapon.cycleSec ?? 3}s · {weaponStats().capPerCycle} Cap
+                                        {totalDmg} dmg / {weaponCycleAt(weapon.cycleSec ?? 3, skills.chargeControl || 0)}s · {weapon.capPerCycle ?? 8} Cap
                                         {bonus > 0 && (
                                           <span style={{ color: '#8BD17C', fontSize: '12px', marginLeft: '4px' }}>
                                             (+{bonus}{activeHull === 'skirmisher' ? ' +25%' : ''})

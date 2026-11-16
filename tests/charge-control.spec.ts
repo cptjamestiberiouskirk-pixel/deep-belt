@@ -1,10 +1,11 @@
 import {expect, test, type Page} from '@playwright/test';
 import {enterGame, expectClean, expectTitle, openWithSave, readSave, RICH, settle, watch} from './helpers';
-import {CHARGE_CONTROL_CUT, prerequisiteText, skillLevels, SKILLS, unmetPrerequisites, weaponCapPerShot} from '../content/skills';
+import {CHARGE_CONTROL_CUT, prerequisiteText, skillLevels, SKILLS, unmetPrerequisites, weaponCycleAt} from '../content/skills';
 import {MODULES} from '../content/modules';
 
 // Step 7 of design/content-tree.md: the first new skill, Charge Control. Each
-// level cuts a weapon shot's Cap by 8%. It is rank 2 (twice the training time)
+// level cuts the weapon cycle by 4% (until 2026-11-16 it cut Cap per shot, which
+// the balance probe found changed no fight). It is rank 2 (twice the training time)
 // and needs Gunnery III, so it is the first skill with a prerequisite.
 
 const BASE = {...RICH, milestoneIndustrialistClaimed: true};
@@ -12,7 +13,7 @@ const BASE = {...RICH, milestoneIndustrialistClaimed: true};
 const OLD_SKILLS = (gunnery: number) => ({mining: 0, gunnery, shieldOp: 0, navigation: 0});
 const ZERO = {mining: 0, laserTuning: 0, gunnery: 0, chargeControl: 0, shieldOp: 0, navigation: 0, cargoTrim: 0};
 
-test('catalog: Charge Control is a rank 2 Gunnery skill after Gunnery III, cutting 8% Cap a level', () => {
+test('catalog: Charge Control is a rank 2 Gunnery skill after Gunnery III, cutting the weapon cycle 4% a level', () => {
   expect(SKILLS.chargeControl).toEqual({
     id: 'chargeControl',
     name: 'Charge Control',
@@ -22,11 +23,11 @@ test('catalog: Charge Control is a rank 2 Gunnery skill after Gunnery III, cutti
   });
   expect(prerequisiteText(unmetPrerequisites({gunnery: 2}, 'chargeControl'))).toBe('Gunnery III');
   expect(unmetPrerequisites({gunnery: 3}, 'chargeControl')).toEqual([]);
-  expect(CHARGE_CONTROL_CUT).toBe(0.08);
-  // Cap per shot at levels 0 to 5, in whole Cap.
+  expect(CHARGE_CONTROL_CUT).toBe(0.04);
+  // Cycle seconds at levels 0 to 5, to 0.1 s: at V a shot every 0.8 of the time, 25% more damage a second.
   const levels = [0, 1, 2, 3, 4, 5];
-  expect(levels.map((l) => weaponCapPerShot(MODULES.lance_driver.stats.capPerCycle!, l))).toEqual([14, 13, 12, 11, 10, 8]);
-  expect(levels.map((l) => weaponCapPerShot(MODULES.light_cannon.stats.capPerCycle!, l))).toEqual([8, 7, 7, 6, 5, 5]);
+  expect(levels.map((l) => weaponCycleAt(MODULES.lance_driver.stats.cycleSec!, l))).toEqual([4, 3.8, 3.7, 3.5, 3.4, 3.2]);
+  expect(levels.map((l) => weaponCycleAt(MODULES.light_cannon.stats.cycleSec!, l))).toEqual([3, 2.9, 2.8, 2.6, 2.5, 2.4]);
   // A save from before a skill existed loads it at 0.
   expect(skillLevels({mining: 2, gunnery: 3})).toEqual({...ZERO, mining: 2, gunnery: 3});
   expect(skillLevels(undefined)).toEqual(ZERO);
@@ -83,7 +84,7 @@ test('skills screen: at Gunnery III, Charge Control I queues for 100 MARKS and t
   expectClean(problems);
 });
 
-test('charge control V: the fitted Lance Driver costs 8 Cap a shot, and a reload keeps the level', async ({page}) => {
+test('charge control V: the fitted Lance Driver fires every 3.2 s, not 4, and a reload keeps the level', async ({page}) => {
   const problems = watch(page);
   await openWithSave(page, {
     ...BASE,
@@ -98,7 +99,7 @@ test('charge control V: the fitted Lance Driver costs 8 Cap a shot, and a reload
     await page.keyboard.press('2');
     await expect(page.getByTestId('fitting-slot-3')).toContainText('Lance Driver');
     // Gunnery III on a Ferrier: 45 × 1.3 = 58.5, shown as 59.
-    await expect(page.getByText('59 dmg / 4s · 8 Cap')).toBeVisible();
+    await expect(page.getByText('59 dmg / 3.2s · 14 Cap')).toBeVisible();
   };
   await cannonRow();
   await expect.poll(async () => (await readSave(page))!.skills.chargeControl).toBe(5);

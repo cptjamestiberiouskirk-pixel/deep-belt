@@ -97,6 +97,9 @@ const FIGHTS: Array<{name: string; weapon: string; cc: number; booster: boolean;
   {name: 'Light Cannon + booster', weapon: 'light_cannon', cc: 0, booster: true},
   {name: 'Lance Driver + booster', weapon: 'lance_driver', cc: 0, booster: true},
   {name: 'Lance Driver + booster, Charge Control V', weapon: 'lance_driver', cc: 5, booster: true},
+  {name: 'Light Cannon, Charge Control V', weapon: 'light_cannon', cc: 5, booster: false},
+  {name: 'Lance Driver, Charge Control V', weapon: 'lance_driver', cc: 5, booster: false},
+  {name: 'Light Cannon + booster, Charge Control V', weapon: 'light_cannon', cc: 5, booster: true},
 ];
 for (const f of FIGHTS) {
   test(`fight: ${f.name}`, async ({page}) => {

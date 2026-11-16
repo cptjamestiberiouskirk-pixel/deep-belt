@@ -24,8 +24,9 @@ export const SKILLS: Record<SkillId, SkillDef> = {
   // Step 10: a shorter mining cycle, so ore comes faster. Rank 2, after Mining III.
   laserTuning: {id: 'laserTuning', name: 'Laser Tuning', category: 'Extraction', rank: 2, prerequisites: [{skill: 'mining', level: 3}]},
   gunnery: {id: 'gunnery', name: 'Gunnery', category: 'Gunnery', rank: 1, prerequisites: []},
-  // Step 7, the first new skill: less Cap per weapon shot, so a weapon keeps
-  // firing while a shield booster runs. Rank 2, after Gunnery III.
+  // Step 7, the first new skill: a faster weapon cycle. Rank 2, after Gunnery III.
+  // It first cut Cap per shot, which the probe found changed no fight (no fight
+  // ran short of Cap), so on 2026-11-16 it became a shorter cycle.
   chargeControl: {id: 'chargeControl', name: 'Charge Control', category: 'Gunnery', rank: 2, prerequisites: [{skill: 'gunnery', level: 3}]},
   shieldOp: {id: 'shieldOp', name: 'Shield Operation', category: 'Defense', rank: 1, prerequisites: []},
   navigation: {id: 'navigation', name: 'Navigation', category: 'Navigation', rank: 1, prerequisites: []},
@@ -51,12 +52,12 @@ export function minerCycleAt(baseSec: number, laserTuningLevel: number): number 
   return Math.round(baseSec * (1 - LASER_TUNING_CUT * laserTuningLevel) * 10) / 10;
 }
 
-/** Charge Control: each level cuts a weapon shot's Cap by this share. */
-export const CHARGE_CONTROL_CUT = 0.08;
+/** Charge Control: each level cuts the weapon cycle by this share. */
+export const CHARGE_CONTROL_CUT = 0.04;
 
-/** A weapon shot's Cap at a Charge Control level, in whole Cap: 14 at level 0, 8 at level 5. */
-export function weaponCapPerShot(baseCap: number, chargeControlLevel: number): number {
-  return Math.round(baseCap * (1 - CHARGE_CONTROL_CUT * chargeControlLevel));
+/** A weapon cycle in seconds at a Charge Control level, to 0.1 s: the Light Cannon's 3 s is 2.4 s at level 5. */
+export function weaponCycleAt(baseSec: number, chargeControlLevel: number): number {
+  return Math.round(baseSec * (1 - CHARGE_CONTROL_CUT * chargeControlLevel) * 10) / 10;
 }
 
 /** Cargo Trim: each level cuts the hold's load effect on handling by this share. */
