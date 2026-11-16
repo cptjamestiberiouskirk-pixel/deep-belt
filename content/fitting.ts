@@ -1,0 +1,230 @@
+// Fitting model (design/content-tree.md 4.2, step 2): owned modules sit either in
+// the station hangar or in the active hull's typed slots, and each hull keeps a
+// wanted loadout. Pure functions only; App.tsx holds the state.
+//
+// Rules this file keeps:
+// - Hangar plus fitted always equals what you own.
+// - A loadout is a wish: switching hulls fills the new hull's slots from it as
+//   far as the hangar allows, and an unfilled slot keeps its wish.
+// - Until step 3, one of each module, as today; the Miner MK2 replaces the MK1.
+
+import type {HullId} from './hulls';
+import type {ModuleId} from './modules';
+import {MODULES} from './modules';
+import type {SlotType} from './types';
+
+export type Slots = Array<ModuleId | null>;
+
+export interface FittingState {
+  /** Owned modules not fitted, by count. */
+  hangar: Partial<Record<ModuleId, number>>;
+  /** The active hull's slots, in its layout's order. */
+  fitted: Slots;
+  /** What each hull wants fitted, in its layout's order. */
+  loadouts: Partial<Record<HullId, Slots>>;
+}
+
+/** Slot types per hull, in fitting order. Gantry's third utility slot stays shut until step 3. */
+export const SLOT_LAYOUTS: Record<HullId, SlotType[]> = {
+  ferrier: ['extraction', 'utility', 'utility', 'weapon'],
+  skirmisher: ['extraction', 'utility', 'utility', 'weapon'],
+  lattice: ['extraction', 'utility', 'utility', 'weapon'],
+  gantry: ['extraction', 'utility', 'utility', 'weapon'],
+  tern: ['extraction', 'utility', 'utility'],
+  shade: ['extraction', 'utility', 'utility'],
+};
+
+export function layoutOf(hull: HullId): SlotType[] {
+  return SLOT_LAYOUTS[hull] ?? SLOT_LAYOUTS.ferrier;
+}
+
+/** Every owned module, counted: hangar plus fitted. */
+export function owned(s: FittingState): Partial<Record<ModuleId, number>> {
+  const out: Partial<Record<ModuleId, number>> = {...s.hangar};
+  for (const id of s.fitted) if (id) out[id] = (out[id] ?? 0) + 1;
+  return out;
+}
+
+export function owns(s: FittingState, id: ModuleId): boolean {
+  return (owned(s)[id] ?? 0) > 0;
+}
+
+function take(h: FittingState['hangar'], id: ModuleId): boolean {
+  if ((h[id] ?? 0) <= 0) return false;
+  h[id] = (h[id] ?? 0) - 1;
+  if (h[id] === 0) delete h[id];
+  return true;
+}
+
+function put(h: FittingState['hangar'], id: ModuleId) {
+  h[id] = (h[id] ?? 0) + 1;
+}
+
+function freeSlotFor(fitted: Slots, hull: HullId, id: ModuleId): number {
+  const type = MODULES[id].slot;
+  return layoutOf(hull).findIndex((t, i) => t === type && !fitted[i]);
+}
+
+/** A new pilot: Miner MK1 and Light Cannon fitted on the Ferrier. */
+export function newGameFitting(): FittingState {
+  const fitted: Slots = ['miner_mk1', null, null, 'light_cannon'];
+  return {hangar: {}, fitted, loadouts: {ferrier: [...fitted]}};
+}
+
+/** The v4 save's flags, as App.tsx read them before step 2. */
+export interface LegacyFlags {
+  upgrades?: {laserMk2?: boolean; cargoExpanded?: boolean; shieldBoosterHeavy?: boolean; cannon?: boolean};
+  fittedSlots?: {slot1MiningLaser?: boolean; slot2CargoExpander?: boolean; slot3ShieldBooster?: boolean; slot4Cannon?: boolean};
+}
+
+/**
+ * Converts a v4 save's flags, with the v4 loader's defaults and its free-cannon
+ * retrofit: a save with nothing in the weapon slot and no cannon gets one fitted.
+ */
+export function fromLegacy(data: LegacyFlags, hull: HullId): FittingState {
+  const up = {laserMk2: false, cargoExpanded: false, shieldBoosterHeavy: false, cannon: true, ...(data.upgrades ?? {})};
+  const fs = {slot1MiningLaser: true, slot2CargoExpander: false, slot3ShieldBooster: false, slot4Cannon: true, ...(data.fittedSlots ?? {})};
+  if (fs.slot4Cannon !== true && !up.cannon) {
+    up.cannon = true;
+    fs.slot4Cannon = true;
+  }
+  const miner: ModuleId = up.laserMk2 ? 'miner_mk2' : 'miner_mk1';
+  const wanted: Slots = [
+    fs.slot1MiningLaser ? miner : null,
+    up.cargoExpanded && fs.slot2CargoExpander ? 'expanded_hold' : null,
+    up.shieldBoosterHeavy && fs.slot3ShieldBooster ? 'shield_booster' : null,
+    up.cannon && fs.slot4Cannon ? 'light_cannon' : null,
+  ];
+  const hangar: FittingState['hangar'] = {};
+  for (const id of [miner, ...(up.cargoExpanded ? ['expanded_hold'] : []), ...(up.shieldBoosterHeavy ? ['shield_booster'] : []), ...(up.cannon ? ['light_cannon'] : [])] as ModuleId[]) {
+    put(hangar, id);
+  }
+  const fitted: Slots = layoutOf(hull).map((_, i) => {
+    const id = wanted[i];
+    return id && take(hangar, id) ? id : null;
+  });
+  return {hangar, fitted, loadouts: {[hull]: [...fitted]}};
+}
+
+/** The four flags the rest of App.tsx still reads (until steps 2b and 2c move them). */
+export function toLegacy(s: FittingState) {
+  const has = (id: ModuleId) => s.fitted.includes(id);
+  return {
+    upgrades: {
+      laserMk2: owns(s, 'miner_mk2'),
+      cargoExpanded: owns(s, 'expanded_hold'),
+      shieldBoosterHeavy: owns(s, 'shield_booster'),
+      cannon: owns(s, 'light_cannon'),
+    },
+    fittedSlots: {
+      slot1MiningLaser: has('miner_mk1') || has('miner_mk2'),
+      slot2CargoExpander: has('expanded_hold'),
+      slot3ShieldBooster: has('shield_booster'),
+      slot4Cannon: has('light_cannon'),
+    },
+  };
+}
+
+function clone(s: FittingState): FittingState {
+  const loadouts: FittingState['loadouts'] = {};
+  for (const [k, v] of Object.entries(s.loadouts)) loadouts[k as HullId] = [...(v as Slots)];
+  return {hangar: {...s.hangar}, fitted: [...s.fitted], loadouts};
+}
+
+export type BuyResult = {state: FittingState; fitted: boolean};
+
+/** Buys one module: fitted at once when a slot of its type is free, else to the hangar. */
+export function buy(s: FittingState, hull: HullId, id: ModuleId): BuyResult {
+  const n = clone(s);
+  if (id === 'miner_mk2') {
+    // The MK2 replaces the MK1 wherever it is, as the yes/no flag did.
+    const i = n.fitted.indexOf('miner_mk1');
+    if (i >= 0) n.fitted[i] = 'miner_mk2';
+    else if (take(n.hangar, 'miner_mk1')) put(n.hangar, 'miner_mk2');
+    else put(n.hangar, 'miner_mk2');
+    for (const l of Object.values(n.loadouts)) (l as Slots).forEach((m, j, a) => m === 'miner_mk1' && (a[j] = 'miner_mk2'));
+    n.loadouts[hull] = [...n.fitted];
+    return {state: n, fitted: i >= 0};
+  }
+  const slot = freeSlotFor(n.fitted, hull, id);
+  if (slot >= 0) {
+    n.fitted[slot] = id;
+    n.loadouts[hull] = [...n.fitted];
+    return {state: n, fitted: true};
+  }
+  put(n.hangar, id);
+  return {state: n, fitted: false};
+}
+
+/** Fits one from the hangar into the first free slot of its type; null when it can't. */
+export function fit(s: FittingState, hull: HullId, id: ModuleId): FittingState | null {
+  const slot = freeSlotFor(s.fitted, hull, id);
+  if (slot < 0 || (s.hangar[id] ?? 0) <= 0) return null;
+  const n = clone(s);
+  take(n.hangar, id);
+  n.fitted[slot] = id;
+  n.loadouts[hull] = [...n.fitted];
+  return n;
+}
+
+/** Unfits the module of this id from the active hull into the hangar; null when none is fitted. */
+export function unfit(s: FittingState, hull: HullId, id: ModuleId): FittingState | null {
+  const slot = s.fitted.indexOf(id);
+  if (slot < 0) return null;
+  const n = clone(s);
+  n.fitted[slot] = null;
+  put(n.hangar, id);
+  n.loadouts[hull] = [...n.fitted];
+  return n;
+}
+
+/**
+ * Boards another hull: the old hull's modules go to the hangar, then the new
+ * hull's slots fill from its loadout as far as the hangar allows. A hull never
+ * boarded wants what the old hull had, by slot type, plus an owned weapon in
+ * its weapon slot (as boarding did before step 2).
+ */
+export function switchHull(s: FittingState, from: HullId, to: HullId): FittingState {
+  const n = clone(s);
+  n.loadouts[from] = [...n.fitted];
+  for (const id of n.fitted) if (id) put(n.hangar, id);
+  const layout = layoutOf(to);
+  let wish = n.loadouts[to];
+  if (!wish) {
+    const pool = n.fitted.filter((m): m is ModuleId => Boolean(m));
+    wish = layout.map((type) => {
+      const i = pool.findIndex((m) => MODULES[m].slot === type);
+      return i >= 0 ? pool.splice(i, 1)[0] : null;
+    });
+    const w = layout.indexOf('weapon');
+    if (w >= 0 && !wish[w] && (n.hangar.light_cannon ?? 0) > 0) wish[w] = 'light_cannon';
+    n.loadouts[to] = wish;
+  }
+  n.fitted = layout.map((_, i) => {
+    const id = wish![i] ?? null;
+    return id && take(n.hangar, id) ? id : null;
+  });
+  return n;
+}
+
+/** Checks a loaded v5 fitting; anything malformed falls back to null so the caller can rebuild it. */
+export function parseFitting(raw: unknown, hull: HullId): FittingState | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Partial<FittingState>;
+  const isId = (x: unknown): x is ModuleId => typeof x === 'string' && x in MODULES;
+  if (!r.hangar || typeof r.hangar !== 'object' || !Array.isArray(r.fitted)) return null;
+  const hangar: FittingState['hangar'] = {};
+  for (const [k, v] of Object.entries(r.hangar)) if (isId(k) && typeof v === 'number' && v > 0) hangar[k] = Math.floor(v);
+  const fitted: Slots = layoutOf(hull).map((_, i) => (isId(r.fitted![i]) ? (r.fitted![i] as ModuleId) : null));
+  for (let i = layoutOf(hull).length; i < r.fitted.length; i++) {
+    const extra = r.fitted[i];
+    if (isId(extra)) put(hangar, extra);
+  }
+  const loadouts: FittingState['loadouts'] = {};
+  if (r.loadouts && typeof r.loadouts === 'object') {
+    for (const [k, v] of Object.entries(r.loadouts)) {
+      if (k in SLOT_LAYOUTS && Array.isArray(v)) loadouts[k as HullId] = layoutOf(k as HullId).map((_, i) => (isId(v[i]) ? v[i] : null));
+    }
+  }
+  return {hangar, fitted, loadouts};
+}

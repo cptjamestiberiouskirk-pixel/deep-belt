@@ -90,7 +90,7 @@ test('market: a bought Expanded Hold still holds 1,100 m³ after a reload', asyn
   await page.waitForTimeout(6000); // past one autosave, which would write a wrong value back
   const save = (await readSave(page))!;
   expect(save.cargoMax).toBe(1100);
-  expect(save.fittedSlots.slot2CargoExpander).toBe(true);
+  expect(save.fitting.fitted).toContain('expanded_hold');
   expectClean(problems);
 });
 
@@ -210,10 +210,10 @@ test('fitting: a module can be unfitted and fitted again', async ({page}) => {
   await expect(page.getByText(/^FITTING$/).first()).toBeVisible();
   await settle(page);
   await page.keyboard.press('Enter');
-  await expect.poll(async () => (await readSave(page))!.fittedSlots.slot1MiningLaser).toBe(false);
+  await expect.poll(async () => (await readSave(page))!.fitting.fitted[0]).toBeNull();
   await settle(page);
   await page.locator('button:visible', {hasText: /^Fit$/}).first().click();
-  await expect.poll(async () => (await readSave(page))!.fittedSlots.slot1MiningLaser).toBe(true);
+  await expect.poll(async () => (await readSave(page))!.fitting.fitted[0]).toBe('miner_mk1');
   expectClean(problems);
 });
 

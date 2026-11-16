@@ -10,7 +10,7 @@
 // IMPORT_REACT_11
 // IMPORT_REACT_12
 /* TEST */
-import React, {useCallback, useEffect, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   Play,
   RotateCw,
@@ -118,6 +118,17 @@ import {
 } from './utils/helper';
 import {MODULES, MODULE_UPGRADE_KEY, minerFor} from './content/modules';
 import {LENSES, LENS_IDS, lensBonusLabel} from './content/lenses';
+import {
+  buy as buyModule,
+  fit as fitModule,
+  fromLegacy,
+  newGameFitting,
+  parseFitting,
+  switchHull,
+  toLegacy,
+  unfit as unfitModule,
+  type FittingState,
+} from './content/fitting';
 import {SpriteRenderer, SpriteActionConfig, SpriteAnimationState, drawCorridorCharacter} from './SpriteRenderer';
 
 // Core Probe Sweep Minigame Modal
@@ -1386,7 +1397,27 @@ export const SKILL_DEFINITIONS: SkillDefinition[] = [
   },
 ];
 
-const SAVE_SESSION_STORAGE_KEY = 'deep_belt_session_v4';
+const SAVE_SESSION_STORAGE_KEY = 'deep_belt_session_v5';
+const LEGACY_V4_SAVE_KEY = 'deep_belt_session_v4';
+
+/**
+ * The saved session. A v4 save is read only when there is no v5 one: it is
+ * written as v5 and its v4 key removed, so it can never come back. Its fields
+ * carry over as they are; the loader converts the old fitting flags (fromLegacy).
+ */
+function readSessionSave(): string | null {
+  try {
+    const v5 = localStorage.getItem(SAVE_SESSION_STORAGE_KEY);
+    if (v5) return v5;
+    const v4 = localStorage.getItem(LEGACY_V4_SAVE_KEY);
+    if (!v4) return null;
+    localStorage.setItem(SAVE_SESSION_STORAGE_KEY, v4);
+    localStorage.removeItem(LEGACY_V4_SAVE_KEY);
+    return v4;
+  } catch {
+    return null;
+  }
+}
 const NEW_GAME_AUTOSTART_KEY = 'deep_belt_new_game';
 // Beyond this range, selecting or locking a hostile does not draw it to the player.
 const HOSTILE_PROVOKE_RANGE_KM = 20;
@@ -1400,7 +1431,7 @@ const DEV_HOTKEYS: boolean =
 function checkHasValidSave(): boolean {
   try {
     if (typeof window === 'undefined') return false;
-    const raw = localStorage.getItem(SAVE_SESSION_STORAGE_KEY);
+    const raw = readSessionSave();
     if (!raw) return false;
     const saved = JSON.parse(raw);
     return typeof saved?.marks === 'number';
@@ -4674,7 +4705,7 @@ export default function App() {
   const [marks, setMarks] = useState(() => {
     try {
       if (typeof window !== 'undefined') {
-        const raw = localStorage.getItem(SAVE_SESSION_STORAGE_KEY);
+        const raw = readSessionSave();
         if (raw) {
           const parsed = JSON.parse(raw);
           if (typeof parsed?.marks === 'number') return parsed.marks;
@@ -5225,44 +5256,30 @@ export default function App() {
     lockoutSec: 0,
   });
 
-  // Upgrades purchased & module slot fitting states
-  // Default loadout: Slot 1 Miner MK1, Slot 4 Light Cannon fitted
-  const [upgrades, setUpgrades] = useState({
-    laserMk2: false,
-    cargoExpanded: false,
-    shieldBoosterHeavy: false,
-    cannon: true,
-  });
-
-  const [fittedSlots, setFittedSlots] = useState({
-    slot1MiningLaser: true,
-    slot2CargoExpander: false,
-    slot3ShieldBooster: false,
-    slot4Cannon: true,
-  });
-  const fittedSlotsRef = useRef(fittedSlots);
-  fittedSlotsRef.current = fittedSlots;
+  // Owned modules, the active hull's slots and each hull's loadout (content/fitting.ts).
+  // `upgrades` and `fittedSlots` are read-only views of it for the code that predates step 2.
+  const [fitting, setFittingState] = useState<FittingState>(newGameFitting);
+  const fittingRef = useRef(fitting);
+  const setFitting = useCallback((next: FittingState) => {
+    fittingRef.current = next;
+    setFittingState(next);
+  }, []);
+  const {upgrades, fittedSlots} = useMemo(() => toLegacy(fitting), [fitting]);
+  // Read-only, and current as soon as setFitting runs, before React re-renders.
+  const [fittedSlotsRef] = useState(
+    () =>
+      ({
+        get current() {
+          return toLegacy(fittingRef.current).fittedSlots;
+        },
+      }) as {readonly current: Readonly<ReturnType<typeof toLegacy>['fittedSlots']>},
+  );
   // The mining laser in slot 1: its catalog yield and cycle drive mining.
   const minerRef = useRef(minerFor(upgrades.laserMk2));
   minerRef.current = minerFor(upgrades.laserMk2);
   const minerCycleSec = () => minerRef.current.stats.cycleSec ?? 10;
   // Yield against the MK1's: 1.5 for the MK2 (+50%), on every ore type.
   const minerYieldMult = () => (minerRef.current.stats.oreYield ?? 50) / (MODULES.miner_mk1.stats.oreYield ?? 50);
-
-  // Per-hull fitting memory map ref to preserve/restore slot configurations (e.g. slot4Cannon on 4-slot ships)
-  const hullFittingsRef = useRef<Record<string, {
-    slot1MiningLaser: boolean;
-    slot2CargoExpander: boolean;
-    slot3ShieldBooster: boolean;
-    slot4Cannon: boolean;
-  }>>({
-    ferrier: {
-      slot1MiningLaser: true,
-      slot2CargoExpander: false,
-      slot3ShieldBooster: false,
-      slot4Cannon: true,
-    },
-  });
 
   const [skillsFocusIndex, setSkillsFocusIndex] = useState(0);
   const skillsFocusIndexRef = useRef(0);
@@ -7504,7 +7521,7 @@ export default function App() {
   // Persistent Session Save & Resume (MARKS, Cargo, Fitted Modules, Skills, Queue, Elapsed Time)
   useEffect(() => {
     try {
-      const raw = localStorage.getItem(SAVE_SESSION_STORAGE_KEY);
+      const raw = readSessionSave();
       if (!raw) return;
       const data = JSON.parse(raw);
       if (typeof data.marks === 'number') {
@@ -7527,52 +7544,12 @@ export default function App() {
         cargoMaxRef.current = data.cargoMax;
       }
 
-      const loadedUpgrades = data.upgrades
-        ? {...data.upgrades}
-        : {
-            laserMk2: false,
-            cargoExpanded: false,
-            shieldBoosterHeavy: false,
-            cannon: true,
-          };
-
-      const loadedFittedSlots = data.fittedSlots
-        ? {...data.fittedSlots}
-        : {
-            slot1MiningLaser: true,
-            slot2CargoExpander: false,
-            slot3ShieldBooster: false,
-            slot4Cannon: true,
-          };
-
-      // Check if Slot 4 is empty
-      const isSlot4Empty =
-        loadedFittedSlots.slot4Cannon !== true &&
-        (!Array.isArray(data.fittedModules) || data.fittedModules[3] === null || data.fittedModules[3] === undefined);
-
-      // Check if Light Cannon exists in hangar / inventory
-      const hasCannonInHangar =
-        Boolean(loadedUpgrades.cannon && !loadedFittedSlots.slot4Cannon) ||
-        (Array.isArray(data.hangarModules) &&
-          data.hangarModules.some((m: any) =>
-            typeof m === 'string'
-              ? m.toLowerCase().includes('cannon')
-              : m?.name?.toLowerCase().includes('cannon') || m?.id?.toLowerCase().includes('cannon')
-          ));
-
-      // SAVE RETROFIT / MIGRATION:
-      // If Slot 4 is empty AND there is no Light Cannon in hangar/inventory,
-      // automatically grant and auto-fit one Light Cannon into Slot 4 at no charge!
-      if (isSlot4Empty && !hasCannonInHangar) {
-        loadedUpgrades.cannon = true;
-        loadedFittedSlots.slot4Cannon = true;
-      }
-
-      setUpgrades(loadedUpgrades);
-      setFittedSlots(loadedFittedSlots);
-      // applyHullLayout() below works out the hold size from this ref; the
-      // render that would copy the state into it comes too late.
-      fittedSlotsRef.current = loadedFittedSlots;
+      // Fitting: a v5 save holds the model; a v4 save (converted on load) holds
+      // the old yes/no flags, read with the v4 loader's defaults and free-cannon retrofit.
+      const savedHull = typeof data.activeHull === 'string' ? data.activeHull : data.activeHullId;
+      const fittingHull: HullId = HULL_DEFINITIONS.some((h) => h.id === savedHull) ? (savedHull as HullId) : 'ferrier';
+      // setFitting updates the ref at once: applyHullLayout() below works out the hold from it.
+      setFitting(parseFitting(data.fitting, fittingHull) ?? fromLegacy(data, fittingHull));
 
       const loadedSkills: SkillsState = {
         mining: data.skills?.mining ?? 0,
@@ -8186,8 +8163,8 @@ export default function App() {
         dockedStationId: dockedStationIdRef.current,
         isDocked,
         cargoMax,
-        upgrades,
-        fittedSlots,
+        // Owned modules, fitted slots and per-hull loadouts (save v5).
+        fitting,
         hullLayouts: hullLayoutsRef.current,
         skills,
         trainingQueue,
@@ -8245,7 +8222,7 @@ export default function App() {
       };
       localStorage.setItem(SAVE_SESSION_STORAGE_KEY, JSON.stringify(data));
     } catch (e) {}
-  }, [isDocked, currentSystem, marks, cargoFerrite, cargoRare, cargoAurite, cargoChromite, cargoPyrox, cargoScrap, cargoTritanium, cargoAuriteConc, cargoChromiteBar, cargoPyroxite, cargoHullPlate, cargoThrusterCoil, cargoSensorCore, cargoLatticeAlloy, cargoConductiveMesh, cargoThermalAlloy, cargoQuantumCore, cargoIntegritySeal, cargoThermalGrid, cargoPrismite, cargoNimbus, cargoRadflux, cargoPackedPrismite, cargoPackedNimbus, cargoPackedRadflux, cargoSilicateLens, cargoMetallicLens, cargoExoticLens, cargoExtractDrone, cargoDefenseDrone, cargoSalvageDrone, cargoCommandHub, cargoPolymer, cargoChemical, cargoPolymerComposite, cargoRiftSync, cargoPristinePrismite, cargoPristineNimbus, cargoPristineRadflux, riftRun, riftStats, gantryRefit, colonies, colonySaveCount, cargoStationCore, outpostDeployed, outpostModules, outpostStorage, dockedStationId, cargoMax, upgrades, fittedSlots, hullLayouts, skills, trainingQueue, missionIndex, missionStatus, missionPirateKills, hasGatePermit, beltRunActive, activeHaulContractId, tutorialDone, tutorialStep, tutorialBonusClaimed, milestoneIndustrialistClaimed, ashDriftVisited, hasProbeLauncher, firstCacheOpened, capBatteryInstalled, capBatteryCount, agentStanding, chartTheDriftStatus, ownedHulls, activeHull, activeFabricate, schematicLevels, activeResearch, dataCache, shipCapacitor, scanCooldownSec, laserFreq, fittedLens, lensCharges]);
+  }, [isDocked, currentSystem, marks, cargoFerrite, cargoRare, cargoAurite, cargoChromite, cargoPyrox, cargoScrap, cargoTritanium, cargoAuriteConc, cargoChromiteBar, cargoPyroxite, cargoHullPlate, cargoThrusterCoil, cargoSensorCore, cargoLatticeAlloy, cargoConductiveMesh, cargoThermalAlloy, cargoQuantumCore, cargoIntegritySeal, cargoThermalGrid, cargoPrismite, cargoNimbus, cargoRadflux, cargoPackedPrismite, cargoPackedNimbus, cargoPackedRadflux, cargoSilicateLens, cargoMetallicLens, cargoExoticLens, cargoExtractDrone, cargoDefenseDrone, cargoSalvageDrone, cargoCommandHub, cargoPolymer, cargoChemical, cargoPolymerComposite, cargoRiftSync, cargoPristinePrismite, cargoPristineNimbus, cargoPristineRadflux, riftRun, riftStats, gantryRefit, colonies, colonySaveCount, cargoStationCore, outpostDeployed, outpostModules, outpostStorage, dockedStationId, cargoMax, fitting, hullLayouts, skills, trainingQueue, missionIndex, missionStatus, missionPirateKills, hasGatePermit, beltRunActive, activeHaulContractId, tutorialDone, tutorialStep, tutorialBonusClaimed, milestoneIndustrialistClaimed, ashDriftVisited, hasProbeLauncher, firstCacheOpened, capBatteryInstalled, capBatteryCount, agentStanding, chartTheDriftStatus, ownedHulls, activeHull, activeFabricate, schematicLevels, activeResearch, dataCache, shipCapacitor, scanCooldownSec, laserFreq, fittedLens, lensCharges]);
 
   // Master Industrialist milestone threshold trigger (>= 1,000 MARKS)
   useEffect(() => {
@@ -8657,20 +8634,7 @@ export default function App() {
     ownedHullsRef.current = ['ferrier'];
     setActiveHull('ferrier');
     activeHullRef.current = 'ferrier';
-    setUpgrades({
-      laserMk2: false,
-      cargoExpanded: false,
-      shieldBoosterHeavy: false,
-      cannon: true,
-    });
-    const defaultFitted = {
-      slot1MiningLaser: true,
-      slot2CargoExpander: false,
-      slot3ShieldBooster: false,
-      slot4Cannon: true,
-    };
-    setFittedSlots(defaultFitted);
-    fittedSlotsRef.current = defaultFitted;
+    setFitting(newGameFitting());
     const defaultLayouts = { ferrier: {}, tern: {}, skirmisher: {}, lattice: {}, shade: {}, gantry: {} };
     setHullLayouts(defaultLayouts);
     hullLayoutsRef.current = defaultLayouts;
@@ -8732,6 +8696,7 @@ export default function App() {
     showNewGameModalRef.current = false;
     try {
       localStorage.removeItem(SAVE_SESSION_STORAGE_KEY);
+      localStorage.removeItem(LEGACY_V4_SAVE_KEY);
     } catch (_) {}
     setHasValidSave(false);
     hasValidSaveRef.current = false;
@@ -11845,7 +11810,7 @@ export default function App() {
         setTutorialBonusClaimed(true);
         tutorialBonusClaimedRef.current = true;
         try {
-          const raw = localStorage.getItem(SAVE_SESSION_STORAGE_KEY);
+          const raw = readSessionSave();
           const data = raw ? JSON.parse(raw) : {};
           data.tutorialBonusClaimed = true;
           localStorage.setItem(SAVE_SESSION_STORAGE_KEY, JSON.stringify(data));
@@ -13112,7 +13077,7 @@ export default function App() {
         setTutorialBonusClaimed(true);
         tutorialBonusClaimedRef.current = true;
         try {
-          const raw = localStorage.getItem(SAVE_SESSION_STORAGE_KEY);
+          const raw = readSessionSave();
           const data = raw ? JSON.parse(raw) : {};
           data.tutorialBonusClaimed = true;
           localStorage.setItem(SAVE_SESSION_STORAGE_KEY, JSON.stringify(data));
@@ -13154,23 +13119,20 @@ export default function App() {
     const newMarks = Math.max(0, marks - cost);
     setMarks(newMarks);
     setGameState((prev) => ({...prev, score: newMarks}));
-    setUpgrades((prev) => ({...prev, [key]: true}));
-
-    if (key === 'cargoExpanded') {
-      fittedSlotsRef.current.slot2CargoExpander = true;
-      applyHullLayout();
-      setFittedSlots({ ...fittedSlotsRef.current });
-    } else if (key === 'shieldBoosterHeavy') {
-      setFittedSlots((prev) => {
-        const next = { ...prev, slot3ShieldBooster: true };
-        fittedSlotsRef.current = next;
-        return next;
-      });
-    } else if (key === 'cannon') {
-      setFittedSlots((prev) => {
-        const next = { ...prev, slot4Cannon: true };
-        fittedSlotsRef.current = next;
-        return next;
+    // Fitted at once when a slot of its type is free, else stored in the hangar.
+    const moduleId = (Object.keys(MODULE_UPGRADE_KEY) as Array<keyof typeof MODULE_UPGRADE_KEY>).find((id) => MODULE_UPGRADE_KEY[id] === key)!;
+    const bought = buyModule(fittingRef.current, activeHullRef.current, moduleId);
+    setFitting(bought.state);
+    applyHullLayout();
+    if (!bought.fitted) {
+      setToastNotice({
+        id: `toast_module_hangar_${Date.now()}`,
+        title: `${MODULES[moduleId].name} stored`,
+        detail:
+          moduleId === 'miner_mk2'
+            ? 'It replaces the Miner MK1 in the hangar. Fit it in Fitting [2].'
+            : `No free ${MODULES[moduleId].slot} slot on this hull: it waits in the hangar. Fit it in Fitting [2].`,
+        type: 'info',
       });
     }
     gameAudio.playPurchaseConfirmed();
@@ -13349,7 +13311,7 @@ export default function App() {
     addFloatingText('YOUR OUTPOST DEPLOYED!', OUTPOST_ANCHOR.x, OUTPOST_ANCHOR.y - 50, '#2EC4B6');
 
     try {
-      const raw = localStorage.getItem(SAVE_SESSION_STORAGE_KEY);
+      const raw = readSessionSave();
       const data = raw ? JSON.parse(raw) : {};
       data.outpost = {
         deployed: true,
@@ -13902,7 +13864,7 @@ export default function App() {
     });
 
     try {
-      const raw = localStorage.getItem(SAVE_SESSION_STORAGE_KEY);
+      const raw = readSessionSave();
       const data = raw ? JSON.parse(raw) : {};
       if (!data.outpost) data.outpost = {};
       data.outpost.modules = nextModules;
@@ -13983,7 +13945,7 @@ export default function App() {
     });
 
     try {
-      const raw = localStorage.getItem(SAVE_SESSION_STORAGE_KEY);
+      const raw = readSessionSave();
       const data = raw ? JSON.parse(raw) : {};
       if (!data.outpost) data.outpost = {};
       data.outpost.modules = nextModules;
@@ -14052,7 +14014,7 @@ export default function App() {
     });
 
     try {
-      const raw = localStorage.getItem(SAVE_SESSION_STORAGE_KEY);
+      const raw = readSessionSave();
       const data = raw ? JSON.parse(raw) : {};
       if (!data.outpost) data.outpost = {};
       data.outpost.modules = outpostModulesRef.current;
@@ -14115,7 +14077,7 @@ export default function App() {
     });
 
     try {
-      const raw = localStorage.getItem(SAVE_SESSION_STORAGE_KEY);
+      const raw = readSessionSave();
       const data = raw ? JSON.parse(raw) : {};
       if (!data.outpost) data.outpost = {};
       data.outpost.modules = outpostModulesRef.current;
@@ -14503,25 +14465,39 @@ export default function App() {
   }, [getCargoItemQty, addCargoItemQty, setToastNotice]);
 
   const toggleModuleFitting = (slot: keyof typeof fittedSlots) => {
-    setFittedSlots((prev) => {
-      const nextVal = !prev[slot];
-      const next = {
-        ...prev,
-        [slot]: nextVal,
-      };
-      fittedSlotsRef.current = next;
-      if (slot === 'slot2CargoExpander') {
-        applyHullLayout();
-      } else if (slot === 'slot3ShieldBooster' && !nextVal) {
-        setModuleShieldActive(false);
-        playerRef.current.shieldBoosterActive = false;
-      } else if (slot === 'slot4Cannon' && !nextVal) {
-        setModuleCannonActive(false);
-        playerRef.current.cannonActive = false;
-        setActionCycleSecs((prev) => (prev.cannon === 0 ? prev : { ...prev, cannon: 0 }));
-      }
-      return next;
-    });
+    const cur = fittingRef.current;
+    const hull = activeHullRef.current;
+    const moduleId =
+      slot === 'slot1MiningLaser'
+        ? minerFor(toLegacy(cur).upgrades.laserMk2).id as 'miner_mk1' | 'miner_mk2'
+        : slot === 'slot2CargoExpander'
+          ? 'expanded_hold'
+          : slot === 'slot3ShieldBooster'
+            ? 'shield_booster'
+            : 'light_cannon';
+    const isFitted = cur.fitted.includes(moduleId);
+    const next = isFitted ? unfitModule(cur, hull, moduleId) : fitModule(cur, hull, moduleId);
+    if (!next) {
+      gameAudio.playErrorBuzz();
+      setToastNotice({
+        id: `toast_fit_rejected_${Date.now()}`,
+        title: 'Cannot fit',
+        detail: `No free ${MODULES[moduleId].slot} slot on this hull for the ${MODULES[moduleId].name}.`,
+        type: 'danger',
+      });
+      return;
+    }
+    setFitting(next);
+    if (slot === 'slot2CargoExpander') {
+      applyHullLayout();
+    } else if (slot === 'slot3ShieldBooster' && isFitted) {
+      setModuleShieldActive(false);
+      playerRef.current.shieldBoosterActive = false;
+    } else if (slot === 'slot4Cannon' && isFitted) {
+      setModuleCannonActive(false);
+      playerRef.current.cannonActive = false;
+      setActionCycleSecs((prev) => (prev.cannon === 0 ? prev : { ...prev, cannon: 0 }));
+    }
     gameAudio.playPurchaseConfirmed();
   };
 
@@ -14705,7 +14681,8 @@ export default function App() {
   const getHullCargoMaxWithModules = useCallback((destHullId: HullId): number => {
     const destDef = HULL_DEFINITIONS.find((h) => h.id === destHullId) || HULL_DEFINITIONS[0];
     const destLayout = hullLayoutsRef.current[destHullId] || {};
-    const isExpanderFitted = fittedSlotsRef.current.slot2CargoExpander;
+    // What the destination hull will fit from its own loadout once boarded.
+    const isExpanderFitted = switchHull(fittingRef.current, activeHullRef.current, destHullId).fitted.includes('expanded_hold');
     const effectiveBaseCargo = (destHullId === 'gantry' && gantryRefitRef.current) ? 2500 : destDef.baseCargo;
     return effectiveBaseCargo + (isExpanderFitted ? EXPANDER_BONUS : 0) + (destLayout.cargo_pod ? 200 : 0);
   }, []);
@@ -14732,15 +14709,16 @@ export default function App() {
       }
 
       const oldHullId = activeHullRef.current;
-      hullFittingsRef.current[oldHullId] = { ...fittedSlotsRef.current };
-      const hadCannon = fittedSlotsRef.current.slot4Cannon;
+      const hadCannon = fittingRef.current.fitted.includes('light_cannon');
 
       setActiveHull(hullId);
       activeHullRef.current = hullId;
 
-      // Handle fitting memory and slot capacity
-      if (hullDef.slots < 4) {
-        if (hadCannon) {
+      // The old hull's modules go to the hangar; the new hull fits its own loadout from it.
+      const boarded = switchHull(fittingRef.current, oldHullId, hullId);
+      setFitting(boarded);
+      if (!boarded.fitted.includes('light_cannon')) {
+        if (hadCannon && !boarded.fitted.some((m) => m && MODULES[m].slot === 'weapon')) {
           setToastNotice({
             id: `toast_cannon_hangar_${Date.now()}`,
             title: 'Weapon Stored',
@@ -14748,27 +14726,10 @@ export default function App() {
             type: 'info',
           });
         }
-        fittedSlotsRef.current.slot4Cannon = false;
-        setFittedSlots({ ...fittedSlotsRef.current });
         setModuleCannonActive(false);
         playerRef.current.cannonActive = false;
         playerRef.current.cannonTimer = 0;
         setActionCycleSecs((prev) => (prev.cannon === 0 ? prev : { ...prev, cannon: 0 }));
-      } else {
-        const cached = hullFittingsRef.current[hullId];
-        if (cached) {
-          fittedSlotsRef.current = {
-            slot1MiningLaser: cached.slot1MiningLaser ?? true,
-            slot2CargoExpander: Boolean(upgrades.cargoExpanded && cached.slot2CargoExpander),
-            slot3ShieldBooster: Boolean(upgrades.shieldBoosterHeavy && cached.slot3ShieldBooster),
-            slot4Cannon: Boolean(upgrades.cannon && cached.slot4Cannon),
-          };
-        } else {
-          if (upgrades.cannon) {
-            fittedSlotsRef.current.slot4Cannon = true;
-          }
-        }
-        setFittedSlots({ ...fittedSlotsRef.current });
       }
 
       const p = playerRef.current;
@@ -17017,21 +16978,7 @@ export default function App() {
                 const item = fittingItems[fittingFocusIndexRef.current];
                 if (item.type === 'fitted' && item.slotKey) {
                   // Unfit ONLY the focused slot!
-                  setFittedSlots((prev) => {
-                    const next = { ...prev, [item.slotKey!]: false };
-                    fittedSlotsRef.current = next;
-                    if (item.slotKey === 'slot2CargoExpander') applyHullLayout();
-                    else if (item.slotKey === 'slot3ShieldBooster') {
-                      setModuleShieldActive(false);
-                      playerRef.current.shieldBoosterActive = false;
-                    } else if (item.slotKey === 'slot4Cannon') {
-                      setModuleCannonActive(false);
-                      playerRef.current.cannonActive = false;
-                      setActionCycleSecs((prev) => (prev.cannon === 0 ? prev : { ...prev, cannon: 0 }));
-                    }
-                    return next;
-                  });
-                  gameAudio.playConfirmSelect();
+                  toggleModuleFitting(item.slotKey); // it is fitted, so this unfits it
                 } else if (item.type === 'hangar' && item.slotKey) {
                   toggleModuleFitting(item.slotKey);
                 } else if (item.type === 'lens_unfit') {
@@ -17049,21 +16996,7 @@ export default function App() {
               if (count > 0 && fittingFocusIndexRef.current >= 0 && fittingFocusIndexRef.current < count) {
                 const item = fittingItems[fittingFocusIndexRef.current];
                 if (item.type === 'fitted' && item.slotKey) {
-                  setFittedSlots((prev) => {
-                    const next = { ...prev, [item.slotKey!]: false };
-                    fittedSlotsRef.current = next;
-                    if (item.slotKey === 'slot2CargoExpander') applyHullLayout();
-                    else if (item.slotKey === 'slot3ShieldBooster') {
-                      setModuleShieldActive(false);
-                      playerRef.current.shieldBoosterActive = false;
-                    } else if (item.slotKey === 'slot4Cannon') {
-                      setModuleCannonActive(false);
-                      playerRef.current.cannonActive = false;
-                      setActionCycleSecs((prev) => (prev.cannon === 0 ? prev : { ...prev, cannon: 0 }));
-                    }
-                    return next;
-                  });
-                  gameAudio.playConfirmSelect();
+                  toggleModuleFitting(item.slotKey); // it is fitted, so this unfits it
                   return;
                 }
                 if (item.type === 'lens_unfit') {

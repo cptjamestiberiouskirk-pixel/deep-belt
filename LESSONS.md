@@ -13,6 +13,13 @@ Format, checked by `node dev/lessons.mjs --check`. A field's text may go on over
 - Status: open | promoted to PLAYBOOK "<section>" | closed: <why the rule no longer holds>
 ```
 
+## 2026-11-15: A sed edit turned App.tsx from CRLF to LF
+- What went wrong: in content-tree step 2a, `sed -i` in Git Bash rewrote App.tsx with LF line endings, and a later Node edit script added LF lines to tests/station.spec.ts, leaving it with mixed endings. Edit scripts that split on CRLF then found no lines to anchor on.
+- Why: the worktree files are CRLF (core.autocrlf is true) while the index is LF. Git Bash `sed -i` writes LF, and a script that joins with a bare LF adds LF lines to a CRLF file. Nothing reached a commit: git stores LF either way.
+- Rule going forward: an edit script splits on an optional CR before LF and writes back with the line ending the file had. Before a commit, `git ls-files --eol <file>` shows `w/crlf` or `w/lf`, not `w/mixed`.
+- Evidence: `git ls-files --eol tests/station.spec.ts` showed `w/mixed` before the 2a commit; both files were rewritten as CRLF with a Node one-liner.
+- Status: open
+
 ## 2026-11-15: A scripted edit wrote a literal $1 into App.tsx
 - What went wrong: in content-tree step 1, a Node script that edited App.tsx wrote the text "$1$2" in place of the market's module list and several Fitting lines; the type-check failed on it. A `sed` fix to the script then stripped the backslashes from its regex, so a second run did the same. Both times App.tsx was restored with `git checkout -- App.tsx`, which held no other changes.
 - Why: the script's replace helper always passed a callback to `String.replace`, and a callback's return value is used as it is: `$1` is expanded only in a replacement string. The `sed` command's own quoting ate `\$` and `\d`.

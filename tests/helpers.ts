@@ -1,6 +1,8 @@
 import {expect, type Page} from '@playwright/test';
 
-export const SAVE_KEY = 'deep_belt_session_v4';
+export const SAVE_KEY = 'deep_belt_session_v5';
+/** Seeds go in as a v4 save, so every seeded test also runs the v4-to-v5 migration. */
+export const LEGACY_SAVE_KEY = 'deep_belt_session_v4';
 
 /** Anything the page logs as an error, or throws, during a test. */
 export interface Problems {
@@ -60,14 +62,17 @@ export async function openWithSave(page: Page, patch: Record<string, unknown>, q
   await expect(page.getByText('Docked · safe')).toBeVisible();
   await expect.poll(() => readSave(page)).not.toBeNull();
   await page.evaluate(
-    ([key, p]) => {
+    ([key, legacyKey, p]) => {
       const base = JSON.parse(localStorage.getItem(key as string) || '{}');
-      localStorage.setItem(key as string, JSON.stringify({...base, ...(p as object)}));
+      // A v4 save has the old yes/no fitting flags, not the v5 model.
+      delete base.fitting;
+      localStorage.setItem(legacyKey as string, JSON.stringify({...base, ...(p as object)}));
+      localStorage.removeItem(key as string);
       // The running game autosaves; stop it writing over the seed before the
       // reload. The reload gives the page a fresh, unpatched Storage.
       Storage.prototype.setItem = () => {};
     },
-    [SAVE_KEY, patch] as const,
+    [SAVE_KEY, LEGACY_SAVE_KEY, patch] as const,
   );
   if (query) await page.goto(`/${query}`);
   else await page.reload();
