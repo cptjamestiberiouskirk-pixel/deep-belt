@@ -54,6 +54,10 @@ test('skills screen: at Navigation II, Cargo Trim I queues for 100 MARKS and tak
   await openTab(page, '3', 'SKILLS MATRIX');
   const nav = page.getByTestId('skill-category-Navigation');
   await expect(nav.getByRole('button', {name: /^NEEDS/})).toHaveCount(0);
+  // The cards give the speed a ship reaches (content/flight.ts), not the 320 cap:
+  // Navigation II, 220 × 1.2 × 0.4 = 105.6; untrained Cargo Trim, a full hold costs 40%.
+  await expect(nav).toContainText('+20% top speed (106 m/s)');
+  await expect(nav).toContainText('full hold: -40% top speed');
   await nav.getByRole('button', {name: 'LVL I (100 MARKS • 2:00)'}).click();
   await expect.poll(async () => (await readSave(page))!.trainingQueue.length).toBe(1);
   const after = (await readSave(page))!;
@@ -62,7 +66,7 @@ test('skills screen: at Navigation II, Cargo Trim I queues for 100 MARKS and tak
   expectClean(problems);
 });
 
-test('ship stats: Cargo Trim V with a Bulk Hold, a full hold costs 7.5% top speed, not 30%', async ({page}) => {
+test('ship stats: Cargo Trim V with a Bulk Hold, a full hold costs 10% top speed, not 40%', async ({page}) => {
   const problems = watch(page);
   await openWithSave(page, {
     ...BASE,
@@ -71,11 +75,11 @@ test('ship stats: Cargo Trim V with a Bulk Hold, a full hold costs 7.5% top spee
   });
   await enterGame(page);
   await openTab(page, '2', /^FITTING$/);
-  // Navigation II: 320 × 1.2 = 384, × 0.8 for the Bulk Hold = 307.2. A full hold
-  // at Cargo Trim V: × (1 − 0.3 × 0.25) = 284.16.
+  // Top speed is 0.4 × thrust (content/flight.ts). Navigation II: 220 × 1.2 × 0.8 for the
+  // Bulk Hold = 211.2 thrust, 84.48 m/s. A full hold at Cargo Trim V: × (1 − 0.4 × 0.25) = 76.03.
   // Each row's value holds its change in a nested span, so match the row as a whole.
   const row = (label: string) => page.getByText(label, {exact: true}).locator('..');
-  await expect(row('Max speed')).toHaveText('Max speed307 m/s(-20%)');
-  await expect(row('Speed, full hold')).toHaveText('Speed, full hold284 m/s(-7.5%)');
+  await expect(row('Max speed')).toHaveText('Max speed84 m/s(-20%)');
+  await expect(row('Speed, full hold')).toHaveText('Speed, full hold76 m/s(-10%)');
   expectClean(problems);
 });

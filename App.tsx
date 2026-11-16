@@ -119,7 +119,8 @@ import {MARKET_MODULE_IDS, MODULES, minerFor, missingSkill, type ModuleId} from 
 import type {SlotType} from './content/types';
 import {LENSES, LENS_IDS, lensBonusLabel} from './content/lenses';
 import {readItem} from './content/inventory';
-import {CARGO_TRIM_CUT, CHARGE_CONTROL_CUT, effectiveLoad, FULL_HOLD_SPEED_CUT, prerequisiteText, SKILL_CATEGORY_ORDER, skillLevels, SKILLS, unmetPrerequisites, weaponCapPerShot} from './content/skills';
+import {CARGO_TRIM_CUT, CHARGE_CONTROL_CUT, effectiveLoad, prerequisiteText, SKILL_CATEGORY_ORDER, skillLevels, SKILLS, unmetPrerequisites, weaponCapPerShot} from './content/skills';
+import {FULL_HOLD_THRUST_CUT, flightLimits, topSpeed} from './content/flight';
 import {
   buy as buyModule,
   canBuyMore,
@@ -1377,6 +1378,11 @@ const SKILL_DURATIONS: Record<number, number> = {
 const getSkillDuration = (level: number) => SKILL_DURATIONS[level] ?? (60 * Math.pow(2, level - 1));
 const getSkillCost = (level: number) => 100 * level;
 
+/** Thrust and cap from the tuning config, for content/flight.ts topSpeed. */
+function speedBase() {
+  return {baseThrust: getConfig('playerThrust') as number, baseMaxSpeed: getConfig('playerMaxSpeed') as number};
+}
+
 export const SKILL_DEFINITIONS: SkillDefinition[] = [
   {
     id: 'mining',
@@ -1414,9 +1420,9 @@ export const SKILL_DEFINITIONS: SkillDefinition[] = [
     id: 'navigation',
     name: 'Navigation',
     category: SKILLS.navigation.category,
-    description: '+10% ship max speed and 10% faster warp spool duration per level',
+    description: '+10% thrust and top speed, and a 10% shorter warp spool, per level',
     getBonusText: (level: number) =>
-      `+${level * 10}% max speed (${Math.round(320 * (1 + 0.1 * level))} m/s), -${level * 10}% warp spool (${(3.0 * (1 - 0.1 * level)).toFixed(1)}s)`,
+      `+${level * 10}% top speed (${Math.round(topSpeed({...speedBase(), navigation: level, hullMult: 1, moduleMult: 1, load: 0}))} m/s), -${level * 10}% warp spool (${(3.0 * (1 - 0.1 * level)).toFixed(1)}s)`,
   },
   {
     id: 'cargoTrim',
@@ -1424,7 +1430,7 @@ export const SKILL_DEFINITIONS: SkillDefinition[] = [
     category: SKILLS.cargoTrim.category,
     description: `-${Math.round(CARGO_TRIM_CUT * 100)}% of the slowdown a loaded hold gives, per level`,
     getBonusText: (level: number) =>
-      `-${Math.round(CARGO_TRIM_CUT * 100 * level)}% load slowdown (full hold: -${Math.round(FULL_HOLD_SPEED_CUT * 100 * effectiveLoad(1, level))}% top speed)`,
+      `-${Math.round(CARGO_TRIM_CUT * 100 * level)}% load slowdown (full hold: -${Math.round(100 * (1 - topSpeed({...speedBase(), navigation: 0, hullMult: 1, moduleMult: 1, load: effectiveLoad(1, level)}) / topSpeed({...speedBase(), navigation: 0, hullMult: 1, moduleMult: 1, load: 0})))}% top speed)`,
   },
 ];
 
@@ -6125,6 +6131,21 @@ export default function App() {
     fireTimer: 0,
     patrolAngle: 0,
   });
+
+  // Read-only flight and combat state for the balance probe (tests/balance-probe.spec.ts):
+  // speed, Cap and the Belt Two pirate, none of which the screen shows as numbers.
+  useEffect(() => {
+    (window as any).__DEEP_BELT_PROBE__ = {
+      player: () => {
+        const p = playerRef.current;
+        return {speed: Math.hypot(p.vx, p.vy), capacitor: p.capacitor, maxCapacitor: p.maxCapacitor, shield: p.shield, armor: p.armor, hull: p.hull, warpState: p.warpState, cannonActive: p.cannonActive, boosterActive: p.shieldBoosterActive};
+      },
+      pirate: () => {
+        const q = pirateRef.current;
+        return {isAlive: q.isAlive, shield: q.shield, armor: q.armor, hull: q.hull, speed: Math.hypot(q.vx, q.vy)};
+      },
+    };
+  }, []);
 
   // Tougher Vael Pirate Frigate at Vael Belt (1400, -900)
   // Stats: 2x Harrow pirate HP (Shield 200, Armor 200, Hull 200) and 2x damage (~16% of player shield per shot = 32 damage)
@@ -18933,9 +18954,10 @@ export default function App() {
     const decaySpeedMult = getRiftDecaySpeedMult(currentSystemRef.current, riftRunRef.current?.left);
     // Fitted modules: 0.8 with a Bulk Hold (content/fitting.ts fittedSpeedMult).
     const moduleSpeedMult = fittedSpeedMult(fittingRef.current.fitted);
-    const thrustPower = baseThrust * (1 + 0.10 * navLevel) * hullSpeedMultRef.current * moduleSpeedMult * (1.0 - 0.40 * loadFrac) * decaySpeedMult;
-    const maxSpeed = basePlayerMaxSpeed * hullSpeedMultRef.current * moduleSpeedMult * (1.0 - FULL_HOLD_SPEED_CUT * loadFrac) * decaySpeedMult;
-    const plumeScale = (1.0 - 0.40 * loadFrac) * decaySpeedMult;
+    const limits = flightLimits({baseThrust, baseMaxSpeed, navigation: navLevel, hullMult: hullSpeedMultRef.current, moduleMult: moduleSpeedMult, load: loadFrac});
+    const thrustPower = limits.thrust * decaySpeedMult;
+    const maxSpeed = limits.cap * decaySpeedMult;
+    const plumeScale = (1.0 - FULL_HOLD_THRUST_CUT * loadFrac) * decaySpeedMult;
 
     if (thrusting) {
       p.vx += Math.cos(p.heading) * thrustPower * dt;
@@ -31313,7 +31335,7 @@ export default function App() {
                                   {(() => {
                                     const thrusterMult = 1 + (hullLayouts[activeHull]?.thruster ? 0.15 : 0);
                                     const moduleMult = fittedSpeedMult(fitting.fitted);
-                                    const speed = Math.round((getConfig('playerMaxSpeed') as number) * (1 + 0.1 * (skills.navigation || 0)) * thrusterMult * moduleMult);
+                                    const speed = Math.round(topSpeed({...speedBase(), navigation: skills.navigation || 0, hullMult: thrusterMult, moduleMult, load: 0}));
                                     const pct = Math.round((moduleMult - 1) * 100);
                                     return (
                                       <span>
@@ -31335,11 +31357,12 @@ export default function App() {
                                 <span style={statValueStyle}>
                                   {(() => {
                                     const thrusterMult = 1 + (hullLayouts[activeHull]?.thruster ? 0.15 : 0);
-                                    const empty = (getConfig('playerMaxSpeed') as number) * (1 + 0.1 * (skills.navigation || 0)) * thrusterMult * fittedSpeedMult(fitting.fitted);
-                                    const cut = FULL_HOLD_SPEED_CUT * effectiveLoad(1, skills.cargoTrim || 0);
+                                    const inputs = {...speedBase(), navigation: skills.navigation || 0, hullMult: thrusterMult, moduleMult: fittedSpeedMult(fitting.fitted), load: 0};
+                                    const full = topSpeed({...inputs, load: effectiveLoad(1, skills.cargoTrim || 0)});
+                                    const cut = 1 - full / topSpeed(inputs);
                                     return (
                                       <span>
-                                        {Math.round(empty * (1 - cut))} m/s
+                                        {Math.round(full)} m/s
                                         <span style={{ color: '#FF5A5F', fontSize: '12px', marginLeft: '4px' }}>
                                           (-{Math.round(cut * 100 * 10) / 10}%)
                                         </span>
@@ -31901,8 +31924,8 @@ export default function App() {
 
                   const baseMaxSpeed = getConfig('playerMaxSpeed') as number;
                   const navLevel = skills.navigation || 0;
-                  const basePlayerMaxSpeed = Math.round(baseMaxSpeed * (1 + 0.10 * navLevel));
-                  const currentSpeedCap = Math.round(basePlayerMaxSpeed * (1.0 + (curLayout.thruster ? 0.15 : 0)));
+                  const speedWith = (thruster: boolean) => Math.round(topSpeed({...speedBase(), baseMaxSpeed, navigation: navLevel, hullMult: thruster ? 1.15 : 1, moduleMult: fittedSpeedMult(fitting.fitted), load: 0}));
+                  const currentSpeedCap = speedWith(Boolean(curLayout.thruster));
                   const currentLockRange = 10.0 + (curLayout.sensor ? 2.0 : 0);
 
                   // Focused hardpoint & hypothetical pending preview
@@ -31922,8 +31945,8 @@ export default function App() {
                   let previewSpeedCap = currentSpeedCap;
                   if (focusedHp.id === 'thruster') {
                     previewSpeedCap = isFocusedInstalled
-                      ? Math.round(basePlayerMaxSpeed * 1.0)
-                      : Math.round(basePlayerMaxSpeed * 1.15);
+                      ? speedWith(false)
+                      : speedWith(true);
                   }
 
                   let previewLockRange = currentLockRange;
