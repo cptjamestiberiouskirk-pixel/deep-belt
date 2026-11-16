@@ -13,6 +13,13 @@ Format, checked by `node dev/lessons.mjs --check`. A field's text may go on over
 - Status: open | promoted to PLAYBOOK "<section>" | closed: <why the rule no longer holds>
 ```
 
+## 2026-11-15: A skills test expected a name in the case the source wrote
+- What went wrong: in content-tree step 5, a new test looked for "Mining" in the Skills screen's Extraction group and failed. The screen shows "MINING".
+- Why: the test's text was copied from SKILL_DEFINITIONS, and the card upper-cases the name with `toUpperCase()` when it renders it.
+- Rule going forward: a test of on-screen text takes the text from the rendered page (a failure's "Received string", or the page text), not from the source that feeds it.
+- Evidence: tests/skills.spec.ts, search "toContainText('MINING')"; the failing run's "Received string" began "EXTRACTIONMINING".
+- Status: open
+
 ## 2026-11-15: A sed edit turned App.tsx from CRLF to LF
 - What went wrong: in content-tree step 2a, `sed -i` in Git Bash rewrote App.tsx with LF line endings, and a later Node edit script added LF lines to tests/station.spec.ts, leaving it with mixed endings. Edit scripts that split on CRLF then found no lines to anchor on.
 - Why: the worktree files are CRLF (core.autocrlf is true) while the index is LF. Git Bash `sed -i` writes LF, and a script that joins with a bare LF adds LF lines to a CRLF file. Nothing reached a commit: git stores LF either way.

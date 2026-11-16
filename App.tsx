@@ -119,6 +119,7 @@ import {MODULES, MODULE_UPGRADE_KEY, minerFor, type ModuleId} from './content/mo
 import type {SlotType} from './content/types';
 import {LENSES, LENS_IDS, lensBonusLabel} from './content/lenses';
 import {readItem} from './content/inventory';
+import {prerequisiteText, SKILL_CATEGORY_ORDER, SKILLS, unmetPrerequisites} from './content/skills';
 import {
   buy as buyModule,
   canBuyMore,
@@ -1335,7 +1336,8 @@ function getToastKindColor(toast: ToastNotice): string {
 }
 
 // Stage 3 Skills System Definitions
-export type SkillId = 'mining' | 'gunnery' | 'shieldOp' | 'navigation';
+export type {SkillId} from './content/skills';
+import type {SkillId} from './content/skills';
 
 export interface SkillDefinition {
   id: SkillId;
@@ -1377,7 +1379,7 @@ export const SKILL_DEFINITIONS: SkillDefinition[] = [
   {
     id: 'mining',
     name: 'Mining',
-    category: 'RESOURCE EXTRACTION',
+    category: SKILLS.mining.category,
     description: '+10% ore per laser cycle per level',
     getBonusText: (level: number) =>
       `+${level * 10}% ore yield (${Math.round(50 * (1 + 0.1 * level))} ore/cycle)`,
@@ -1385,7 +1387,7 @@ export const SKILL_DEFINITIONS: SkillDefinition[] = [
   {
     id: 'gunnery',
     name: 'Gunnery',
-    category: 'WEAPON SYSTEMS',
+    category: SKILLS.gunnery.category,
     description: '+10% cannon damage per level',
     getBonusText: (level: number) =>
       `+${level * 10}% kinetic damage (${Math.round((MODULES.light_cannon.stats.damage ?? 30) * (1 + 0.1 * level))} dmg/shot)`,
@@ -1393,7 +1395,7 @@ export const SKILL_DEFINITIONS: SkillDefinition[] = [
   {
     id: 'shieldOp',
     name: 'Shield Operation',
-    category: 'DEFENSIVE MATRIX',
+    category: SKILLS.shieldOp.category,
     description: '+10% shield HP per level',
     getBonusText: (level: number) =>
       `+${level * 10}% shield HP (${Math.round(100 * (1 + 0.1 * level))} max HP)`,
@@ -1401,7 +1403,7 @@ export const SKILL_DEFINITIONS: SkillDefinition[] = [
   {
     id: 'navigation',
     name: 'Navigation',
-    category: 'PROPULSION & WARP',
+    category: SKILLS.navigation.category,
     description: '+10% ship max speed and 10% faster warp spool duration per level',
     getBonusText: (level: number) =>
       `+${level * 10}% max speed (${Math.round(320 * (1 + 0.1 * level))} m/s), -${level * 10}% warp spool (${(3.0 * (1 - 0.1 * level)).toFixed(1)}s)`,
@@ -8342,6 +8344,13 @@ export default function App() {
       return;
     }
 
+    const unmet = unmetPrerequisites(skills, skillId);
+    if (unmet.length > 0) {
+      gameAudio.playErrorBuzz();
+      addFloatingText(`NEEDS ${prerequisiteText(unmet).toUpperCase()}`, playerRef.current.x, playerRef.current.y - 40, '#ef4444');
+      return;
+    }
+
     const cost = getSkillCost(targetLvl);
     // Guard 4: MARKS wallet protection (wallet >= 0)
     if (marks < cost || marks - cost < 0) {
@@ -8361,7 +8370,7 @@ export default function App() {
     setMarks(nextMarks);
     setGameState((prev) => ({...prev, score: nextMarks}));
 
-    const duration = getSkillDuration(targetLvl);
+    const duration = getSkillDuration(targetLvl) * SKILLS[skillId].rank;
     const newItem: QueuedSkill = {
       id: `q_${skillId}_${targetLvl}_${Date.now()}`,
       skillId,
@@ -36141,9 +36150,14 @@ export default function App() {
                           )}
                         </div>
 
-                        {/* Four Skills Grid */}
+                        {/* Skills by category: a header per category that has a skill (design/content-tree.md 4.5) */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {SKILL_CATEGORY_ORDER.filter((cat) => SKILL_DEFINITIONS.some((d) => SKILLS[d.id].category === cat)).map((cat) => (
+                          <div key={cat} data-testid={`skill-category-${cat}`} className="flex flex-col gap-2">
+                          <div className="font-inter text-[11px] font-extrabold tracking-[1.5px] text-[#4CC9F0]">{cat.toUpperCase()}</div>
                           {SKILL_DEFINITIONS.map((def, sIdx) => {
+                            if (SKILLS[def.id].category !== cat) return null;
+                            const unmet = unmetPrerequisites(skills, def.id);
                             const curLvl = skills[def.id] || 0;
                             const queuedCount = trainingQueue.filter((item) => item.skillId === def.id).length;
                             const nextLvl = curLvl + queuedCount + 1;
@@ -36181,9 +36195,11 @@ export default function App() {
                                       <div className="font-bold text-[#2EC4B6] text-xs font-fredoka tracking-wider">
                                         {def.name.toUpperCase()}
                                       </div>
-                                      <div className="text-[10px] text-[#AEB6CA]">
-                                        {def.category}
-                                      </div>
+                                      {SKILLS[def.id].prerequisites.length > 0 && (
+                                        <div className={`text-[10px] ${unmet.length > 0 ? 'text-[#FFB547]' : 'text-[#AEB6CA]'}`}>
+                                          Needs: {prerequisiteText(SKILLS[def.id].prerequisites)}
+                                        </div>
+                                      )}
                                     </div>
                                     <KeyChip label={`LVL ${curLvl > 0 ? ROMAN_NUMERALS[curLvl] : '0'} / V`} size="sm" />
                                   </div>
@@ -36256,6 +36272,12 @@ export default function App() {
                                       className="cartoon-btn w-full text-xs py-1.5 opacity-60 cursor-not-allowed">
                                       QUEUE FULL (3/3)
                                     </button>
+                                  ) : unmet.length > 0 ? (
+                                    <button
+                                      disabled
+                                      className="cartoon-btn w-full text-xs py-1.5 opacity-60 cursor-not-allowed">
+                                      NEEDS {prerequisiteText(unmet).toUpperCase()}
+                                    </button>
                                   ) : !canAfford ? (
                                     <button
                                       disabled
@@ -36269,7 +36291,7 @@ export default function App() {
                                       <span>{trainingQueue.length === 0 ? 'Train' : 'Queue'}</span>
                                       <KeyChip label="Enter" size="sm" />
                                       <span>
-                                        LVL {ROMAN_NUMERALS[nextLvl]} ({cost} MARKS • {formatTime(getSkillDuration(nextLvl))})
+                                        LVL {ROMAN_NUMERALS[nextLvl]} ({cost} MARKS • {formatTime(getSkillDuration(nextLvl) * SKILLS[def.id].rank)})
                                       </span>
                                     </button>
                                   )}
@@ -36277,6 +36299,8 @@ export default function App() {
                               </div>
                             );
                           })}
+                          </div>
+                          ))}
                         </div>
                       </div>
                     )}
