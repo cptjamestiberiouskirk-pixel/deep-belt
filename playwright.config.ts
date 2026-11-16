@@ -18,6 +18,8 @@ export default defineConfig({
     viewport: {width: 1280, height: 800},
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
+    // Silent in every mode: headless Chromium is muted already, a --headed run is not.
+    launchOptions: {args: ['--mute-audio']},
   },
   projects: [{name: 'chromium', use: {...devices['Desktop Chrome'], viewport: {width: 1280, height: 800}}}],
   // Tests run against the production build, the same files that get deployed.
