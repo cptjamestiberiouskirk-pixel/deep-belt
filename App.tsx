@@ -1383,6 +1383,16 @@ function speedBase() {
   return {baseThrust: getConfig('playerThrust') as number, baseMaxSpeed: getConfig('playerMaxSpeed') as number};
 }
 
+/**
+ * A plain Ferrier's top speed: no skills, modules or cargo (88 m/s). Hostile ships fly
+ * at a share of it, so the player's own Navigation, fitting and hold decide whether
+ * they can outrun one. These shares were set against the 320 m/s cap, which no ship
+ * reaches, and so made pirates three times faster than the player.
+ */
+function hostileBaseSpeed() {
+  return topSpeed({...speedBase(), navigation: 0, hullMult: 1, moduleMult: 1, load: 0});
+}
+
 export const SKILL_DEFINITIONS: SkillDefinition[] = [
   {
     id: 'mining',
@@ -6147,12 +6157,13 @@ export default function App() {
     (window as any).__DEEP_BELT_PROBE__ = {
       player: () => {
         const p = playerRef.current;
-        return {speed: Math.hypot(p.vx, p.vy), capacitor: p.capacitor, maxCapacitor: p.maxCapacitor, shield: p.shield, armor: p.armor, hull: p.hull, warpState: p.warpState, cannonActive: p.cannonActive, boosterActive: p.shieldBoosterActive, miningActive: p.miningLaserActive, miningTimer: p.miningTimer};
+        return {speed: Math.hypot(p.vx, p.vy), capacitor: p.capacitor, maxCapacitor: p.maxCapacitor, shield: p.shield, armor: p.armor, hull: p.hull, warpState: p.warpState, cannonActive: p.cannonActive, boosterActive: p.shieldBoosterActive, miningActive: p.miningLaserActive, miningTimer: p.miningTimer, x: p.x, y: p.y, heading: p.heading};
       },
       pirate: () => {
         const q = pirateRef.current;
-        return {isAlive: q.isAlive, shield: q.shield, armor: q.armor, hull: q.hull, speed: Math.hypot(q.vx, q.vy)};
+        return {isAlive: q.isAlive, shield: q.shield, armor: q.armor, hull: q.hull, speed: Math.hypot(q.vx, q.vy), x: q.x, y: q.y};
       },
+      raiders: () => raidersRef.current.filter((r) => r.isAlive).map((r) => ({x: r.x, y: r.y, speed: Math.hypot(r.vx, r.vy)})),
     };
   }, []);
 
@@ -18958,7 +18969,6 @@ export default function App() {
     const baseThrust = getConfig('playerThrust') as number;
     const baseMaxSpeed = getConfig('playerMaxSpeed') as number;
     const navLevel = skillsRef.current.navigation || 0;
-    const basePlayerMaxSpeed = baseMaxSpeed * (1 + 0.10 * navLevel);
 
     const decaySpeedMult = getRiftDecaySpeedMult(currentSystemRef.current, riftRunRef.current?.left);
     // Fitted modules: 0.8 with a Bulk Hold (content/fitting.ts fittedSpeedMult).
@@ -19603,7 +19613,7 @@ export default function App() {
 
       // Belt Two Leash & Aggro Check
       let isEngaged = false;
-      const pirateMaxSpeed = basePlayerMaxSpeed * (isVael ? 0.75 : 0.80);
+      const pirateMaxSpeed = hostileBaseSpeed() * (isVael ? 0.75 : 0.80);
 
       const sigKm = getShipSignatureKm(activeHullRef.current);
       const isPirateAggressor = (aggressorIdsRef.current.get(pirate.id) ?? 0) > Date.now() || aggressorIdsRef.current.has(pirate.id);
@@ -19808,7 +19818,7 @@ export default function App() {
       const distUnits = Math.hypot(p.x - raider.x, p.y - raider.y);
       const distanceKm = calcDistanceKm(p.x, p.y, raider.x, raider.y);
       const isEngaged = (!isDocked && p.warpState === 'IDLE') && (distUnits <= 8500 || distanceKm <= 12.0 || p.targetLockedId === raider.id || selectedTargetId === raider.id);
-      const raiderMaxSpeed = basePlayerMaxSpeed * 0.80; // 80% speed of player frigate
+      const raiderMaxSpeed = hostileBaseSpeed() * 0.80; // 80% speed of player frigate
 
       if (isEngaged) {
         const angleToPlayer = Math.atan2(p.y - raider.y, p.x - raider.x);
@@ -19987,7 +19997,7 @@ export default function App() {
         const hasAggro = distanceKm <= sigKm || isAggressor || isTargeted || isDamaged;
 
         const isEngaged = (!isDocked && p.warpState === 'IDLE') && hasAggro;
-        const pirateMaxSpeed = basePlayerMaxSpeed * 0.75; // Heavy pirate speed (75% of player)
+        const pirateMaxSpeed = hostileBaseSpeed() * 0.75; // Heavy pirate speed (75% of player)
 
         if (isEngaged) {
           const angleToPlayer = Math.atan2(p.y - ashPirate.y, p.x - ashPirate.x);
@@ -20116,7 +20126,7 @@ export default function App() {
         const isEngaged = !playerFarFromPark && (!isDocked && p.warpState === 'IDLE') && (
           distanceKm <= sigKm || isAggressor || isTargeted || isDamaged
         );
-        const pirateMaxSpeed = basePlayerMaxSpeed * 0.75;
+        const pirateMaxSpeed = hostileBaseSpeed() * 0.75;
 
         if (isEngaged) {
           const angleToPlayer = Math.atan2(p.y - riftCorsair.y, p.x - riftCorsair.x);
@@ -20584,7 +20594,7 @@ export default function App() {
         const distFromHomeKm = distFromHomePx / PIXELS_PER_KM;
 
         if (g.kind === 'sentinel') {
-          const sentinelSpeed = 256; // 0.8 * BASE_PLAYER_MAX_SPEED (256 px/s)
+          const sentinelSpeed = hostileBaseSpeed() * 0.8;
           const leashKm = 30.0; // 1,500 px
           const aggroKm = 12.0; // 600 px
 
@@ -20690,7 +20700,7 @@ export default function App() {
           }
         } else if (g.kind === 'warden') {
           // Rift Warden (Stage 3 only, home post x: 0, y: 5400)
-          const wardenSpeed = 160;
+          const wardenSpeed = hostileBaseSpeed() * 0.5;
           const gateX = 0;
           const gateY = 6000;
           const distToGatePx = Math.hypot(g.x - gateX, g.y - gateY);

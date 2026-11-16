@@ -642,7 +642,9 @@ test('rift: stage 3 sentinel and Warden fall, and the collapse gate extracts the
   await fightSelected(page, /Rift Sentinel neutralized/);
 
   // The Warden's death is what unlocks the gate.
-  await page.getByText('Rift Warden', {exact: true}).click();
+  // From its Overview row: after the sentinel falls the game may already target the
+  // Warden as the nearest hostile, and then the Target panel shows the name too.
+  await page.getByTitle('Rift Warden', {exact: true}).click();
   await expect.poll(() => targetPanel(page)).toMatch(/Warden/);
   await fightSelected(page, /Elite Warden destroyed! Gate unlocked\./);
   // The run is saved every few seconds, so the toast can come before the save does.

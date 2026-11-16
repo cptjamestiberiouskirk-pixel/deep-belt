@@ -13,6 +13,13 @@ Format, checked by `node dev/lessons.mjs --check`. A field's text may go on over
 - Status: open | promoted to PLAYBOOK "<section>" | closed: <why the rule no longer holds>
 ```
 
+## 2026-11-16: A suite run reported exit 0 with a failed test
+- What went wrong: after the hostile-speed fix, the full suite run printed "exited with code 0", but one test had failed (the Rift stage 3 test). It was caught only because "124 passed" was one short of the 125 expected.
+- Why: the command was `npx playwright test 2>&1 | tail -6`, so the exit code was tail's, not Playwright's, and the failure line had scrolled above the six lines kept.
+- Rule going forward: a suite run that pipes its output runs under `set -o pipefail` and prints Playwright's own exit code; its result is read from the summary's failed, flaky, skipped and passed counts, checked against `npx playwright test --list`'s total.
+- Evidence: the run's output ended "1 failed ... 26 skipped, 124 passed (5.4m)" then "[exited with code 0]"; tests/lategame.spec.ts, search "From its Overview row".
+- Status: open
+
 ## 2026-11-15: A market Enter went to the officer's line, not the focused card
 - What went wrong: in content-tree step 6, a new test opened the market, pressed ArrowUp to a module card and pressed Enter; nothing was bought. The screenshot showed the right card focused.
 - Why: while the officer's line is still typing out, Enter finishes the line instead of acting on the focused item. The market had just opened, so the line was still typing.
