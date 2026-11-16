@@ -13,6 +13,13 @@ Format, checked by `node dev/lessons.mjs --check`. A field's text may go on over
 - Status: open | promoted to PLAYBOOK "<section>" | closed: <why the rule no longer holds>
 ```
 
+## 2026-11-15: A market Enter went to the officer's line, not the focused card
+- What went wrong: in content-tree step 6, a new test opened the market, pressed ArrowUp to a module card and pressed Enter; nothing was bought. The screenshot showed the right card focused.
+- Why: while the officer's line is still typing out, Enter finishes the line instead of acting on the focused item. The market had just opened, so the line was still typing.
+- Rule going forward: a test presses Enter in a station terminal only after `settle(page)`, which waits for "[Enter] Skip" to go.
+- Evidence: tests/lance.spec.ts, search "Enter first finishes the officer's typed-out line"; the failing run's screenshot showed the Lance Driver card focused with no purchase.
+- Status: open
+
 ## 2026-11-15: A skills test expected a name in the case the source wrote
 - What went wrong: in content-tree step 5, a new test looked for "Mining" in the Skills screen's Extraction group and failed. The screen shows "MINING".
 - Why: the test's text was copied from SKILL_DEFINITIONS, and the card upper-cases the name with `toUpperCase()` when it renders it.
@@ -59,7 +66,7 @@ Format, checked by `node dev/lessons.mjs --check`. A field's text may go on over
 - What went wrong: "selecting a far-off pirate does not summon it across the system" failed in two full runs of 62 tests in a row, each time at `selectTarget(page, /Rift Corsair/)`: after 40 s of Tab presses the Target panel still showed an asteroid at 36 km. Alone it passed 2 of 2. It is the same test as in "Two tests timed out once under full local load", so that rule called for fixing its cause.
 - Why: Tab steps through every object in the system nearest first and re-sorts the list on each press. With the ship under fire and moving, and pages slowed by 8 workers, the corsair behind dozens of asteroids did not come up within 40 s.
 - Rule going forward: a test selects an object more than a few km away from its Overview row, not with Tab.
-- Evidence: `tests/space.spec.ts`, search "Picked from the Overview"; the fixed test passed 4 of 4 runs alone.
+- Evidence: `tests/space.spec.ts`, search "Picked from the Overview"; the fixed test passed 4 of 4 runs alone. Again in content-tree step 6: the new Lance Driver test copied the Light Cannon test's Tab selection of the Belt Two pirate and failed once in the full run; both tests now pick it from the Overview (tests/lance.spec.ts passed 3 of 3 runs).
 - Status: open
 
 ## 2026-11-15: A push to main was refused because main had moved

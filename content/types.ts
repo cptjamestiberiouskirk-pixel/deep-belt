@@ -1,6 +1,8 @@
 // Shared shapes for the content catalog (design/content-tree.md, section 4.1).
 // Data only: no React, no game state.
 
+import type {SkillId} from './skills';
+
 export type Category = 'ore' | 'material' | 'component' | 'module' | 'lens' | 'drone' | 'hull' | 'blueprint';
 
 /** A number a module or lens changes. Units are in the name. */
@@ -38,6 +40,8 @@ export interface ModuleDef extends ItemDef {
   icon: string;
   /** How many a pilot may own (default 1). Doubles add up, so this caps stacking. */
   maxOwned?: number;
+  /** The skill level needed to buy it (design/content-tree.md 4.5). */
+  requires?: {skill: SkillId; level: number};
 }
 
 export interface LensDef extends ItemDef {

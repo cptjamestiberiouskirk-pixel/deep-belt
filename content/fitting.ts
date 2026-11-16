@@ -164,21 +164,25 @@ export function fromLegacy(data: LegacyFlags, hull: HullId): FittingState {
   return {hangar, fitted, loadouts: {[hull]: [...fitted]}};
 }
 
-/** The four flags the rest of App.tsx still reads (until steps 2b and 2c move them). */
+/**
+ * The four flags the rest of App.tsx still reads. `cannon` and `slot4Cannon` mean
+ * any weapon, so a new weapon arms the same controls as the Light Cannon.
+ */
 export function toLegacy(s: FittingState) {
   const has = (id: ModuleId) => s.fitted.includes(id);
+  const isWeapon = (id: ModuleId | null) => Boolean(id && MODULES[id].slot === 'weapon');
   return {
     upgrades: {
       laserMk2: owns(s, 'miner_mk2'),
       cargoExpanded: owns(s, 'expanded_hold'),
       shieldBoosterHeavy: owns(s, 'shield_booster'),
-      cannon: owns(s, 'light_cannon'),
+      cannon: (Object.keys(MODULES) as ModuleId[]).some((id) => isWeapon(id) && owns(s, id)),
     },
     fittedSlots: {
       slot1MiningLaser: has('miner_mk1') || has('miner_mk2'),
       slot2CargoExpander: has('expanded_hold'),
       slot3ShieldBooster: has('shield_booster'),
-      slot4Cannon: has('light_cannon'),
+      slot4Cannon: s.fitted.some(isWeapon),
     },
   };
 }

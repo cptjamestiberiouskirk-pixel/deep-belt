@@ -5,9 +5,10 @@
 // (content/fitting.ts fittedWith / fittedTotal), so a number changes here only.
 
 import {EXPANDER_BONUS} from '../constants';
+import {prerequisiteText, type SkillId} from './skills';
 import type {ModuleDef} from './types';
 
-export type ModuleId = 'miner_mk1' | 'miner_mk2' | 'expanded_hold' | 'shield_booster' | 'light_cannon';
+export type ModuleId = 'miner_mk1' | 'miner_mk2' | 'expanded_hold' | 'shield_booster' | 'light_cannon' | 'lance_driver';
 
 export const MODULES: Record<ModuleId, ModuleDef> = {
   miner_mk1: {
@@ -84,15 +85,33 @@ export const MODULES: Record<ModuleId, ModuleDef> = {
     desc: 'Kinetic turret firing armor-piercing slugs up to 8.0 km optimal range.',
     icon: 'module_cannon_icon',
   },
+  // Step 6, the first new module: a longer-range weapon behind Gunnery II.
+  // Against the Light Cannon: 11.25 damage/s for 10, 12 km for 8, 3.5 Cap/s for 2.7.
+  lance_driver: {
+    id: 'lance_driver',
+    name: 'Lance Driver',
+    category: 'module',
+    group: 'Projectile weapons',
+    tier: 2,
+    volume: 0,
+    basePrice: 1500,
+    slot: 'weapon',
+    stats: {damage: 45, cycleSec: 4, rangeKm: 12, capPerCycle: 14},
+    statBadge: '45 dmg / 4s',
+    desc: 'Long-barrel mass driver: 45 kinetic damage per slug out to 12.0 km optimal range.',
+    icon: 'module_cannon_icon',
+    requires: {skill: 'gunnery', level: 2},
+  },
 };
 
-/** The `upgrades` flag that records owning each buyable module (step 2 replaces these). */
-export const MODULE_UPGRADE_KEY = {
-  miner_mk2: 'laserMk2',
-  expanded_hold: 'cargoExpanded',
-  shield_booster: 'shieldBoosterHeavy',
-  light_cannon: 'cannon',
-} as const;
+/** The modules the station market sells, in catalog order: every module with a price. */
+export const MARKET_MODULE_IDS = (Object.keys(MODULES) as ModuleId[]).filter((id) => MODULES[id].basePrice > 0);
+
+/** "Gunnery II" while the pilot lacks the skill a module needs, else null. */
+export function missingSkill(levels: Partial<Record<SkillId, number>>, id: ModuleId): string | null {
+  const req = MODULES[id].requires;
+  return req && (levels[req.skill] ?? 0) < req.level ? prerequisiteText([req]) : null;
+}
 
 /** The module in the mining slot, given whether the MK2 is owned. */
 export function minerFor(ownsMk2: boolean): ModuleDef {

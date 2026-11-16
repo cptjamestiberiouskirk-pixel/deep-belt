@@ -115,7 +115,7 @@ import {
   useInput,
   useIsMobile,
 } from './utils/helper';
-import {MODULES, MODULE_UPGRADE_KEY, minerFor, type ModuleId} from './content/modules';
+import {MARKET_MODULE_IDS, MODULES, minerFor, missingSkill, type ModuleId} from './content/modules';
 import type {SlotType} from './content/types';
 import {LENSES, LENS_IDS, lensBonusLabel} from './content/lenses';
 import {readItem} from './content/inventory';
@@ -1334,6 +1334,11 @@ function getToastKindColor(toast: ToastNotice): string {
   }
   return '#4CC9F0';
 }
+
+// Market keyboard focus: the commodity rows come first, then a card per market
+// module, then the probe launcher, the station deed and six buy rows.
+const MARKET_COMMODITY_ROWS = 38;
+const MARKET_AFTER_MODULES = MARKET_COMMODITY_ROWS + MARKET_MODULE_IDS.length;
 
 // Stage 3 Skills System Definitions
 export type {SkillId} from './content/skills';
@@ -5295,7 +5300,8 @@ export default function App() {
   const minerYieldMult = () => (minerRef.current.stats.oreYield ?? 50) / (MODULES.miner_mk1.stats.oreYield ?? 50);
   // The fitted weapon and shield booster: their catalog stats drive combat. Each falls
   // back to today's module for the timers and labels read while none is fitted.
-  const weaponStats = () => (fittedWith(fittingRef.current.fitted, 'damage') ?? MODULES.light_cannon).stats;
+  const fittedWeapon = () => fittedWith(fittingRef.current.fitted, 'damage') ?? MODULES.light_cannon;
+  const weaponStats = () => fittedWeapon().stats;
   const boosterStats = () => {
     const boosters = fittingRef.current.fitted.flatMap((m) => (m && MODULES[m].stats.shieldHpPerSec !== undefined ? [MODULES[m].stats] : []));
     if (boosters.length === 0) return MODULES.shield_booster.stats;
@@ -11555,7 +11561,7 @@ export default function App() {
     const p = playerRef.current;
     if (!fittedSlots.slot4Cannon) {
       gameAudio.playErrorBuzz();
-      addFloatingText('LIGHT CANNON NOT FITTED', p.x, p.y - 25, '#ef4444');
+      addFloatingText('NO WEAPON FITTED', p.x, p.y - 25, '#ef4444');
       return;
     }
 
@@ -11565,7 +11571,7 @@ export default function App() {
       setActionCycleSecs((prev) => (prev.cannon === 0 ? prev : { ...prev, cannon: 0 }));
       setModuleCannonActive(false);
       gameAudio.playModuleActivate();
-      addFloatingText('LIGHT CANNON DISENGAGED', p.x, p.y - 25, '#94a3b8');
+      addFloatingText(`${fittedWeapon().name.toUpperCase()} DISENGAGED`, p.x, p.y - 25, '#94a3b8');
       return;
     }
 
@@ -11609,9 +11615,9 @@ export default function App() {
         return;
       }
 
-      if (p.capacitor < 8) {
+      if (p.capacitor < (weaponStats().capPerCycle ?? 8)) {
         gameAudio.playErrorBuzz();
-        addFloatingText('Not enough capacitor (8 Cap)', p.x, p.y - 25, '#f59e0b');
+        addFloatingText(`Not enough capacitor (${weaponStats().capPerCycle ?? 8} Cap)`, p.x, p.y - 25, '#f59e0b');
         return;
       }
 
@@ -11620,7 +11626,7 @@ export default function App() {
       p.cannonTimer = 0;
       setActionCycleSecs((prev) => (prev.cannon === 0 ? prev : { ...prev, cannon: 0 }));
       gameAudio.playModuleActivate();
-      addFloatingText('LIGHT CANNON ARMED & CYCLING', p.x, p.y - 25, '#00f0ff');
+      addFloatingText(`${fittedWeapon().name.toUpperCase()} ARMED & CYCLING`, p.x, p.y - 25, '#00f0ff');
     } else {
       // Check if any aggressor in aggressorIdsRef (or nearby pirate frigate) is within 12.0 km of the player
       const now = Date.now();
@@ -13146,10 +13152,21 @@ export default function App() {
     }
   };
 
-  const buyUpgrade = (key: keyof typeof upgrades, cost: number) => {
+  const buyUpgrade = (buyId: ModuleId) => {
     if (!isDocked) return;
+    const cost = MODULES[buyId].basePrice;
+    const needs = missingSkill(skills, buyId);
+    if (needs) {
+      gameAudio.playErrorBuzz();
+      setToastNotice({
+        id: `toast_needs_skill_${Date.now()}`,
+        title: 'Skill required',
+        detail: `${MODULES[buyId].name} needs ${needs}. Train it in Skills [3].`,
+        type: 'warning',
+      });
+      return;
+    }
     // Guard 4: Reject any purchase that would cause wallet to drop below 0
-    const buyId = (Object.keys(MODULE_UPGRADE_KEY) as Array<keyof typeof MODULE_UPGRADE_KEY>).find((id) => MODULE_UPGRADE_KEY[id] === key)!;
     if (marks < cost || marks - cost < 0 || !canBuyMore(fittingRef.current, buyId)) {
       gameAudio.playErrorBuzz();
       setToastNotice({
@@ -14747,7 +14764,8 @@ export default function App() {
       }
 
       const oldHullId = activeHullRef.current;
-      const hadCannon = fittingRef.current.fitted.includes('light_cannon');
+      const isWeapon = (m: ModuleId | null) => Boolean(m && MODULES[m].slot === 'weapon');
+      const oldWeapon = fittingRef.current.fitted.find(isWeapon) ?? null;
 
       setActiveHull(hullId);
       activeHullRef.current = hullId;
@@ -14755,12 +14773,12 @@ export default function App() {
       // The old hull's modules go to the hangar; the new hull fits its own loadout from it.
       const boarded = switchHull(fittingRef.current, oldHullId, hullId);
       setFitting(boarded);
-      if (!boarded.fitted.includes('light_cannon')) {
-        if (hadCannon && !boarded.fitted.some((m) => m && MODULES[m].slot === 'weapon')) {
+      if (!boarded.fitted.some(isWeapon)) {
+        if (oldWeapon) {
           setToastNotice({
             id: `toast_cannon_hangar_${Date.now()}`,
             title: 'Weapon Stored',
-            detail: 'Light Cannon moved to hangar, refit [2]',
+            detail: `${MODULES[oldWeapon].name} moved to hangar, refit [2]`,
             type: 'info',
           });
         }
@@ -15079,29 +15097,24 @@ export default function App() {
       if (cargoChemicalRef.current > 0) sellChemical();
     } else if (idx === 37) {
       if (cargoPolymerCompositeRef.current > 0) sellPolymerComposite();
-    } else if (idx === 38) {
-      if (canBuyMore(fittingRef.current, 'miner_mk2') && marks >= MODULES.miner_mk2.basePrice) buyUpgrade('laserMk2', MODULES.miner_mk2.basePrice);
-    } else if (idx === 39) {
-      if (canBuyMore(fittingRef.current, 'expanded_hold') && marks >= MODULES.expanded_hold.basePrice) buyUpgrade('cargoExpanded', MODULES.expanded_hold.basePrice);
-    } else if (idx === 40) {
-      if (canBuyMore(fittingRef.current, 'shield_booster') && marks >= MODULES.shield_booster.basePrice) buyUpgrade('shieldBoosterHeavy', MODULES.shield_booster.basePrice);
-    } else if (idx === 41) {
-      if (canBuyMore(fittingRef.current, 'light_cannon') && marks >= MODULES.light_cannon.basePrice) buyUpgrade('cannon', MODULES.light_cannon.basePrice);
-    } else if (idx === 42) {
+    } else if (idx >= MARKET_COMMODITY_ROWS && idx < MARKET_AFTER_MODULES) {
+      const id = MARKET_MODULE_IDS[idx - MARKET_COMMODITY_ROWS];
+      if (canBuyMore(fittingRef.current, id) && marks >= MODULES[id].basePrice) buyUpgrade(id);
+    } else if (idx === MARKET_AFTER_MODULES) {
       if (!hasProbeLauncher && marks >= 450) buyProbeLauncher();
-    } else if (idx === 43) {
+    } else if (idx === MARKET_AFTER_MODULES + 1) {
       if (!outpostDeployed && cargoStationCore === 0 && marks >= STATION_CORE_PRICE) buyStationCore();
-    } else if (idx === 44) {
+    } else if (idx === MARKET_AFTER_MODULES + 2) {
       buyCommodity('silicateLens');
-    } else if (idx === 45) {
+    } else if (idx === MARKET_AFTER_MODULES + 3) {
       buyCommodity('metallicLens');
-    } else if (idx === 46) {
+    } else if (idx === MARKET_AFTER_MODULES + 4) {
       buyCommodity('exoticLens');
-    } else if (idx === 47) {
+    } else if (idx === MARKET_AFTER_MODULES + 5) {
       buyCommodity('extractDrone');
-    } else if (idx === 48) {
+    } else if (idx === MARKET_AFTER_MODULES + 6) {
       buyCommodity('defenseDrone');
-    } else if (idx === 49) {
+    } else if (idx === MARKET_AFTER_MODULES + 7) {
       buyCommodity('salvageDrone');
     }
   }, [upgrades, marks, hasProbeLauncher, outpostDeployed, cargoStationCore, sellFerriteOre, sellAuriteOre, sellChromiteOre, sellPyroxOre, sellRareOre, sellModuleScrap, sellTritanium, sellAuriteConc, sellChromiteBar, sellPyroxite, sellHullPlate, sellThrusterCoil, sellSensorCore, sellLatticeAlloy, sellConductiveMesh, sellThermalAlloy, sellQuantumCore, sellIntegritySeal, sellThermalGrid, sellPrismite, sellNimbus, sellRadflux, sellPackedPrismite, sellPackedNimbus, sellPackedRadflux, sellSilicateLens, sellMetallicLens, sellExoticLens, sellExtractDrone, sellDefenseDrone, sellSalvageDrone, sellCommandHub, sellPolymer, sellChemical, sellPolymerComposite, buyCommodity, buyUpgrade, buyProbeLauncher, buyStationCore]);
@@ -16887,7 +16900,7 @@ export default function App() {
 
         if (isMarketOrFitting) {
           if (stationTab === 'MARKET') {
-            const totalMarketCount = 38 + 5 + 1 + 6; // 38 commodity rows + 5 modules + 1 deed + 6 buy rows = 50
+            const totalMarketCount = MARKET_AFTER_MODULES + 1 + 1 + 6; // module cards, probe launcher, deed, 6 buy rows
             if (e.key === 'ArrowUp') {
               e.preventDefault();
               e.stopPropagation();
@@ -29216,11 +29229,10 @@ export default function App() {
                   ];
 
                   const purchasableModules = [
-                    ...(['miner_mk2', 'expanded_hold', 'shield_booster', 'light_cannon'] as const).map((id) => {
+                    ...MARKET_MODULE_IDS.map((id) => {
                       const mod = MODULES[id];
-                      const key = MODULE_UPGRADE_KEY[id];
                       return {
-                        key,
+                        key: id as ModuleId | 'probeLauncher',
                         name: mod.name,
                         statBadge: mod.statBadge,
                         desc: mod.desc,
@@ -29228,6 +29240,7 @@ export default function App() {
                         icon: assets[mod.icon]?.src || '',
                         isOwned: !canBuyMore(fitting, id),
                         ownedCount: ownedModules(fitting)[id] ?? 0,
+                        needs: missingSkill(skills, id),
                       };
                     }),
                     {
@@ -29238,6 +29251,7 @@ export default function App() {
                       price: 450,
                       icon: assets['module_probe_launcher_icon']?.src || '',
                       isOwned: hasProbeLauncher,
+                      needs: null as string | null,
                     },
                   ];
 
@@ -29759,7 +29773,7 @@ export default function App() {
                               }}>
                               {purchasableModules.map((mod, idx) => {
                                 const canAfford = marks >= mod.price;
-                                const isFocused = marketFocusIndex === 25 + idx;
+                                const isFocused = marketFocusIndex === commodityItems.length + idx;
                                 return (
                                   <div
                                     key={mod.key}
@@ -29878,13 +29892,28 @@ export default function App() {
                                           }}>
                                           Owned ✓
                                         </span>
+                                      ) : mod.needs ? (
+                                        <span
+                                          title={`Train ${mod.needs} in Skills [3] to buy it`}
+                                          style={{
+                                            background: 'rgba(255, 181, 71, 0.15)',
+                                            color: '#FFB547',
+                                            border: '1.5px solid #FFB547',
+                                            borderRadius: '6px',
+                                            padding: '2px 7px',
+                                            fontFamily: "'Inter', sans-serif",
+                                            fontSize: '11px',
+                                            fontWeight: 700,
+                                          }}>
+                                          Needs {mod.needs}
+                                        </span>
                                       ) : (
                                         <button
                                           onClick={() => {
                                             if (mod.key === 'probeLauncher') {
                                               buyProbeLauncher();
                                             } else {
-                                              buyUpgrade(mod.key, mod.price);
+                                              buyUpgrade(mod.key);
                                             }
                                           }}
                                           disabled={!canAfford}
@@ -31325,12 +31354,13 @@ export default function App() {
                                     if (!fittedSlots.slot4Cannon) return 'None';
                                     const gunneryLevel = skills.gunnery || 0;
                                     const hullMult = activeHull === 'skirmisher' ? 1.25 : 1.0;
-                                    const totalDmg = Math.round(30 * (1 + 0.1 * gunneryLevel) * hullMult);
-                                    const baseDmg = 30;
+                                    const weapon = (fittedWith(fitting.fitted, 'damage') ?? MODULES.light_cannon).stats;
+                                    const baseDmg = weapon.damage ?? 30;
+                                    const totalDmg = Math.round(baseDmg * (1 + 0.1 * gunneryLevel) * hullMult);
                                     const bonus = totalDmg - baseDmg;
                                     return (
                                       <span>
-                                        {totalDmg} dmg / 3s
+                                        {totalDmg} dmg / {weapon.cycleSec ?? 3}s
                                         {bonus > 0 && (
                                           <span style={{ color: '#8BD17C', fontSize: '12px', marginLeft: '4px' }}>
                                             (+{bonus}{activeHull === 'skirmisher' ? ' +25%' : ''})
@@ -37156,7 +37186,7 @@ export default function App() {
         } else if (!hasHostileTarget) {
           fireReason = "no hostile";
         } else {
-          if (p.capacitor < 8 && !moduleCannonActive) {
+          if (p.capacitor < (weaponStats().capPerCycle ?? 8) && !moduleCannonActive) {
             fireReason = "low cap";
           }
         }
@@ -37585,7 +37615,7 @@ export default function App() {
                   toggleLightCannon();
                 }}
                 disabled={fireDisabled && !moduleCannonActive}
-                title={fireReason ?? "Fire [2] — Light Cannon (30 dmg / 3s cycle, 8 km, 8 Cap)"}
+                title={fireReason ?? `Fire [2] — ${fittedWeapon().name} (${weaponStats().damage} dmg / ${weaponStats().cycleSec}s cycle, ${weaponStats().rangeKm} km, ${weaponStats().capPerCycle} Cap)`}
                 style={{
                   ...actionBtnBaseStyle,
                   position: 'relative',

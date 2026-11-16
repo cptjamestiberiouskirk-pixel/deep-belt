@@ -251,7 +251,10 @@ test('combat: a Light Cannon hit takes 30 off the pirate, as the catalog says', 
   // No Gunnery skill and a Ferrier, so no bonus: one hit is the catalog's 30 damage.
   const problems = await launch(page, {skills: {gunnery: 0, shieldOp: 0}});
   await flyTo(page, 'Belt Two');
-  await selectTarget(page, /Pirate Frigate/);
+  // Picked from the Overview, not with Tab: under full load Tab may not reach it.
+  await page.getByText('Ships', {exact: true}).click();
+  await page.getByText('Pirate Frigate', {exact: true}).first().click();
+  await expect.poll(() => targetPanel(page)).toMatch(/Pirate Frigate/);
   const pirateShield = async () => {
     const text = await page.innerText('body');
     const m = text.slice(text.indexOf('Pirate Frigate')).match(/SHIELD\s*\n\s*(\d+)\/84/);
