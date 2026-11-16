@@ -15,8 +15,8 @@ test('catalog: the Lance Driver is a weapon behind Gunnery II, the last module c
     name: 'Lance Driver',
     slot: 'weapon',
     basePrice: 1500,
-    statBadge: '45 dmg / 4s',
-    stats: {damage: 45, cycleSec: 4, rangeKm: 12, capPerCycle: 14},
+    statBadge: '47 dmg / 4s',
+    stats: {damage: 47, cycleSec: 4, rangeKm: 12, capPerCycle: 14},
     requires: {skill: 'gunnery', level: 2},
   });
   expect(MARKET_MODULE_IDS).toEqual(['miner_mk2', 'expanded_hold', 'bulk_hold', 'shield_booster', 'light_cannon', 'lance_driver']);
@@ -41,7 +41,7 @@ test('market: without Gunnery II the Lance Driver card says what it needs and ha
   await enterGame(page);
   await openMarket(page);
   const card = page.locator('div', {hasText: 'Lance Driver', has: page.getByText('Needs Gunnery II', {exact: true})}).last();
-  await expect(card).toContainText('45 dmg / 4s');
+  await expect(card).toContainText('47 dmg / 4s');
   await expect(card.getByRole('button', {name: 'Buy'})).toHaveCount(0);
   expectClean(problems);
 });
@@ -61,7 +61,7 @@ test('market: the keyboard reaches the Lance Driver card and Enter buys it', asy
   expectClean(problems);
 });
 
-test('lance driver: bought, fitted in place of the cannon, kept on reload, and one hit takes 54', async ({page}) => {
+test('lance driver: bought, fitted in place of the cannon, kept on reload, and one hit takes 56', async ({page}) => {
   test.setTimeout(180_000);
   const problems = watch(page);
   await openWithSave(page, {...BASE, ...SKILLS_AT(2)});
@@ -96,7 +96,7 @@ test('lance driver: bought, fitted in place of the cannon, kept on reload, and o
   await page.waitForTimeout(6000); // past one autosave
   expect((await readSave(page))!.fitting.fitted[3]).toBe('lance_driver');
 
-  // Use: Gunnery II and a Ferrier, so one hit is 45 × 1.2 = 54 off the pirate's 84 shield.
+  // Use: Gunnery II and a Ferrier, so one hit is 47 × 1.2 = 56.4, rounded to 56, off the pirate's 84 shield.
   await undock(page);
   await flyTo(page, 'Belt Two');
   // Picked from the Overview, not with Tab: under full load Tab may not reach it.
@@ -114,6 +114,6 @@ test('lance driver: bought, fitted in place of the cannon, kept on reload, and o
   await page.keyboard.press('2');
   // The first value under 84 is after exactly one hit: the next is 4 s later.
   await expect.poll(async () => ((await pirateShield()) ?? 84) < 84, {timeout: 60_000, intervals: [200]}).toBe(true);
-  expect(await pirateShield()).toBe(30);
+  expect(await pirateShield()).toBe(28);
   expectClean(problems);
 });

@@ -98,8 +98,8 @@ test('charge control V: the fitted Lance Driver fires every 3.2 s, not 4, and a 
     await settle(page);
     await page.keyboard.press('2');
     await expect(page.getByTestId('fitting-slot-3')).toContainText('Lance Driver');
-    // Gunnery III on a Ferrier: 45 × 1.3 = 58.5, shown as 59.
-    await expect(page.getByText('59 dmg / 3.2s · 14 Cap')).toBeVisible();
+    // Gunnery III on a Ferrier: 47 × 1.3 = 61.1, shown as 61.
+    await expect(page.getByText('61 dmg / 3.2s · 14 Cap')).toBeVisible();
   };
   await cannonRow();
   await expect.poll(async () => (await readSave(page))!.skills.chargeControl).toBe(5);

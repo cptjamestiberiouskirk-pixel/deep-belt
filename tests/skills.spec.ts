@@ -80,8 +80,8 @@ test('skills screen: each card gives its numbers for the fitted miner and weapon
   // The MK2 mines 75 a cycle: at Mining V, round(75 × 1.5) = 113, as flight does.
   await expect(extraction).toContainText('+50% ore yield (Miner MK2: 113 ore/cycle)');
   await expect(extraction).toContainText('-0% cycle time (Miner MK2: 8.0 s)');
-  // The Lance Driver hits for 45: at Gunnery III, round(45 × 1.3) = 59.
-  await expect(gunnery).toContainText('+30% kinetic damage (Lance Driver: 59 dmg/shot)');
+  // The Lance Driver hits for 47: at Gunnery III, round(47 × 1.3) = 61.
+  await expect(gunnery).toContainText('+30% kinetic damage (Lance Driver: 61 dmg/shot)');
   await expect(gunnery).toContainText('-0% cycle time (Lance Driver: 4.0 s)');
   expectClean(problems);
 });
