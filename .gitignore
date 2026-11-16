@@ -1,7 +1,8 @@
 node_modules/
 dist/
 build/
-.claude/
+.claude/*
+!.claude/skills/
 .env
 .env.*
 *.log
