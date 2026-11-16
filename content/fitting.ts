@@ -6,7 +6,10 @@
 // - Hangar plus fitted always equals what you own.
 // - A loadout is a wish: switching hulls fills the new hull's slots from it as
 //   far as the hangar allows, and an unfilled slot keeps its wish.
-// - Until step 3, one of each module, as today; the Miner MK2 replaces the MK1.
+// - A module's catalog maxOwned caps how many you own (default 1); doubles add up.
+//   The Miner MK2 replaces the MK1.
+// - Saved slots are re-placed by type when a hull's layout changes (step 3 gave
+//   the Gantry a third utility slot, which moved its weapon slot).
 
 import type {HullId} from './hulls';
 import type {ModuleId} from './modules';
@@ -24,12 +27,12 @@ export interface FittingState {
   loadouts: Partial<Record<HullId, Slots>>;
 }
 
-/** Slot types per hull, in fitting order. Gantry's third utility slot stays shut until step 3. */
+/** Slot types per hull, in fitting order. The Gantry's five slots include a third utility slot. */
 export const SLOT_LAYOUTS: Record<HullId, SlotType[]> = {
   ferrier: ['extraction', 'utility', 'utility', 'weapon'],
   skirmisher: ['extraction', 'utility', 'utility', 'weapon'],
   lattice: ['extraction', 'utility', 'utility', 'weapon'],
-  gantry: ['extraction', 'utility', 'utility', 'weapon'],
+  gantry: ['extraction', 'utility', 'utility', 'utility', 'weapon'],
   tern: ['extraction', 'utility', 'utility'],
   shade: ['extraction', 'utility', 'utility'],
 };
@@ -95,6 +98,34 @@ export function fittedTotal(fitted: Slots, stat: StatId): number {
   return fitted.reduce((sum, id) => sum + (id ? (MODULES[id].stats[stat] ?? 0) : 0), 0);
 }
 
+/**
+ * Puts saved modules into a hull's layout. A module keeps its index when that
+ * slot is of its type; the rest take the first free slot of their type, and what
+ * still has no slot comes back as overflow. Saves stay valid when a layout grows.
+ */
+export function placeByType(layout: SlotType[], saved: ReadonlyArray<ModuleId | null>): {slots: Slots; overflow: ModuleId[]} {
+  const slots: Slots = layout.map(() => null);
+  const rest: ModuleId[] = [];
+  saved.forEach((id, i) => {
+    if (!id) return;
+    if (i < layout.length && layout[i] === MODULES[id].slot) slots[i] = id;
+    else rest.push(id);
+  });
+  const overflow: ModuleId[] = [];
+  for (const id of rest) {
+    const j = layout.findIndex((t, k) => t === MODULES[id].slot && !slots[k]);
+    if (j >= 0) slots[j] = id;
+    else overflow.push(id);
+  }
+  return {slots, overflow};
+}
+
+/** Whether the pilot may buy another of this module: its catalog maxOwned, default 1. */
+export function canBuyMore(s: FittingState, id: ModuleId): boolean {
+  if (id === 'miner_mk2') return !owns(s, 'miner_mk2');
+  return (owned(s)[id] ?? 0) < (MODULES[id].maxOwned ?? 1);
+}
+
 /** A new pilot: Miner MK1 and Light Cannon fitted on the Ferrier. */
 export function newGameFitting(): FittingState {
   const fitted: Slots = ['miner_mk1', null, null, 'light_cannon'];
@@ -129,10 +160,7 @@ export function fromLegacy(data: LegacyFlags, hull: HullId): FittingState {
   for (const id of [miner, ...(up.cargoExpanded ? ['expanded_hold'] : []), ...(up.shieldBoosterHeavy ? ['shield_booster'] : []), ...(up.cannon ? ['light_cannon'] : [])] as ModuleId[]) {
     put(hangar, id);
   }
-  const fitted: Slots = layoutOf(hull).map((_, i) => {
-    const id = wanted[i];
-    return id && take(hangar, id) ? id : null;
-  });
+  const fitted: Slots = placeByType(layoutOf(hull), wanted).slots.map((id) => (id && take(hangar, id) ? id : null));
   return {hangar, fitted, loadouts: {[hull]: [...fitted]}};
 }
 
@@ -245,15 +273,15 @@ export function parseFitting(raw: unknown, hull: HullId): FittingState | null {
   if (!r.hangar || typeof r.hangar !== 'object' || !Array.isArray(r.fitted)) return null;
   const hangar: FittingState['hangar'] = {};
   for (const [k, v] of Object.entries(r.hangar)) if (isId(k) && typeof v === 'number' && v > 0) hangar[k] = Math.floor(v);
-  const fitted: Slots = layoutOf(hull).map((_, i) => (isId(r.fitted![i]) ? (r.fitted![i] as ModuleId) : null));
-  for (let i = layoutOf(hull).length; i < r.fitted.length; i++) {
-    const extra = r.fitted[i];
-    if (isId(extra)) put(hangar, extra);
-  }
+  const valid = (list: unknown[]) => list.map((x) => (isId(x) ? x : null));
+  // By type, so a save made before a layout changed keeps every module; what has no slot goes to the hangar.
+  const placed = placeByType(layoutOf(hull), valid(r.fitted));
+  const fitted = placed.slots;
+  for (const extra of placed.overflow) put(hangar, extra);
   const loadouts: FittingState['loadouts'] = {};
   if (r.loadouts && typeof r.loadouts === 'object') {
     for (const [k, v] of Object.entries(r.loadouts)) {
-      if (k in SLOT_LAYOUTS && Array.isArray(v)) loadouts[k as HullId] = layoutOf(k as HullId).map((_, i) => (isId(v[i]) ? v[i] : null));
+      if (k in SLOT_LAYOUTS && Array.isArray(v)) loadouts[k as HullId] = placeByType(layoutOf(k as HullId), valid(v)).slots;
     }
   }
   return {hangar, fitted, loadouts};

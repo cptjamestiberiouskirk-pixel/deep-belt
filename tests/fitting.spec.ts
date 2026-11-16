@@ -1,5 +1,5 @@
 import {expect, test} from '@playwright/test';
-import {buy, fit, fitBlockReason, fittedTotal, fittedWith, fromLegacy, hangarModuleIds, newGameFitting, owned, parseFitting, switchHull, toLegacy, unfit, type FittingState} from '../content/fitting';
+import {buy, canBuyMore, fit, fitBlockReason, fittedTotal, fittedWith, fromLegacy, hangarModuleIds, newGameFitting, owned, parseFitting, switchHull, toLegacy, unfit, type FittingState} from '../content/fitting';
 
 // The fitting model's rules (design/content-tree.md 4.2), checked without a browser.
 
@@ -113,4 +113,34 @@ test("fitting model: the hangar list is by slot type, and a blocked Fit says why
   const spare = unfit(full, "tern", "miner_mk1")!;
   expect(fitBlockReason(spare, "tern", "expanded_hold")).toBe("No free utility slot");
   expect(fitBlockReason(spare, "tern", "miner_mk2")).toBe("None in the hangar");
+});
+
+test("fitting model: the Gantry fits three utility modules, and doubles add up", () => {
+  let s = switchHull(newGameFitting(), "ferrier", "gantry");
+  expect(s.fitted).toEqual(["miner_mk1", null, null, null, "light_cannon"]);
+  for (let i = 0; i < 3; i++) {
+    expect(canBuyMore(s, "expanded_hold")).toBe(true);
+    const r = buy(s, "gantry", "expanded_hold");
+    expect(r.fitted).toBe(true);
+    s = r.state;
+  }
+  expect(s.fitted).toEqual(["miner_mk1", "expanded_hold", "expanded_hold", "expanded_hold", "light_cannon"]);
+  expect(fittedTotal(s.fitted, "cargoM3")).toBe(1500);
+  expect(canBuyMore(s, "expanded_hold")).toBe(false);
+  expect(canBuyMore(s, "light_cannon")).toBe(false);
+  expect(canBuyMore(s, "shield_booster")).toBe(true);
+  // Back on a Ferrier, two of the three fit; the third waits in the hangar.
+  const f = switchHull(s, "gantry", "ferrier");
+  expect(f.fitted).toEqual(["miner_mk1", null, null, "light_cannon"]);
+  expect(f.hangar.expanded_hold).toBe(3);
+});
+
+test("fitting model: a Gantry fitting saved before its third utility slot keeps its cannon", () => {
+  const old = ["miner_mk1", "expanded_hold", "shield_booster", "light_cannon"];
+  const s = parseFitting({hangar: {}, fitted: old, loadouts: {gantry: old}}, "gantry")!;
+  expect(s.fitted).toEqual(["miner_mk1", "expanded_hold", "shield_booster", null, "light_cannon"]);
+  expect(s.loadouts.gantry).toEqual(["miner_mk1", "expanded_hold", "shield_booster", null, "light_cannon"]);
+  expect(s.hangar).toEqual({});
+  // A v4 save on a Gantry puts its cannon in the weapon slot too.
+  expect(fromLegacy({}, "gantry").fitted).toEqual(["miner_mk1", null, null, null, "light_cannon"]);
 });

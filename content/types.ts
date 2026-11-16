@@ -36,6 +36,8 @@ export interface ModuleDef extends ItemDef {
   statBadge: string;
   /** Image key in the asset manifest. */
   icon: string;
+  /** How many a pilot may own (default 1). Doubles add up, so this caps stacking. */
+  maxOwned?: number;
 }
 
 export interface LensDef extends ItemDef {

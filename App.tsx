@@ -120,10 +120,12 @@ import type {SlotType} from './content/types';
 import {LENSES, LENS_IDS, lensBonusLabel} from './content/lenses';
 import {
   buy as buyModule,
+  canBuyMore,
   fitBlockReason,
   fit as fitModule,
   fromLegacy,
   newGameFitting,
+  owned as ownedModules,
   parseFitting,
   switchHull,
   toLegacy,
@@ -5291,7 +5293,16 @@ export default function App() {
   // The fitted weapon and shield booster: their catalog stats drive combat. Each falls
   // back to today's module for the timers and labels read while none is fitted.
   const weaponStats = () => (fittedWith(fittingRef.current.fitted, 'damage') ?? MODULES.light_cannon).stats;
-  const boosterStats = () => (fittedWith(fittingRef.current.fitted, 'shieldHpPerSec') ?? MODULES.shield_booster).stats;
+  const boosterStats = () => {
+    const boosters = fittingRef.current.fitted.flatMap((m) => (m && MODULES[m].stats.shieldHpPerSec !== undefined ? [MODULES[m].stats] : []));
+    if (boosters.length === 0) return MODULES.shield_booster.stats;
+    // Two boosters boost twice as much and cost twice the Cap, on the first one's cycle.
+    return {
+      ...boosters[0],
+      shieldHpPerSec: boosters.reduce((sum, b) => sum + (b.shieldHpPerSec ?? 0), 0),
+      capPerCycle: boosters.reduce((sum, b) => sum + (b.capPerCycle ?? 0), 0),
+    };
+  };
   // Hold space the fitted modules add (the Expanded Hold's +500 m³).
   const holdBonus = (fitted: Slots = fittingRef.current.fitted) => fittedTotal(fitted, 'cargoM3');
 
@@ -13120,7 +13131,8 @@ export default function App() {
   const buyUpgrade = (key: keyof typeof upgrades, cost: number) => {
     if (!isDocked) return;
     // Guard 4: Reject any purchase that would cause wallet to drop below 0
-    if (marks < cost || marks - cost < 0 || upgrades[key]) {
+    const buyId = (Object.keys(MODULE_UPGRADE_KEY) as Array<keyof typeof MODULE_UPGRADE_KEY>).find((id) => MODULE_UPGRADE_KEY[id] === key)!;
+    if (marks < cost || marks - cost < 0 || !canBuyMore(fittingRef.current, buyId)) {
       gameAudio.playErrorBuzz();
       setToastNotice({
         id: `toast_nomarks_${Date.now()}`,
@@ -13134,7 +13146,7 @@ export default function App() {
     setMarks(newMarks);
     setGameState((prev) => ({...prev, score: newMarks}));
     // Fitted at once when a slot of its type is free, else stored in the hangar.
-    const moduleId = (Object.keys(MODULE_UPGRADE_KEY) as Array<keyof typeof MODULE_UPGRADE_KEY>).find((id) => MODULE_UPGRADE_KEY[id] === key)!;
+    const moduleId = buyId;
     const bought = buyModule(fittingRef.current, activeHullRef.current, moduleId);
     setFitting(bought.state);
     applyHullLayout();
@@ -15050,13 +15062,13 @@ export default function App() {
     } else if (idx === 37) {
       if (cargoPolymerCompositeRef.current > 0) sellPolymerComposite();
     } else if (idx === 38) {
-      if (!upgrades.laserMk2 && marks >= MODULES.miner_mk2.basePrice) buyUpgrade('laserMk2', MODULES.miner_mk2.basePrice);
+      if (canBuyMore(fittingRef.current, 'miner_mk2') && marks >= MODULES.miner_mk2.basePrice) buyUpgrade('laserMk2', MODULES.miner_mk2.basePrice);
     } else if (idx === 39) {
-      if (!upgrades.cargoExpanded && marks >= MODULES.expanded_hold.basePrice) buyUpgrade('cargoExpanded', MODULES.expanded_hold.basePrice);
+      if (canBuyMore(fittingRef.current, 'expanded_hold') && marks >= MODULES.expanded_hold.basePrice) buyUpgrade('cargoExpanded', MODULES.expanded_hold.basePrice);
     } else if (idx === 40) {
-      if (!upgrades.shieldBoosterHeavy && marks >= MODULES.shield_booster.basePrice) buyUpgrade('shieldBoosterHeavy', MODULES.shield_booster.basePrice);
+      if (canBuyMore(fittingRef.current, 'shield_booster') && marks >= MODULES.shield_booster.basePrice) buyUpgrade('shieldBoosterHeavy', MODULES.shield_booster.basePrice);
     } else if (idx === 41) {
-      if (!upgrades.cannon && marks >= MODULES.light_cannon.basePrice) buyUpgrade('cannon', MODULES.light_cannon.basePrice);
+      if (canBuyMore(fittingRef.current, 'light_cannon') && marks >= MODULES.light_cannon.basePrice) buyUpgrade('cannon', MODULES.light_cannon.basePrice);
     } else if (idx === 42) {
       if (!hasProbeLauncher && marks >= 450) buyProbeLauncher();
     } else if (idx === 43) {
@@ -29196,7 +29208,8 @@ export default function App() {
                         desc: mod.desc,
                         price: mod.basePrice,
                         icon: assets[mod.icon]?.src || '',
-                        isOwned: upgrades[key],
+                        isOwned: !canBuyMore(fitting, id),
+                        ownedCount: ownedModules(fitting)[id] ?? 0,
                       };
                     }),
                     {
@@ -29797,6 +29810,9 @@ export default function App() {
                                             color: '#8BD17C',
                                           }}>
                                           {mod.statBadge}
+                                          {((mod as {ownedCount?: number}).ownedCount ?? 0) > 0 && !mod.isOwned && (
+                                            <span style={{ color: '#AEB6CA' }}> · {(mod as {ownedCount?: number}).ownedCount} owned</span>
+                                          )}
                                         </span>
                                       </div>
                                     </div>

@@ -140,6 +140,51 @@ test('fitting: slots sit under a header per type, and a hull without a weapon sl
   expectClean(problems);
 });
 
+const GANTRY = {...BASE, ownedHulls: ['ferrier', 'gantry'], activeHull: 'gantry'};
+
+test('market: a Gantry pilot can own three Expanded Holds, each adding 500 m³', async ({page}) => {
+  const problems = watch(page);
+  await openWithSave(page, {...GANTRY, upgrades: {cargoExpanded: true}, fittedSlots: {slot2CargoExpander: true}});
+  await enterGame(page);
+  // 2,000 m³ Gantry hold plus one Expanded Hold.
+  await expect(page.getByText(/\/2500m³/)).toBeVisible();
+  await page.keyboard.press('1');
+  await expect(page.getByText('Sell cargo')).toBeVisible();
+  const name = MODULES.expanded_hold.name;
+  const card = page.locator('div', {hasText: name, has: page.getByRole('button', {name: 'Buy'})}).last();
+  await expect(card).toContainText('1 owned');
+  await card.getByRole('button', {name: 'Buy'}).click();
+  await expect(page.getByText(/\/3000m³/)).toBeVisible();
+  await expect(card).toContainText('2 owned');
+  await card.getByRole('button', {name: 'Buy'}).click();
+  await expect(page.getByText(/\/3500m³/)).toBeVisible();
+  // The third is the most allowed: the card says Owned and has no Buy button.
+  await expect(page.locator('div', {hasText: name}).filter({hasText: 'Owned ✓'}).last()).toBeVisible();
+  await expect
+    .poll(async () => (await readSave(page))!.fitting.fitted)
+    .toEqual(['miner_mk1', 'expanded_hold', 'expanded_hold', 'expanded_hold', 'light_cannon']);
+  expect((await readSave(page))!.cargoMax).toBe(3500);
+  expectClean(problems);
+});
+
+test('save: a Gantry fitting from before its third utility slot keeps its cannon fitted', async ({page}) => {
+  const problems = watch(page);
+  const old = ['miner_mk1', 'expanded_hold', 'shield_booster', 'light_cannon'];
+  await openWithSave(page, {
+    ...GANTRY,
+    upgrades: {cargoExpanded: true, shieldBoosterHeavy: true},
+    fitting: {hangar: {}, fitted: old, loadouts: {gantry: old}},
+  });
+  await enterGame(page);
+  await expect
+    .poll(async () => (await readSave(page))?.fitting?.fitted)
+    .toEqual(['miner_mk1', 'expanded_hold', 'shield_booster', null, 'light_cannon']);
+  await openFitting(page);
+  await expect(page.getByTestId('fitting-slot-4')).toContainText('Light Cannon');
+  await expect(page.getByTestId('fitting-slot-3')).toContainText('EMPTY');
+  expectClean(problems);
+});
+
 test('fitting: at 800x600 the hangar list and Ship stats can be reached', async ({page}) => {
   await page.setViewportSize({width: 800, height: 600});
   const problems = watch(page);

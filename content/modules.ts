@@ -51,6 +51,8 @@ export const MODULES: Record<ModuleId, ModuleDef> = {
     statBadge: `+${EXPANDER_BONUS} hold`,
     desc: `Storage pods expanding hold capacity by +${EXPANDER_BONUS} units.`,
     icon: 'module_cargo_expander_icon',
+    // Up to three: the most utility slots any hull has (the Gantry). Doubles add up.
+    maxOwned: 3,
   },
   shield_booster: {
     id: 'shield_booster',
@@ -65,6 +67,8 @@ export const MODULES: Record<ModuleId, ModuleDef> = {
     statBadge: '+8 HP/s pulse',
     desc: 'Matrix generator restoring 8 shield HP per second on active cycle.',
     icon: 'module_shield_booster_icon',
+    // Up to three: the most utility slots any hull has (the Gantry). Doubles add up.
+    maxOwned: 3,
   },
   light_cannon: {
     id: 'light_cannon',
