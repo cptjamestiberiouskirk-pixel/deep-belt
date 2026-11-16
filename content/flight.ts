@@ -4,11 +4,22 @@
 //
 // The flight loop, each frame: speed += thrust·dt, then speed ×= SPACE_DRAG^(dt·60),
 // then speed is held under the cap. Holding thrust, speed settles where the two
-// balance, v = 0.96·(v + T/60), so v = 0.96·T / (60·0.04) = 0.4·T. That is about
-// 88 m/s on a Ferrier, well under its 320 m/s cap, so thrust sets the top speed
+// balance, v = 0.96·(v + T/60), so v = 0.96·T / (60·0.04) = 0.4·T. That is 88 px/s
+// (1.76 km/s) on a Ferrier, well under its 320 px/s cap, so thrust sets the top speed
 // a player reaches and the cap only matters if thrust ever grows past 2.5× the cap.
 
 import {FULL_HOLD_SPEED_CUT} from './skills';
+
+/** Map scale: the Overview, lock range and every km on screen divide pixels by this. */
+export const PIXELS_PER_KM = 50;
+
+/**
+ * A speed in the game's own units (pixels per second) as the player reads it, on the
+ * Overview's km scale: an empty Ferrier's 88 px/s is "1.76 km/s".
+ */
+export function formatSpeed(pxPerSec: number): string {
+  return `${(pxPerSec / PIXELS_PER_KM).toFixed(2)} km/s`;
+}
 
 /** Speed kept per 1/60 s of flight (space drag). */
 export const SPACE_DRAG = 0.96;

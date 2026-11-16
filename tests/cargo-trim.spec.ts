@@ -55,8 +55,8 @@ test('skills screen: at Navigation II, Cargo Trim I queues for 100 MARKS and tak
   const nav = page.getByTestId('skill-category-Navigation');
   await expect(nav.getByRole('button', {name: /^NEEDS/})).toHaveCount(0);
   // The cards give the speed a ship reaches (content/flight.ts), not the 320 cap:
-  // Navigation II, 220 × 1.2 × 0.4 = 105.6; untrained Cargo Trim, a full hold costs 40%.
-  await expect(nav).toContainText('+20% top speed (106 m/s)');
+  // Navigation II, 220 × 1.2 × 0.4 = 105.6 px/s = 2.11 km/s; untrained Cargo Trim, a full hold costs 40%.
+  await expect(nav).toContainText('+20% top speed (2.11 km/s)');
   await expect(nav).toContainText('full hold: -40% top speed');
   await nav.getByRole('button', {name: 'LVL I (100 MARKS • 2:00)'}).click();
   await expect.poll(async () => (await readSave(page))!.trainingQueue.length).toBe(1);
@@ -76,10 +76,10 @@ test('ship stats: Cargo Trim V with a Bulk Hold, a full hold costs 10% top speed
   await enterGame(page);
   await openTab(page, '2', /^FITTING$/);
   // Top speed is 0.4 × thrust (content/flight.ts). Navigation II: 220 × 1.2 × 0.8 for the
-  // Bulk Hold = 211.2 thrust, 84.48 m/s. A full hold at Cargo Trim V: × (1 − 0.4 × 0.25) = 76.03.
+  // Bulk Hold = 211.2 thrust, 84.48 px/s = 1.69 km/s. A full hold at Cargo Trim V: × (1 − 0.4 × 0.25) = 76.03 px/s = 1.52 km/s.
   // Each row's value holds its change in a nested span, so match the row as a whole.
   const row = (label: string) => page.getByText(label, {exact: true}).locator('..');
-  await expect(row('Max speed')).toHaveText('Max speed84 m/s(-20%)');
-  await expect(row('Speed, full hold')).toHaveText('Speed, full hold76 m/s(-10%)');
+  await expect(row('Max speed')).toHaveText('Max speed1.69 km/s(-20%)');
+  await expect(row('Speed, full hold')).toHaveText('Speed, full hold1.52 km/s(-10%)');
   expectClean(problems);
 });

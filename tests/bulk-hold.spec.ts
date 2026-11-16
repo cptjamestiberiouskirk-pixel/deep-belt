@@ -37,9 +37,9 @@ test('bulk hold: bought into a free slot, the hold is 900 bigger, top speed 20% 
   await enterGame(page);
   const before = (await readSave(page))!;
 
-  // Before: the Ferrier's top speed, 88 m/s (content/flight.ts: 0.4 × 220 thrust), with no slowdown shown.
+  // Before: the Ferrier's top speed, 88 px/s = 1.76 km/s (content/flight.ts: 0.4 × 220 thrust), with no slowdown shown.
   await openFitting(page);
-  await expect(page.getByText('88 m/s', {exact: true})).toBeVisible();
+  await expect(page.getByText('1.76 km/s', {exact: true})).toBeVisible();
   await page.keyboard.press('Escape');
 
   await settle(page);
@@ -57,8 +57,8 @@ test('bulk hold: bought into a free slot, the hold is 900 bigger, top speed 20% 
   const checkFitting = async () => {
     await openFitting(page);
     await expect(page.getByText(`${(before.cargoMax + 900).toLocaleString('en-US')} m³`)).toBeVisible();
-    // 88 × 0.8 = 70.4. The value holds its change in a nested span, so match the row as a whole.
-    await expect(page.getByText('Max speed', {exact: true}).locator('..')).toHaveText('Max speed70 m/s(-20%)');
+    // 88 × 0.8 = 70.4 px/s = 1.41 km/s. The value holds its change in a nested span, so match the row as a whole.
+    await expect(page.getByText('Max speed', {exact: true}).locator('..')).toHaveText('Max speed1.41 km/s(-20%)');
   };
   await checkFitting();
 

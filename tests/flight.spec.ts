@@ -1,5 +1,6 @@
 import {expect, test} from '@playwright/test';
-import {FULL_HOLD_THRUST_CUT, flightLimits, SPACE_DRAG, topSpeed} from '../content/flight';
+import {formatSpeed, FULL_HOLD_THRUST_CUT, flightLimits, SPACE_DRAG, topSpeed} from '../content/flight';
+import {enterGame, expectClean, openWithSave, RICH, undock, watch} from './helpers';
 import {effectiveLoad} from '../content/skills';
 
 // content/flight.ts: the speed a ship reaches holding thrust, which Ship stats and
@@ -29,4 +30,27 @@ test('flight: top speeds match what the probe measured in flight', () => {
     ['Bulk Hold, full, Cargo Trim V', {...BULK, load: effectiveLoad(1, 5)}, 63],
   ];
   for (const [name, inputs, measured] of cases) expect(Math.round(topSpeed(inputs)), name).toBe(measured);
+});
+
+test('speed is shown in km/s on the Overview scale: 50 px to the km', () => {
+  expect(formatSpeed(88)).toBe('1.76 km/s');
+  expect(formatSpeed(0)).toBe('0.00 km/s');
+});
+
+test('top bar: the speed readout climbs to an empty Ferrier top speed, 1.76 km/s, and is gone when docked', async ({page}) => {
+  const problems = watch(page);
+  await openWithSave(page, {...RICH, milestoneIndustrialistClaimed: true});
+  await enterGame(page);
+  await expect(page.getByTestId('speed-readout')).toHaveCount(0);
+  await undock(page);
+  const readout = page.getByTestId('speed-readout');
+  await expect(readout).toBeVisible();
+  const kmS = async () => Number((await readout.innerText()).replace(' km/s', ''));
+  await page.keyboard.down('ArrowUp');
+  // Top speed is 88 px/s (1.76 km/s); thrust reaches 95% of it in under a second.
+  await expect.poll(kmS, {timeout: 10_000}).toBeGreaterThan(1.7);
+  await page.waitForTimeout(2000);
+  expect(await kmS()).toBeLessThanOrEqual(1.77);
+  await page.keyboard.up('ArrowUp');
+  expectClean(problems);
 });

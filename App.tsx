@@ -120,7 +120,7 @@ import type {SlotType} from './content/types';
 import {LENSES, LENS_IDS, lensBonusLabel} from './content/lenses';
 import {readItem} from './content/inventory';
 import {CARGO_TRIM_CUT, CHARGE_CONTROL_CUT, effectiveLoad, LASER_TUNING_CUT, minerCycleAt, prerequisiteText, SKILL_CATEGORY_ORDER, skillLevels, SKILLS, unmetPrerequisites, weaponCycleAt} from './content/skills';
-import {FULL_HOLD_THRUST_CUT, flightLimits, topSpeed} from './content/flight';
+import {formatSpeed, FULL_HOLD_THRUST_CUT, flightLimits, PIXELS_PER_KM, topSpeed} from './content/flight';
 import {
   buy as buyModule,
   canBuyMore,
@@ -594,6 +594,38 @@ const CoreProbeSweepModal = React.memo(({
   );
 });
 
+// The ship's speed in the top bar, in km/s on the Overview's scale, written each
+// animation frame without re-rendering React.
+const SpeedReadout = React.memo(({getSpeed}: {getSpeed: () => number}) => {
+  const textRef = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    let raf = 0;
+    const update = () => {
+      if (textRef.current) textRef.current.textContent = formatSpeed(getSpeed());
+      raf = requestAnimationFrame(update);
+    };
+    raf = requestAnimationFrame(update);
+    return () => cancelAnimationFrame(raf);
+  }, [getSpeed]);
+  return (
+    <span
+      ref={textRef}
+      data-testid="speed-readout"
+      title="Ship speed"
+      style={{
+        fontFamily: "'JetBrains Mono', monospace",
+        fontSize: '11px',
+        fontWeight: 700,
+        color: '#4CC9F0',
+        flexShrink: 0,
+        minWidth: '68px',
+        textAlign: 'right',
+      }}>
+      {formatSpeed(getSpeed())}
+    </span>
+  );
+});
+
 // Subscribed cycle progress bar for action buttons with 60fps direct rAF DOM updates
 const CycleProgressBar = React.memo(({
   active,
@@ -1052,7 +1084,6 @@ export const OUTPOST_TERMINALS = [
   { tab: 'SCHEMATICS' as const, label: 'Schematics', key: 'K', x: 1140, bay: 5, color: '#4CC9F0' },
 ];
 
-const PIXELS_PER_KM = 50;
 export { MINING_RANGE_KM };
 
 export function calcSurfaceDistanceKm(px: number, py: number, ast: { x: number; y: number; radius: number; oreReserve?: number; reserve?: number; maxOreReserve?: number; maxReserve?: number }): number {
@@ -1384,9 +1415,9 @@ function speedBase() {
 }
 
 /**
- * A plain Ferrier's top speed: no skills, modules or cargo (88 m/s). Hostile ships fly
+ * A plain Ferrier's top speed: no skills, modules or cargo (88 px/s, 1.76 km/s). Hostile ships fly
  * at a share of it, so the player's own Navigation, fitting and hold decide whether
- * they can outrun one. These shares were set against the 320 m/s cap, which no ship
+ * they can outrun one. These shares were set against the 320 px/s cap, which no ship
  * reaches, and so made pirates three times faster than the player.
  */
 function hostileBaseSpeed() {
@@ -1440,7 +1471,7 @@ export const SKILL_DEFINITIONS: SkillDefinition[] = [
     category: SKILLS.navigation.category,
     description: '+10% thrust and top speed, and a 10% shorter warp spool, per level',
     getBonusText: (level: number) =>
-      `+${level * 10}% top speed (${Math.round(topSpeed({...speedBase(), navigation: level, hullMult: 1, moduleMult: 1, load: 0}))} m/s), -${level * 10}% warp spool (${(3.0 * (1 - 0.1 * level)).toFixed(1)}s)`,
+      `+${level * 10}% top speed (${formatSpeed(topSpeed({...speedBase(), navigation: level, hullMult: 1, moduleMult: 1, load: 0}))}), -${level * 10}% warp spool (${(3.0 * (1 - 0.1 * level)).toFixed(1)}s)`,
   },
   {
     id: 'cargoTrim',
@@ -6150,6 +6181,8 @@ export default function App() {
     fireTimer: 0,
     patrolAngle: 0,
   });
+
+  const getPlayerSpeed = useCallback(() => Math.hypot(playerRef.current.vx, playerRef.current.vy), []);
 
   // Read-only flight and combat state for the balance probe (tests/balance-probe.spec.ts):
   // speed, Cap and the Belt Two pirate, none of which the screen shows as numbers.
@@ -24813,6 +24846,7 @@ export default function App() {
                     }}>
                     {totalCargo}/{maxCargo}m³
                   </span>
+                  {!isDocked && <SpeedReadout getSpeed={getPlayerSpeed} />}
                   {loadFrac >= 0.75 && (
                     <span
                       style={{
@@ -31354,11 +31388,11 @@ export default function App() {
                                   {(() => {
                                     const thrusterMult = 1 + (hullLayouts[activeHull]?.thruster ? 0.15 : 0);
                                     const moduleMult = fittedSpeedMult(fitting.fitted);
-                                    const speed = Math.round(topSpeed({...speedBase(), navigation: skills.navigation || 0, hullMult: thrusterMult, moduleMult, load: 0}));
+                                    const speed = topSpeed({...speedBase(), navigation: skills.navigation || 0, hullMult: thrusterMult, moduleMult, load: 0});
                                     const pct = Math.round((moduleMult - 1) * 100);
                                     return (
                                       <span>
-                                        {speed} m/s
+                                        {formatSpeed(speed)}
                                         {pct < 0 && (
                                           <span style={{ color: '#FF5A5F', fontSize: '12px', marginLeft: '4px' }}>
                                             ({pct}%)
@@ -31381,7 +31415,7 @@ export default function App() {
                                     const cut = 1 - full / topSpeed(inputs);
                                     return (
                                       <span>
-                                        {Math.round(full)} m/s
+                                        {formatSpeed(full)}
                                         <span style={{ color: '#FF5A5F', fontSize: '12px', marginLeft: '4px' }}>
                                           (-{Math.round(cut * 100 * 10) / 10}%)
                                         </span>
@@ -31943,7 +31977,7 @@ export default function App() {
 
                   const baseMaxSpeed = getConfig('playerMaxSpeed') as number;
                   const navLevel = skills.navigation || 0;
-                  const speedWith = (thruster: boolean) => Math.round(topSpeed({...speedBase(), baseMaxSpeed, navigation: navLevel, hullMult: thruster ? 1.15 : 1, moduleMult: fittedSpeedMult(fitting.fitted), load: 0}));
+                  const speedWith = (thruster: boolean) => topSpeed({...speedBase(), baseMaxSpeed, navigation: navLevel, hullMult: thruster ? 1.15 : 1, moduleMult: fittedSpeedMult(fitting.fitted), load: 0});
                   const currentSpeedCap = speedWith(Boolean(curLayout.thruster));
                   const currentLockRange = 10.0 + (curLayout.sensor ? 2.0 : 0);
 
@@ -32685,17 +32719,17 @@ export default function App() {
                                     Max Speed
                                   </span>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontFamily: "'JetBrains Mono', monospace", fontWeight: 700 }}>
-                                    <span style={{ color: '#F6EED8' }}>{currentSpeedCap}</span>
+                                    <span style={{ color: '#F6EED8' }}>{(currentSpeedCap / PIXELS_PER_KM).toFixed(2)}</span>
                                     <span style={{ color: '#AEB6CA', fontSize: '11px' }}>→</span>
                                     <span style={{
                                       color: previewSpeedCap > currentSpeedCap ? '#2EC4B6' : previewSpeedCap < currentSpeedCap ? '#FF5A5F' : '#AEB6CA',
                                       fontWeight: 800,
                                     }}>
-                                      {previewSpeedCap} px/s
+                                      {formatSpeed(previewSpeedCap)}
                                     </span>
                                     {previewSpeedCap !== currentSpeedCap && (
                                       <span style={{ fontSize: '11px', color: previewSpeedCap > currentSpeedCap ? '#2EC4B6' : '#FF5A5F' }}>
-                                        ({previewSpeedCap > currentSpeedCap ? `+${previewSpeedCap - currentSpeedCap}` : `${previewSpeedCap - currentSpeedCap}`})
+                                        ({previewSpeedCap > currentSpeedCap ? '+' : ''}{((previewSpeedCap - currentSpeedCap) / PIXELS_PER_KM).toFixed(2)})
                                       </span>
                                     )}
                                   </div>
