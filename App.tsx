@@ -5242,6 +5242,12 @@ export default function App() {
   });
   const fittedSlotsRef = useRef(fittedSlots);
   fittedSlotsRef.current = fittedSlots;
+  // The mining laser in slot 1: its catalog yield and cycle drive mining.
+  const minerRef = useRef(minerFor(upgrades.laserMk2));
+  minerRef.current = minerFor(upgrades.laserMk2);
+  const minerCycleSec = () => minerRef.current.stats.cycleSec ?? 10;
+  // Yield against the MK1's: 1.5 for the MK2 (+50%), on every ore type.
+  const minerYieldMult = () => (minerRef.current.stats.oreYield ?? 50) / (MODULES.miner_mk1.stats.oreYield ?? 50);
 
   // Per-hull fitting memory map ref to preserve/restore slot configurations (e.g. slot4Cannon on 4-slot ships)
   const hullFittingsRef = useRef<Record<string, {
@@ -18402,7 +18408,7 @@ export default function App() {
         setShipHull(hullInt);
       }
 
-      const mineSec = p.miningLaserActive ? Math.min(10, Math.max(1, Math.ceil(p.miningTimer))) : 0;
+      const mineSec = p.miningLaserActive ? Math.min(minerCycleSec(), Math.max(1, Math.ceil(p.miningTimer))) : 0;
       const cannonSec = p.cannonActive ? Math.min(3, Math.max(1, Math.ceil(p.cannonTimer))) : 0;
       if (mineSec !== lastPublishedStateRef.current.mineSec || cannonSec !== lastPublishedStateRef.current.cannonSec) {
         lastPublishedStateRef.current.mineSec = mineSec;
@@ -19060,7 +19066,7 @@ export default function App() {
             addFloatingText('CARGO FULL! DOCK TO SELL', p.x, p.y - 25, '#ef4444');
           } else {
             p.miningTimer += dt;
-            const cycleProgress = Math.min(1.0, p.miningTimer / 10.0);
+            const cycleProgress = Math.min(1.0, p.miningTimer / minerCycleSec());
             gameAudio.updateMiningLaserProgress(cycleProgress);
 
             const rockAngle = Math.atan2(ast.y - p.y, ast.x - p.x);
@@ -19115,8 +19121,8 @@ export default function App() {
               });
             }
 
-            // Ore extracted upon cycle completion (10.0 seconds)
-            if (p.miningTimer >= 10.0) {
+            // Ore extracted upon cycle completion (the fitted miner's cycle: 10 s MK1, 8 s MK2)
+            if (p.miningTimer >= minerCycleSec()) {
               miningFirstYieldDoneRef.current = true;
               const miningSkillLevel = skillsRef.current.mining || 0;
               const isExotic = ast.type === 'prismite' || ast.type === 'nimbus' || ast.type === 'radflux';
@@ -19143,7 +19149,7 @@ export default function App() {
               const skillMult = 1 + 0.10 * miningSkillLevel;
 
               if (isExotic) {
-                const baseYield = 5;
+                const baseYield = 5 * minerYieldMult();
                 const calcYield = isLensMatched
                   ? Math.round(baseYield * skillMult * lensBonus)
                   : Math.round(baseYield * skillMult);
@@ -19208,7 +19214,7 @@ export default function App() {
                   addFloatingText('CARGO FULL (HOLD VOLUME)', p.x, p.y - 25, '#FF5A5F');
                 }
               } else {
-                const baseYield = 50;
+                const baseYield = 50 * minerYieldMult();
                 const calcYield = isLensMatched
                   ? Math.round(baseYield * skillMult * lensBonus)
                   : Math.round(baseYield * skillMult);
@@ -37746,7 +37752,7 @@ export default function App() {
                       : (hudHeat >= 50
                         ? `HEAT ${Math.round(hudHeat)}%`
                         : (moduleMiningActive
-                          ? `cycling ${Math.min(10, Math.max(1, actionCycleSecs.mine || 1))}/10s`
+                          ? `cycling ${Math.min(minerCycleSec(), Math.max(1, actionCycleSecs.mine || 1))}/${minerCycleSec()}s`
                           : (p.autoMineApproaching
                             ? `approach ${surfKmToAst.toFixed(1)} km`
                             : (mineDisabled || isMineOutOfRange ? mineReason : 'ready')))))}
@@ -37774,7 +37780,7 @@ export default function App() {
                 </div>
                 <CycleProgressBar
                   active={moduleMiningActive}
-                  getProgress={() => playerRef.current.miningTimer / 10.0}
+                  getProgress={() => playerRef.current.miningTimer / minerCycleSec()}
                 />
               </button>
 

@@ -209,6 +209,25 @@ test('mining: a tuned laser never overheats; a mistuned one locks out and the hi
   expectClean(problems);
 });
 
+test('mining: a bought Miner MK2 mines 75 ore every 8 s, as the market says', async ({page}) => {
+  test.setTimeout(120_000);
+  const problems = await launch(page, {upgrades: {laserMk2: true, cargoExpanded: false, shieldBoosterHeavy: false, cannon: true}});
+  await flyTo(page, 'Belt One');
+  await selectTarget(page, /Asteroid/);
+  await page.keyboard.press('l');
+  await expect.poll(() => targetPanel(page), {timeout: 30_000}).toMatch(/Locked/);
+  await tuneLaser(page);
+  // The top bar's hold count is live; the save lags by up to one autosave.
+  const held = async () => Number((await page.innerText('body')).match(/(\d+)\/\d+m³/)![1]);
+  const before = await held();
+  await page.keyboard.press('1');
+  // The MK2 used to change only the screens: the laser still took 10 s for 50 ore.
+  await expect.poll(() => mineState(page), {timeout: 5_000}).toMatch(/cycling \d+\/8s/);
+  await expect.poll(held, {timeout: 15_000}).toBeGreaterThan(before);
+  expect(await held()).toBe(before + 75);
+  expectClean(problems);
+});
+
 test('overview: a rock is as far away in the Overview as in the Target panel', async ({page}) => {
   const problems = await launch(page);
   await flyTo(page, 'Belt One');
