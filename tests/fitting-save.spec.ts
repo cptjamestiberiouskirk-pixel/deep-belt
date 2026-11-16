@@ -110,7 +110,7 @@ async function openFitting(page: Page) {
   await settle(page);
 }
 
-test('fitting: slots sit under a header per type, and a hull without a weapon slot says so', async ({page}) => {
+test('fitting: each slot sits under its own label, and a hull without a weapon slot says so', async ({page}) => {
   const problems = watch(page);
   await openWithSave(page, {
     ...BASE,
@@ -121,7 +121,8 @@ test('fitting: slots sit under a header per type, and a hull without a weapon sl
   });
   await enterGame(page);
   await openFitting(page);
-  for (const header of ['EXTRACTION', 'UTILITY', 'WEAPON']) {
+  // The Tern's two utility slots are numbered; a type with one slot is not.
+  for (const header of ['EXTRACTION', 'UTILITY 1', 'UTILITY 2', 'WEAPON']) {
     await expect(page.getByText(header, {exact: true}).first()).toBeVisible();
   }
   await expect(page.getByText('None on this hull', {exact: true})).toBeVisible();
@@ -141,6 +142,21 @@ test('fitting: slots sit under a header per type, and a hull without a weapon sl
 });
 
 const GANTRY = {...BASE, ownedHulls: ['ferrier', 'gantry'], activeHull: 'gantry'};
+
+test('fitting: slot tiles line up row for row across the two columns, filled or empty', async ({page}) => {
+  const problems = watch(page);
+  // A Ferrier with one utility slot empty: miner and hold on row 1, cannon and the empty slot on row 2.
+  await openWithSave(page, {...BASE, fitting: {hangar: {}, fitted: ['miner_mk1', 'expanded_hold', null, 'light_cannon'], loadouts: {}}});
+  await enterGame(page);
+  await settle(page);
+  await page.keyboard.press('2');
+  await expect(page.getByTestId('fitting-slot-2')).toContainText('EMPTY');
+  const top = async (i: number) => (await page.getByTestId(`fitting-slot-${i}`).boundingBox())!.y;
+  expect(await top(1)).toBe(await top(0));
+  expect(await top(2)).toBe(await top(3));
+  expect(await top(2)).toBeGreaterThan(await top(1));
+  expectClean(problems);
+});
 
 test('market: a Gantry pilot can own three Expanded Holds, each adding 500 m³', async ({page}) => {
   const problems = watch(page);

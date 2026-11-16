@@ -30325,7 +30325,7 @@ export default function App() {
                   const hullSlotLayout = layoutOf(activeHull);
                   const hangarIds = hangarModuleIds(fitting);
                   type StageBlock =
-                    | {kind: 'header'; type: SlotType; x: number; y: number}
+                    | {kind: 'header'; type: SlotType; label: string; x: number; y: number}
                     | {kind: 'slot'; type: SlotType; index: number; x: number; y: number}
                     | {kind: 'none'; type: SlotType; x: number; y: number};
                   const stageBlocks: StageBlock[] = [];
@@ -30333,21 +30333,25 @@ export default function App() {
                     {x: 20, types: ['extraction', 'weapon']},
                     {x: 450, types: ['utility']},
                   ];
+                  // Every slot has its own label above it, numbered when a hull has more than one
+                  // of a type ("UTILITY 2"), so the tiles in both columns line up row for row.
                   for (const col of stageColumns) {
                     let y = 14;
                     for (const type of col.types) {
-                      stageBlocks.push({kind: 'header', type, x: col.x, y});
-                      y += SLOT_HEADER_H;
                       const indexes = hullSlotLayout.map((t, i) => (t === type ? i : -1)).filter((i) => i >= 0);
                       if (indexes.length === 0) {
+                        stageBlocks.push({kind: 'header', type, label: SLOT_TYPE_LABELS[type], x: col.x, y});
+                        y += SLOT_HEADER_H;
                         stageBlocks.push({kind: 'none', type, x: col.x, y});
-                        y += 56;
+                        y += 56 + 14;
                       }
-                      for (const index of indexes) {
+                      indexes.forEach((index, n) => {
+                        const label = indexes.length > 1 ? `${SLOT_TYPE_LABELS[type]} ${n + 1}` : SLOT_TYPE_LABELS[type];
+                        stageBlocks.push({kind: 'header', type, label, x: col.x, y});
+                        y += SLOT_HEADER_H;
                         stageBlocks.push({kind: 'slot', type, index, x: col.x, y});
-                        y += SLOT_TILE_H + 8;
-                      }
-                      y += 14;
+                        y += SLOT_TILE_H + 14;
+                      });
                     }
                   }
 
@@ -30696,7 +30700,7 @@ export default function App() {
                             if (b.kind === 'header') {
                               return (
                                 <div
-                                  key={`hdr_${b.type}`}
+                                  key={`hdr_${b.type}_${b.y}`}
                                   style={{
                                     position: 'absolute',
                                     left: `${b.x}px`,
@@ -30709,7 +30713,7 @@ export default function App() {
                                     color: '#4CC9F0',
                                     zIndex: 3,
                                   }}>
-                                  {SLOT_TYPE_LABELS[b.type]}
+                                  {b.label}
                                 </div>
                               );
                             }
