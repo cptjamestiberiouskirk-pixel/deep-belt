@@ -1,7 +1,7 @@
 import {appendFileSync, mkdirSync} from 'node:fs';
 import {dirname} from 'node:path';
 import {expect, test, type Page} from '@playwright/test';
-import {enterGame, flyTo, openWithSave, readSave, RICH, selectTarget, settle, targetPanel, tuneLaser, undock, warpTo} from './helpers';
+import {enterGame, flyTo, mineUntil, openWithSave, readSave, RICH, selectTarget, settle, targetPanel, tuneLaser, undock, warpTo} from './helpers';
 
 // Balance probe (design/content-tree.md rule 5: tuning is measured). It plays
 // the production build and records numbers the screen doesn't show, through
@@ -93,6 +93,10 @@ const FIGHTS: Array<{name: string; weapon: string; cc: number; booster: boolean;
   {name: 'Light Cannon, Gunnery II', weapon: 'light_cannon', cc: 0, booster: false, gunnery: 2},
   {name: 'Lance Driver, Gunnery II', weapon: 'lance_driver', cc: 0, booster: false, gunnery: 2},
   {name: 'Light Cannon', weapon: 'light_cannon', cc: 0, booster: false},
+  {name: 'Light Cannon, Gunnery IV', weapon: 'light_cannon', cc: 0, booster: false, gunnery: 4},
+  {name: 'Lance Driver, Gunnery IV', weapon: 'lance_driver', cc: 0, booster: false, gunnery: 4},
+  {name: 'Light Cannon, Gunnery V', weapon: 'light_cannon', cc: 0, booster: false, gunnery: 5},
+  {name: 'Lance Driver, Gunnery V', weapon: 'lance_driver', cc: 0, booster: false, gunnery: 5},
   {name: 'Lance Driver', weapon: 'lance_driver', cc: 0, booster: false},
   {name: 'Light Cannon + booster', weapon: 'light_cannon', cc: 0, booster: true},
   {name: 'Lance Driver + booster', weapon: 'lance_driver', cc: 0, booster: true},
@@ -304,5 +308,40 @@ for (const c of [{name: 'empty hold', tritanium: 0}, {name: 'full hold (600 Trit
       raiderTopSpeed: Math.round(raiderTop),
       playerTopSpeed: Math.round(playerTop),
     });
+  });
+}
+
+// --- Mining pace: ore per minute at Belt One, no lens, a Bulk Hold so the hold never fills.
+// The game's own clock times each yield (sampled every 250 ms in the page), so the count
+// runs from the first yield to the last: whole cycles only, rocks running dry included.
+const PACES = [
+  {name: 'Miner MK1, no skills', miner: 'miner_mk1', mining: 0, lt: 0},
+  {name: 'Miner MK2, no skills', miner: 'miner_mk2', mining: 0, lt: 0},
+  {name: 'Miner MK2, Mining V, Laser Tuning V', miner: 'miner_mk2', mining: 5, lt: 5},
+];
+for (const c of PACES) {
+  test(`mining pace: ${c.name}`, async ({page}) => {
+    test.setTimeout(300_000);
+    await openWithSave(page, {...BASE, ...skills({mining: c.mining, laserTuning: c.lt}), ...fitting([c.miner, 'bulk_hold', null, 'light_cannon'])});
+    await enterGame(page);
+    await undock(page);
+    await flyTo(page, 'Belt One');
+    await page.evaluate(() => {
+      const w = window as unknown as {__yields: Array<[number, number]>};
+      w.__yields = [];
+      let last = 0;
+      setInterval(() => {
+        const m = document.body.innerText.match(/(\d+)\/\d+m³/);
+        const held = m ? Number(m[1]) : last;
+        if (held !== last) w.__yields.push([performance.now(), held - last]);
+        last = held;
+      }, 250);
+    });
+    const t = Date.now();
+    await mineUntil(page, async () => Date.now() - t > 90_000, 240_000);
+    const yields = await page.evaluate(() => (window as unknown as {__yields: Array<[number, number]>}).__yields);
+    const sec = (yields[yields.length - 1][0] - yields[0][0]) / 1000;
+    const ore = yields.slice(1).reduce((a, [, d]) => a + d, 0);
+    record({probe: 'mining pace', case: c.name, yields: yields.length, ore, sec: Math.round(sec * 10) / 10, orePerMin: Math.round((ore / sec) * 60), sizes: [...new Set(yields.map(([, d]) => d))]});
   });
 }

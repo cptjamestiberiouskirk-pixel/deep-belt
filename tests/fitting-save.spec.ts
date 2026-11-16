@@ -225,3 +225,37 @@ test('fitting: at 800x600 the hangar list and Ship stats can be reached', async 
   expect(await inView(page.getByText('Capacitor', {exact: true}).last())).toBe(true);
   expectClean(problems);
 });
+
+test('fitting: at 800x600 every Ship stats value fits inside its row', async ({page}) => {
+  await page.setViewportSize({width: 800, height: 600});
+  const problems = watch(page);
+  // The longest values: a Bulk Hold's speed cut, and the Lance Driver with its Gunnery bonus.
+  await openWithSave(page, {
+    ...BASE,
+    skills: {mining: 5, laserTuning: 0, gunnery: 3, chargeControl: 0, shieldOp: 5, navigation: 0, cargoTrim: 0},
+    fitting: {hangar: {miner_mk1: 1, light_cannon: 1}, fitted: ['miner_mk2', 'bulk_hold', null, 'lance_driver'], loadouts: {}},
+  });
+  await enterGame(page);
+  await openFitting(page);
+  const labels = ['Mining yield', 'Mining cycle', 'Cargo hold', 'Max speed', 'Speed, full hold', 'Shield', 'Armor', 'Structure / Hull', 'Cannon', 'Capacitor'];
+  const overflow: string[] = [];
+  for (const label of labels) {
+    const row = page.getByText(label, {exact: true}).last().locator('..');
+    await row.scrollIntoViewIfNeeded();
+    const m = await row.evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      const v = (el.lastElementChild as HTMLElement).getBoundingClientRect();
+      // The nearest edge that cuts content off: the window, or any ancestor that clips.
+      let clipRight = window.innerWidth;
+      for (let a = el.parentElement; a; a = a.parentElement) {
+        const o = getComputedStyle(a);
+        if (o.overflowX !== 'visible' || o.overflow !== 'visible') clipRight = Math.min(clipRight, a.getBoundingClientRect().right);
+      }
+      return {rowRight: Math.min(r.right, clipRight), valueRight: v.right, rowLeft: r.left, valueLeft: v.left, text: (el as HTMLElement).innerText};
+    });
+    // The value ends inside the row's border and does not run into the label.
+    if (m.valueRight > m.rowRight - 2 || m.valueLeft < m.rowLeft) overflow.push(`${label}: "${m.text.replace(/\n/g, ' ')}" value ${m.valueLeft.toFixed(0)}-${m.valueRight.toFixed(0)}, row ${m.rowLeft.toFixed(0)}-${m.rowRight.toFixed(0)}`);
+  }
+  expect(overflow).toEqual([]);
+  expectClean(problems);
+});
