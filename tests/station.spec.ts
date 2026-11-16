@@ -1,5 +1,7 @@
 import {expect, test, type Page} from '@playwright/test';
 import {enterGame, expectClean, expectTitle, openWithSave, readSave, RICH, settle, watch} from './helpers';
+import {LENSES} from '../content/lenses';
+import {MODULES} from '../content/modules';
 
 const STOCKED = {
   ...RICH,
@@ -266,6 +268,47 @@ test('fitting: at 800x600 each lens bonus stays on one line, clear of the hold c
   for (const r of rows) {
     expect(r.lines, `${r.text} wraps`).toBe(1);
     expect(r.overlaps, `${r.text} runs into the hold count`).toBe(false);
+  }
+  expectClean(problems);
+});
+
+// The four slot modules as players know them today (design/content-tree.md, step 1).
+// The catalog in content/ holds these numbers; this pins them.
+const PINNED_MODULES = [
+  {id: 'miner_mk2', name: 'Miner MK2', price: 1200, badge: '+50% yield', stats: {oreYield: 75, cycleSec: 8, capPerCycle: 12}},
+  {id: 'expanded_hold', name: 'Expanded Hold', price: 850, badge: '+500 hold', stats: {cargoM3: 500}},
+  {id: 'shield_booster', name: 'Shield Booster', price: 950, badge: '+8 HP/s pulse', stats: {shieldHpPerSec: 8, cycleSec: 3}},
+  {id: 'light_cannon', name: 'Light Cannon', price: 600, badge: '30 dmg / 3s', stats: {damage: 30, cycleSec: 3, rangeKm: 8, capPerCycle: 8}},
+] as const;
+
+test('catalog: the slot modules and lenses keep their names, prices and stats', () => {
+  for (const p of PINNED_MODULES) {
+    const m = MODULES[p.id];
+    expect({name: m.name, price: m.basePrice, badge: m.statBadge, stats: m.stats}, p.id).toEqual({
+      name: p.name,
+      price: p.price,
+      badge: p.badge,
+      stats: p.stats,
+    });
+  }
+  expect(MODULES.miner_mk1).toMatchObject({name: 'Miner MK1', basePrice: 0, stats: {oreYield: 50, cycleSec: 10, capPerCycle: 12}});
+  const lenses = Object.values(LENSES).map((l) => [l.name, l.basePrice, l.yieldBonus, l.charges]);
+  expect(lenses).toEqual([
+    ['Silicate Lens', 800, 0.4, 25],
+    ['Metallic Lens', 1200, 0.4, 25],
+    ['Exotic Lens', 2400, 0.5, 25],
+  ]);
+});
+
+test('market: each module card shows its catalog name, price and stat', async ({page}) => {
+  const problems = await docked(page, {...RICH, milestoneIndustrialistClaimed: true});
+  await page.keyboard.press('1');
+  await expect(page.getByText('Sell cargo')).toBeVisible();
+  for (const p of PINNED_MODULES) {
+    // The innermost box holding both the name and a Buy button is the module's card.
+    const card = page.locator('div', {hasText: p.name, has: page.getByRole('button', {name: 'Buy'})}).last();
+    await expect(card).toContainText(p.badge);
+    await expect(card).toContainText(new RegExp(String(p.price).replace(/\B(?=(\d{3})+$)/g, ',?') + '\s*MARKS'));
   }
   expectClean(problems);
 });

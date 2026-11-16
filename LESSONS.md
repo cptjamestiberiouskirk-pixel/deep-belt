@@ -13,6 +13,13 @@ Format, checked by `node dev/lessons.mjs --check`. A field's text may go on over
 - Status: open | promoted to PLAYBOOK "<section>" | closed: <why the rule no longer holds>
 ```
 
+## 2026-11-15: A scripted edit wrote a literal $1 into App.tsx
+- What went wrong: in content-tree step 1, a Node script that edited App.tsx wrote the text "$1$2" in place of the market's module list and several Fitting lines; the type-check failed on it. A `sed` fix to the script then stripped the backslashes from its regex, so a second run did the same. Both times App.tsx was restored with `git checkout -- App.tsx`, which held no other changes.
+- Why: the script's replace helper always passed a callback to `String.replace`, and a callback's return value is used as it is: `$1` is expanded only in a replacement string. The `sed` command's own quoting ate `\$` and `\d`.
+- Rule going forward: a scripted edit to App.tsx counts its matches, is followed by the type-check and a read of the whole diff before any test run, and is fixed with the Edit tool, not `sed`, when the fix holds backslashes or `$`.
+- Evidence: the step 1 commit's diff; the script at the session scratchpad, `step1-app.cjs`, search "to.replace".
+- Status: open
+
 ## 2026-11-15: Two new text tests failed on fixed code
 - What went wrong: in the text-fix round, two new tests failed on the code they were written for. "dock officer: the hold tip..." read the page after each Enter and never saw the new line, which the failure snapshot showed in full. "contracts: the hint after undocking..." asked that "Station in range: Press Dock [F]" appear nowhere, and the Target panel still shows it beside its Dock button.
 - Why: the corridor bubble types its line out, and Enter during typing finishes the line instead of moving on; `settle` waits for "[Enter] Skip", which this bubble does not show. The second test checked the whole page for text that the change was meant to remove from the hint bar only.

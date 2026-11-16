@@ -116,6 +116,8 @@ import {
   useInput,
   useIsMobile,
 } from './utils/helper';
+import {MODULES, MODULE_UPGRADE_KEY, minerFor} from './content/modules';
+import {LENSES, LENS_IDS, lensBonusLabel} from './content/lenses';
 import {SpriteRenderer, SpriteActionConfig, SpriteAnimationState, drawCorridorCharacter} from './SpriteRenderer';
 
 // Core Probe Sweep Minigame Modal
@@ -14942,7 +14944,7 @@ export default function App() {
         type: 'fitted',
         slotNum: 1,
         slotKey: 'slot1MiningLaser',
-        name: upgrades.laserMk2 ? 'Miner MK2' : 'Miner MK1',
+        name: minerFor(upgrades.laserMk2).name,
       });
     }
     if (fittedSlots.slot2CargoExpander) {
@@ -14950,7 +14952,7 @@ export default function App() {
         type: 'fitted',
         slotNum: 2,
         slotKey: 'slot2CargoExpander',
-        name: 'Expanded Hold',
+        name: MODULES.expanded_hold.name,
       });
     }
     if (fittedSlots.slot3ShieldBooster) {
@@ -14958,7 +14960,7 @@ export default function App() {
         type: 'fitted',
         slotNum: 3,
         slotKey: 'slot3ShieldBooster',
-        name: 'Shield Booster',
+        name: MODULES.shield_booster.name,
       });
     }
     if (curHull.slots >= 4 && fittedSlots.slot4Cannon) {
@@ -14966,7 +14968,7 @@ export default function App() {
         type: 'fitted',
         slotNum: 4,
         slotKey: 'slot4Cannon',
-        name: 'Light Cannon',
+        name: MODULES.light_cannon.name,
       });
     }
 
@@ -14997,7 +14999,7 @@ export default function App() {
         type: 'hangar',
         slotNum: 1,
         slotKey: 'slot1MiningLaser',
-        name: upgrades.laserMk2 ? 'Miner MK2' : 'Miner MK1',
+        name: minerFor(upgrades.laserMk2).name,
       });
     }
     if (upgrades.cargoExpanded && !fittedSlots.slot2CargoExpander) {
@@ -15005,7 +15007,7 @@ export default function App() {
         type: 'hangar',
         slotNum: 2,
         slotKey: 'slot2CargoExpander',
-        name: 'Expanded Hold',
+        name: MODULES.expanded_hold.name,
       });
     }
     if (upgrades.shieldBoosterHeavy && !fittedSlots.slot3ShieldBooster) {
@@ -15013,7 +15015,7 @@ export default function App() {
         type: 'hangar',
         slotNum: 3,
         slotKey: 'slot3ShieldBooster',
-        name: 'Shield Booster',
+        name: MODULES.shield_booster.name,
       });
     }
     if (upgrades.cannon && (!fittedSlots.slot4Cannon || curHull.slots < 4)) {
@@ -15021,7 +15023,7 @@ export default function App() {
         type: 'hangar',
         slotNum: 4,
         slotKey: 'slot4Cannon',
-        name: 'Light Cannon',
+        name: MODULES.light_cannon.name,
       });
     }
 
@@ -15136,13 +15138,13 @@ export default function App() {
     } else if (idx === 37) {
       if (cargoPolymerCompositeRef.current > 0) sellPolymerComposite();
     } else if (idx === 38) {
-      if (!upgrades.laserMk2 && marks >= 1200) buyUpgrade('laserMk2', 1200);
+      if (!upgrades.laserMk2 && marks >= MODULES.miner_mk2.basePrice) buyUpgrade('laserMk2', MODULES.miner_mk2.basePrice);
     } else if (idx === 39) {
-      if (!upgrades.cargoExpanded && marks >= 850) buyUpgrade('cargoExpanded', 850);
+      if (!upgrades.cargoExpanded && marks >= MODULES.expanded_hold.basePrice) buyUpgrade('cargoExpanded', MODULES.expanded_hold.basePrice);
     } else if (idx === 40) {
-      if (!upgrades.shieldBoosterHeavy && marks >= 950) buyUpgrade('shieldBoosterHeavy', 950);
+      if (!upgrades.shieldBoosterHeavy && marks >= MODULES.shield_booster.basePrice) buyUpgrade('shieldBoosterHeavy', MODULES.shield_booster.basePrice);
     } else if (idx === 41) {
-      if (!upgrades.cannon && marks >= 600) buyUpgrade('cannon', 600);
+      if (!upgrades.cannon && marks >= MODULES.light_cannon.basePrice) buyUpgrade('cannon', MODULES.light_cannon.basePrice);
     } else if (idx === 42) {
       if (!hasProbeLauncher && marks >= 450) buyProbeLauncher();
     } else if (idx === 43) {
@@ -29297,42 +29299,19 @@ export default function App() {
                   ];
 
                   const purchasableModules = [
-                    {
-                      key: 'laserMk2' as const,
-                      name: 'Miner MK2',
-                      statBadge: '+50% yield',
-                      desc: 'High-power mining laser. Cycles in 8s with 75 base extraction.',
-                      price: 1200,
-                      icon: assets['module_mining_laser_icon']?.src || '',
-                      isOwned: upgrades.laserMk2,
-                    },
-                    {
-                      key: 'cargoExpanded' as const,
-                      name: 'Expanded Hold',
-                      statBadge: `+${EXPANDER_BONUS} hold`,
-                      desc: `Storage pods expanding hold capacity by +${EXPANDER_BONUS} units.`,
-                      price: 850,
-                      icon: assets['module_cargo_expander_icon']?.src || '',
-                      isOwned: upgrades.cargoExpanded,
-                    },
-                    {
-                      key: 'shieldBoosterHeavy' as const,
-                      name: 'Shield Booster',
-                      statBadge: '+8 HP/s pulse',
-                      desc: 'Matrix generator restoring 8 shield HP per second on active cycle.',
-                      price: 950,
-                      icon: assets['module_shield_booster_icon']?.src || '',
-                      isOwned: upgrades.shieldBoosterHeavy,
-                    },
-                    {
-                      key: 'cannon' as const,
-                      name: 'Light Cannon',
-                      statBadge: '30 dmg / 3s',
-                      desc: 'Kinetic turret firing armor-piercing slugs up to 8.0 km optimal range.',
-                      price: 600,
-                      icon: assets['module_cannon_icon']?.src || '',
-                      isOwned: upgrades.cannon,
-                    },
+                    ...(['miner_mk2', 'expanded_hold', 'shield_booster', 'light_cannon'] as const).map((id) => {
+                      const mod = MODULES[id];
+                      const key = MODULE_UPGRADE_KEY[id];
+                      return {
+                        key,
+                        name: mod.name,
+                        statBadge: mod.statBadge,
+                        desc: mod.desc,
+                        price: mod.basePrice,
+                        icon: assets[mod.icon]?.src || '',
+                        isOwned: upgrades[key],
+                      };
+                    }),
                     {
                       key: 'probeLauncher' as const,
                       name: 'Core Probe Launcher',
@@ -30848,7 +30827,7 @@ export default function App() {
                             1,
                             'MINING',
                             fittedSlots.slot1MiningLaser,
-                            upgrades.laserMk2 ? 'Miner MK2' : 'Miner MK1',
+                            minerFor(upgrades.laserMk2).name,
                             assets['module_mining_laser_icon']?.src || 'assets/images/module_mining_laser_icon.png',
                             'slot1MiningLaser',
                             'laser',
@@ -30859,7 +30838,7 @@ export default function App() {
                             2,
                             'CARGO',
                             fittedSlots.slot2CargoExpander,
-                            'Expanded Hold',
+                            MODULES.expanded_hold.name,
                             assets['module_cargo_expander_icon']?.src || 'assets/images/module_cargo_expander_icon.png',
                             'slot2CargoExpander',
                             'hold',
@@ -30870,7 +30849,7 @@ export default function App() {
                             3,
                             'DEFENSE',
                             fittedSlots.slot3ShieldBooster,
-                            'Shield Booster',
+                            MODULES.shield_booster.name,
                             assets['module_shield_booster_icon']?.src || 'assets/images/module_shield_booster_icon.png',
                             'slot3ShieldBooster',
                             'booster',
@@ -30919,7 +30898,7 @@ export default function App() {
                               4,
                               'WEAPON',
                               fittedSlots.slot4Cannon,
-                              'Light Cannon',
+                              MODULES.light_cannon.name,
                               assets['module_cannon_icon']?.src || 'assets/images/module_cannon_icon.png',
                               'slot4Cannon',
                               'cannon',
@@ -30945,31 +30924,12 @@ export default function App() {
                             const unfitIdx = interactiveItems.findIndex((it) => it.type === 'lens_unfit');
                             const isUnfitFocused = unfitIdx !== -1 && unfitIdx === fittingFocusIndex;
 
-                            const lensDefs: Array<{
-                              type: LensType;
-                              name: string;
-                              bonus: string;
-                              matches: string;
-                            }> = [
-                              {
-                                type: 'silicateLens',
-                                name: 'Silicate Lens',
-                                bonus: '+40% yield',
-                                matches: 'Ferrite, Pyroxite',
-                              },
-                              {
-                                type: 'metallicLens',
-                                name: 'Metallic Lens',
-                                bonus: '+40% yield',
-                              matches: 'Aurite, Chromite',
-                              },
-                              {
-                                type: 'exoticLens',
-                                name: 'Exotic Lens',
-                                bonus: '+50% yield',
-                                matches: 'Prismite, Nimbus, Radflux, Rare Ore',
-                              },
-                            ];
+                            const lensDefs = LENS_IDS.map((id) => ({
+                              type: id as LensType,
+                              name: LENSES[id].name,
+                              bonus: lensBonusLabel(LENSES[id]),
+                              matches: LENSES[id].matches,
+                            }));
 
                             const curLensDef = curLens ? lensDefs.find((ld) => ld.type === curLens) : null;
 
@@ -31301,10 +31261,10 @@ export default function App() {
                                 <span style={statValueStyle}>
                                   {(() => {
                                     if (!fittedSlots.slot1MiningLaser) return '0 ore / cycle';
-                                    const baseYield = upgrades.laserMk2 ? 75 : 50;
+                                    const baseYield = minerFor(upgrades.laserMk2).stats.oreYield ?? 0;
                                     const skillBonus = Math.round(baseYield * 0.1 * (skills.mining || 0));
                                     const totalYield = baseYield + skillBonus;
-                                    const extra = totalYield - 50;
+                                    const extra = totalYield - (MODULES.miner_mk1.stats.oreYield ?? 0);
                                     return (
                                       <span>
                                         {totalYield} ore / cycle
@@ -31323,7 +31283,7 @@ export default function App() {
                               <div style={statRowStyle}>
                                 <span style={statLabelStyle}>Mining cycle</span>
                                 <span style={statValueStyle}>
-                                  {fittedSlots.slot1MiningLaser ? (upgrades.laserMk2 ? '8.0 s' : '10.0 s') : 'None'}
+                                  {fittedSlots.slot1MiningLaser ? `${(minerFor(upgrades.laserMk2).stats.cycleSec ?? 0).toFixed(1)} s` : 'None'}
                                 </span>
                               </div>
 
@@ -31476,7 +31436,7 @@ export default function App() {
 
                               if (!fittedSlots.slot1MiningLaser) {
                                 hangarList.push({
-                                  name: upgrades.laserMk2 ? 'Miner MK2' : 'Miner MK1',
+                                  name: minerFor(upgrades.laserMk2).name,
                                   slotNum: 1,
                                   slotKey: 'slot1MiningLaser',
                                   icon: assets['module_mining_laser_icon']?.src || 'assets/images/module_mining_laser_icon.png',
@@ -31484,7 +31444,7 @@ export default function App() {
                               }
                               if (upgrades.cargoExpanded && !fittedSlots.slot2CargoExpander) {
                                 hangarList.push({
-                                  name: 'Expanded Hold',
+                                  name: MODULES.expanded_hold.name,
                                   slotNum: 2,
                                   slotKey: 'slot2CargoExpander',
                                   icon: assets['module_cargo_expander_icon']?.src || 'assets/images/module_cargo_expander_icon.png',
@@ -31492,7 +31452,7 @@ export default function App() {
                               }
                               if (upgrades.shieldBoosterHeavy && !fittedSlots.slot3ShieldBooster) {
                                 hangarList.push({
-                                  name: 'Shield Booster',
+                                  name: MODULES.shield_booster.name,
                                   slotNum: 3,
                                   slotKey: 'slot3ShieldBooster',
                                   icon: assets['module_shield_booster_icon']?.src || 'assets/images/module_shield_booster_icon.png',
@@ -31500,7 +31460,7 @@ export default function App() {
                               }
                               if (upgrades.cannon && !fittedSlots.slot4Cannon) {
                                 hangarList.push({
-                                  name: 'Light Cannon',
+                                  name: MODULES.light_cannon.name,
                                   slotNum: 4,
                                   slotKey: 'slot4Cannon',
                                   icon: assets['module_cannon_icon']?.src || 'assets/images/module_cannon_icon.png',

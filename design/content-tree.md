@@ -75,6 +75,7 @@ Owning a module is a flag in `upgrades` (`laserMk2`, `cargoExpanded`, `shieldBoo
 | P4 | Skills are flat, and each bonus is a formula at the point of use. | A skill tree needs prerequisites and data-driven bonuses. |
 | P5 | Hull slot counts above 4 do nothing: Gantry's fifth slot has no code. | A bigger hull class gives no extra fitting room. |
 | P6 | Found while reading: each hull's fitting is remembered in `hullFittingsRef`, which is not saved. | After a reload, switching hulls forgets each hull's fitting. The code is CONFIRMED; the player-visible effect is INFERRED, not yet reproduced. Step 2 fixes it. |
+| P7 | Found in step 1: the Miner MK2 (1,200 MARKS) changes nothing in play. Mining always yields 50 ore per 10.0 s cycle; only the market card and Fitting's Ship stats show 75 ore per 8.0 s. | A bought upgrade that does nothing. CONFIRMED by reading the code: `upgrades.laserMk2` is read only by display code. Step 2's "game logic reads the catalog" would turn it on, which is a balance change for the user to decide. |
 
 ## 4. The model to grow into
 
