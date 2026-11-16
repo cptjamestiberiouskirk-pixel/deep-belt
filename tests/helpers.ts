@@ -66,6 +66,8 @@ export async function openWithSave(page: Page, patch: Record<string, unknown>, q
       const base = JSON.parse(localStorage.getItem(key as string) || '{}');
       // A v4 save has the old yes/no fitting flags, not the v5 model.
       delete base.fitting;
+      // Nor the hold map: lenses sat under their cargoXxxLens keys (step 4).
+      delete base.inventory;
       localStorage.setItem(legacyKey as string, JSON.stringify({...base, ...(p as object)}));
       localStorage.removeItem(key as string);
       // The running game autosaves; stop it writing over the seed before the

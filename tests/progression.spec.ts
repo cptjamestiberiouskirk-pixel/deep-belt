@@ -29,7 +29,7 @@ test('fitting: a lens from the hold goes into the lens socket', async ({page}) =
   const save = (await readSave(page))!;
   expect(save.fittedLens).toBe('silicateLens');
   expect(save.lensCharges).toBe(25);
-  expect(save.cargoSilicateLens).toBe(0);
+  expect(save.inventory.silicateLens).toBe(0);
   expectClean(problems);
 });
 

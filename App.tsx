@@ -118,6 +118,7 @@ import {
 import {MODULES, MODULE_UPGRADE_KEY, minerFor, type ModuleId} from './content/modules';
 import type {SlotType} from './content/types';
 import {LENSES, LENS_IDS, lensBonusLabel} from './content/lenses';
+import {readItem} from './content/inventory';
 import {
   buy as buyModule,
   canBuyMore,
@@ -7726,17 +7727,22 @@ export default function App() {
         setCargoPackedRadflux(data.cargoPackedRadflux);
         cargoPackedRadfluxRef.current = data.cargoPackedRadflux;
       }
-      if (typeof data.cargoSilicateLens === 'number') {
-        setCargoSilicateLens(data.cargoSilicateLens);
-        cargoSilicateLensRef.current = data.cargoSilicateLens;
+      // Lenses are saved in `inventory` (content/inventory.ts): it wins, even at 0,
+      // and a lens's old cargoXxxLens key is read only when inventory lacks it.
+      const loadedSilicate = readItem(data, 'silicateLens');
+      if (loadedSilicate !== null) {
+        setCargoSilicateLens(loadedSilicate);
+        cargoSilicateLensRef.current = loadedSilicate;
       }
-      if (typeof data.cargoMetallicLens === 'number') {
-        setCargoMetallicLens(data.cargoMetallicLens);
-        cargoMetallicLensRef.current = data.cargoMetallicLens;
+      const loadedMetallic = readItem(data, 'metallicLens');
+      if (loadedMetallic !== null) {
+        setCargoMetallicLens(loadedMetallic);
+        cargoMetallicLensRef.current = loadedMetallic;
       }
-      if (typeof data.cargoExoticLens === 'number') {
-        setCargoExoticLens(data.cargoExoticLens);
-        cargoExoticLensRef.current = data.cargoExoticLens;
+      const loadedExotic = readItem(data, 'exoticLens');
+      if (loadedExotic !== null) {
+        setCargoExoticLens(loadedExotic);
+        cargoExoticLensRef.current = loadedExotic;
       }
       if (typeof data.cargoExtractDrone === 'number') {
         setCargoExtractDrone(data.cargoExtractDrone);
@@ -8156,9 +8162,12 @@ export default function App() {
         cargoPackedPrismite: cargoPackedPrismiteRef.current,
         cargoPackedNimbus: cargoPackedNimbusRef.current,
         cargoPackedRadflux: cargoPackedRadfluxRef.current,
-        cargoSilicateLens: cargoSilicateLensRef.current,
-        cargoMetallicLens: cargoMetallicLensRef.current,
-        cargoExoticLens: cargoExoticLensRef.current,
+        // The hold, one item group at a time (content/inventory.ts); lenses first.
+        inventory: {
+          silicateLens: cargoSilicateLensRef.current,
+          metallicLens: cargoMetallicLensRef.current,
+          exoticLens: cargoExoticLensRef.current,
+        },
         // Deployed drones are not saved as such; count them as back in the hold,
         // or closing the game while they are out would lose them for good.
         cargoExtractDrone: cargoExtractDroneRef.current + deployedDronesRef.current.filter((d) => d.type === 'extractDrone').length,
