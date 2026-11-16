@@ -1,6 +1,6 @@
 # Content tree: design
 
-Status: approved by the user, 2026-11-15, with the recommended answer to each question in section 7. Nothing here is built yet.
+Status: approved by the user, 2026-11-15, with the recommended answer to each question in section 7. Built so far: step 1 (0604bef) and step 2, in three commits: 2a fitting model and save v5 (a764605), 2b catalog stats in combat and hold (1e71334), 2c Fitting screen by slot type with a hangar list.
 
 Decision behind it (user, 2026-11-15): grow ships, weapons, modules, components, blueprints, hull classes and skill categories into a tiered tree, very gradually. Each increment is small, balanced and checked for clarity before the next.
 

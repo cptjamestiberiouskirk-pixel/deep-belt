@@ -102,3 +102,65 @@ test('hangar: each hull keeps its own fitting across a reload', async ({page}) =
   expect(ownedCount(save.fitting)).toBe(3);
   expectClean(problems);
 });
+
+async function openFitting(page: Page) {
+  await settle(page);
+  await page.keyboard.press('2');
+  await expect(page.getByText(/^FITTING$/).first()).toBeVisible();
+  await settle(page);
+}
+
+test('fitting: slots sit under a header per type, and a hull without a weapon slot says so', async ({page}) => {
+  const problems = watch(page);
+  await openWithSave(page, {
+    ...BASE,
+    ownedHulls: ['ferrier', 'tern'],
+    activeHull: 'tern',
+    upgrades: {cargoExpanded: true},
+    fittedSlots: {slot2CargoExpander: false},
+  });
+  await enterGame(page);
+  await openFitting(page);
+  for (const header of ['EXTRACTION', 'UTILITY', 'WEAPON']) {
+    await expect(page.getByText(header, {exact: true}).first()).toBeVisible();
+  }
+  await expect(page.getByText('None on this hull', {exact: true})).toBeVisible();
+
+  // The cannon waits in the hangar: its Fit is disabled and says why.
+  const cannon = page.getByTestId('hangar-light_cannon');
+  await expect(cannon).toContainText('×1');
+  await expect(cannon).toContainText('No weapon slot on this hull');
+  await expect(cannon.getByRole('button', {name: 'Fit'})).toBeDisabled();
+
+  // The hold fits into the first utility slot.
+  await page.getByTestId('hangar-expanded_hold').getByRole('button', {name: 'Fit'}).click();
+  await expect.poll(async () => (await readSave(page))!.fitting.fitted).toEqual(['miner_mk1', 'expanded_hold', null]);
+  await expect(page.getByTestId('fitting-slot-1')).toContainText('Expanded Hold');
+  await expect(page.getByTestId('hangar-expanded_hold')).toHaveCount(0);
+  expectClean(problems);
+});
+
+test('fitting: at 800x600 the hangar list and Ship stats can be reached', async ({page}) => {
+  await page.setViewportSize({width: 800, height: 600});
+  const problems = watch(page);
+  await openWithSave(page, {
+    ...BASE,
+    upgrades: {cargoExpanded: true, shieldBoosterHeavy: true},
+    fittedSlots: {slot2CargoExpander: false, slot3ShieldBooster: false},
+  });
+  await enterGame(page);
+  await openFitting(page);
+  const inView = async (target: ReturnType<Page['getByText']>) => {
+    await target.scrollIntoViewIfNeeded();
+    const box = (await target.boundingBox())!;
+    return box.y >= 0 && box.y + box.height <= 600 && box.x >= 0 && box.x + box.width <= 800;
+  };
+  const fit = page.getByTestId('hangar-shield_booster').getByRole('button', {name: 'Fit'});
+  expect(await inView(fit)).toBe(true);
+  await fit.click();
+  await expect.poll(async () => (await readSave(page))!.fitting.fitted).toContain('shield_booster');
+  // The last Ship stats row can be scrolled into view, inside the window.
+  expect(await inView(page.getByText('Ship stats', {exact: true}))).toBe(true);
+  expect(await inView(page.getByText('Capacitor', {exact: true}).last())).toBe(true);
+  expectClean(problems);
+});

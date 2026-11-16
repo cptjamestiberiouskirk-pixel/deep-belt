@@ -1,5 +1,5 @@
 import {expect, test} from '@playwright/test';
-import {buy, fit, fittedTotal, fittedWith, fromLegacy, newGameFitting, owned, parseFitting, switchHull, toLegacy, unfit, type FittingState} from '../content/fitting';
+import {buy, fit, fitBlockReason, fittedTotal, fittedWith, fromLegacy, hangarModuleIds, newGameFitting, owned, parseFitting, switchHull, toLegacy, unfit, type FittingState} from '../content/fitting';
 
 // The fitting model's rules (design/content-tree.md 4.2), checked without a browser.
 
@@ -101,4 +101,16 @@ test('fitting model: combat and hold stats come from what is fitted', () => {
   const boosted = buy(s, 'ferrier', 'shield_booster').state;
   expect(fittedWith(boosted.fitted, 'shieldHpPerSec')?.stats).toEqual({shieldHpPerSec: 8, cycleSec: 3, capPerCycle: 25});
   expect(fittedTotal(unfit(boosted, 'ferrier', 'expanded_hold')!.fitted, 'cargoM3')).toBe(0);
+});
+
+test("fitting model: the hangar list is by slot type, and a blocked Fit says why", () => {
+  const tern = fromLegacy({upgrades: {cargoExpanded: true, shieldBoosterHeavy: true}, fittedSlots: {slot2CargoExpander: false, slot3ShieldBooster: false}}, "tern");
+  expect(hangarModuleIds(tern)).toEqual(["expanded_hold", "shield_booster", "light_cannon"]);
+  expect(fitBlockReason(tern, "tern", "light_cannon")).toBe("No weapon slot on this hull");
+  expect(fitBlockReason(tern, "tern", "expanded_hold")).toBeNull();
+  const full = fit(fit(tern, "tern", "expanded_hold")!, "tern", "shield_booster")!;
+  expect(full.fitted).toEqual(["miner_mk1", "expanded_hold", "shield_booster"]);
+  const spare = unfit(full, "tern", "miner_mk1")!;
+  expect(fitBlockReason(spare, "tern", "expanded_hold")).toBe("No free utility slot");
+  expect(fitBlockReason(spare, "tern", "miner_mk2")).toBe("None in the hangar");
 });

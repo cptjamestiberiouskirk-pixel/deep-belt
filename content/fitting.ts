@@ -38,6 +38,25 @@ export function layoutOf(hull: HullId): SlotType[] {
   return SLOT_LAYOUTS[hull] ?? SLOT_LAYOUTS.ferrier;
 }
 
+/** The order slot types are listed in, and their headers on the Fitting screen. */
+export const SLOT_TYPE_ORDER: SlotType[] = ['extraction', 'utility', 'weapon'];
+export const SLOT_TYPE_LABELS: Record<SlotType, string> = {extraction: 'EXTRACTION', utility: 'UTILITY', weapon: 'WEAPON'};
+
+/** The modules in the hangar, by slot type and then catalog order. */
+export function hangarModuleIds(s: FittingState): ModuleId[] {
+  const ids = (Object.keys(MODULES) as ModuleId[]).filter((id) => (s.hangar[id] ?? 0) > 0);
+  return SLOT_TYPE_ORDER.flatMap((t) => ids.filter((id) => MODULES[id].slot === t));
+}
+
+/** Why this module can't be fitted on this hull now, or null when it can. */
+export function fitBlockReason(s: FittingState, hull: HullId, id: ModuleId): string | null {
+  const type = MODULES[id].slot;
+  if (!layoutOf(hull).includes(type)) return `No ${type} slot on this hull`;
+  if (freeSlotFor(s.fitted, hull, id) < 0) return `No free ${type} slot`;
+  if ((s.hangar[id] ?? 0) <= 0) return 'None in the hangar';
+  return null;
+}
+
 /** Every owned module, counted: hangar plus fitted. */
 export function owned(s: FittingState): Partial<Record<ModuleId, number>> {
   const out: Partial<Record<ModuleId, number>> = {...s.hangar};

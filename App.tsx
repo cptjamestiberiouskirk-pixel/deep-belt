@@ -115,10 +115,12 @@ import {
   useInput,
   useIsMobile,
 } from './utils/helper';
-import {MODULES, MODULE_UPGRADE_KEY, minerFor} from './content/modules';
+import {MODULES, MODULE_UPGRADE_KEY, minerFor, type ModuleId} from './content/modules';
+import type {SlotType} from './content/types';
 import {LENSES, LENS_IDS, lensBonusLabel} from './content/lenses';
 import {
   buy as buyModule,
+  fitBlockReason,
   fit as fitModule,
   fromLegacy,
   newGameFitting,
@@ -129,6 +131,10 @@ import {
   type FittingState,
   fittedTotal,
   fittedWith,
+  hangarModuleIds,
+  layoutOf,
+  SLOT_TYPE_LABELS,
+  SLOT_TYPE_ORDER,
   type Slots,
 } from './content/fitting';
 import {SpriteRenderer, SpriteActionConfig, SpriteAnimationState, drawCorridorCharacter} from './SpriteRenderer';
@@ -14472,17 +14478,10 @@ export default function App() {
     });
   }, [getCargoItemQty, addCargoItemQty, setToastNotice]);
 
-  const toggleModuleFitting = (slot: keyof typeof fittedSlots) => {
+  // Fits or unfits one module on the active hull, by catalog id (content/fitting.ts).
+  const toggleModuleFitting = (moduleId: ModuleId) => {
     const cur = fittingRef.current;
     const hull = activeHullRef.current;
-    const moduleId =
-      slot === 'slot1MiningLaser'
-        ? minerFor(toLegacy(cur).upgrades.laserMk2).id as 'miner_mk1' | 'miner_mk2'
-        : slot === 'slot2CargoExpander'
-          ? 'expanded_hold'
-          : slot === 'slot3ShieldBooster'
-            ? 'shield_booster'
-            : 'light_cannon';
     const isFitted = cur.fitted.includes(moduleId);
     const next = isFitted ? unfitModule(cur, hull, moduleId) : fitModule(cur, hull, moduleId);
     if (!next) {
@@ -14490,18 +14489,19 @@ export default function App() {
       setToastNotice({
         id: `toast_fit_rejected_${Date.now()}`,
         title: 'Cannot fit',
-        detail: `No free ${MODULES[moduleId].slot} slot on this hull for the ${MODULES[moduleId].name}.`,
+        detail: `${MODULES[moduleId].name}: ${fitBlockReason(cur, hull, moduleId) ?? 'it cannot be fitted now'}.`,
         type: 'danger',
       });
       return;
     }
     setFitting(next);
-    if (slot === 'slot2CargoExpander') {
+    const stats = MODULES[moduleId].stats;
+    if (stats.cargoM3 !== undefined) {
       applyHullLayout();
-    } else if (slot === 'slot3ShieldBooster' && isFitted) {
+    } else if (stats.shieldHpPerSec !== undefined && isFitted) {
       setModuleShieldActive(false);
       playerRef.current.shieldBoosterActive = false;
-    } else if (slot === 'slot4Cannon' && isFitted) {
+    } else if (stats.damage !== undefined && isFitted) {
       setModuleCannonActive(false);
       playerRef.current.cannonActive = false;
       setActionCycleSecs((prev) => (prev.cannon === 0 ? prev : { ...prev, cannon: 0 }));
@@ -14902,52 +14902,20 @@ export default function App() {
   }, [setToastNotice]);
 
   // Fitting Interactive Items Helper (Section A: Fitted slots, Section B: Dedicated Lens, Section C: In hangar)
+  // What Up/Down and Enter step through on the Fitting screen, in screen order:
+  // the hull's fitted modules, the lens socket, held lenses, then the hangar list.
   const getFittingInteractiveItems = useCallback(() => {
     const items: Array<{
       type: 'fitted' | 'hangar' | 'lens_unfit' | 'lens_fit';
-      slotNum?: number;
-      slotKey?: keyof typeof fittedSlots;
+      moduleId?: ModuleId;
       lensType?: LensType;
       name: string;
     }> = [];
 
-    const curHull = HULL_DEFINITIONS.find((h) => h.id === activeHullRef.current) || HULL_DEFINITIONS[0];
-
-    // Section A: Filled slots (only slots 1..curHull.slots that currently have a fitted module)
-    if (fittedSlots.slot1MiningLaser) {
-      items.push({
-        type: 'fitted',
-        slotNum: 1,
-        slotKey: 'slot1MiningLaser',
-        name: minerFor(upgrades.laserMk2).name,
-      });
-    }
-    if (fittedSlots.slot2CargoExpander) {
-      items.push({
-        type: 'fitted',
-        slotNum: 2,
-        slotKey: 'slot2CargoExpander',
-        name: MODULES.expanded_hold.name,
-      });
-    }
-    if (fittedSlots.slot3ShieldBooster) {
-      items.push({
-        type: 'fitted',
-        slotNum: 3,
-        slotKey: 'slot3ShieldBooster',
-        name: MODULES.shield_booster.name,
-      });
-    }
-    if (curHull.slots >= 4 && fittedSlots.slot4Cannon) {
-      items.push({
-        type: 'fitted',
-        slotNum: 4,
-        slotKey: 'slot4Cannon',
-        name: MODULES.light_cannon.name,
-      });
+    for (const id of fitting.fitted) {
+      if (id) items.push({type: 'fitted', moduleId: id, name: MODULES[id].name});
     }
 
-    // Section B: Dedicated Lens Slot (Unfit if fitted)
     if (fittedLensRef.current) {
       items.push({
         type: 'lens_unfit',
@@ -14956,7 +14924,6 @@ export default function App() {
       });
     }
 
-    // Held Lenses in cargo available to fit
     const lensTypes: LensType[] = ['silicateLens', 'metallicLens', 'exoticLens'];
     for (const lt of lensTypes) {
       if (getCargoItemQty(lt) > 0) {
@@ -14968,42 +14935,12 @@ export default function App() {
       }
     }
 
-    // Section C: Modules in hangar ("In hangar" cards)
-    if (!fittedSlots.slot1MiningLaser) {
-      items.push({
-        type: 'hangar',
-        slotNum: 1,
-        slotKey: 'slot1MiningLaser',
-        name: minerFor(upgrades.laserMk2).name,
-      });
-    }
-    if (upgrades.cargoExpanded && !fittedSlots.slot2CargoExpander) {
-      items.push({
-        type: 'hangar',
-        slotNum: 2,
-        slotKey: 'slot2CargoExpander',
-        name: MODULES.expanded_hold.name,
-      });
-    }
-    if (upgrades.shieldBoosterHeavy && !fittedSlots.slot3ShieldBooster) {
-      items.push({
-        type: 'hangar',
-        slotNum: 3,
-        slotKey: 'slot3ShieldBooster',
-        name: MODULES.shield_booster.name,
-      });
-    }
-    if (upgrades.cannon && (!fittedSlots.slot4Cannon || curHull.slots < 4)) {
-      items.push({
-        type: 'hangar',
-        slotNum: 4,
-        slotKey: 'slot4Cannon',
-        name: MODULES.light_cannon.name,
-      });
+    for (const id of hangarModuleIds(fitting)) {
+      items.push({type: 'hangar', moduleId: id, name: MODULES[id].name});
     }
 
     return items;
-  }, [fittedSlots, upgrades, getCargoItemQty, fittedLens]);
+  }, [fitting, getCargoItemQty, fittedLens]);
 
   // Keep fittingFocusIndex clamped or -1 when interactive items change
   useEffect(() => {
@@ -16984,11 +16921,11 @@ export default function App() {
               }
               if (count > 0 && fittingFocusIndexRef.current >= 0 && fittingFocusIndexRef.current < count) {
                 const item = fittingItems[fittingFocusIndexRef.current];
-                if (item.type === 'fitted' && item.slotKey) {
+                if (item.type === 'fitted' && item.moduleId) {
                   // Unfit ONLY the focused slot!
-                  toggleModuleFitting(item.slotKey); // it is fitted, so this unfits it
-                } else if (item.type === 'hangar' && item.slotKey) {
-                  toggleModuleFitting(item.slotKey);
+                  toggleModuleFitting(item.moduleId); // it is fitted, so this unfits it
+                } else if (item.type === 'hangar' && item.moduleId) {
+                  toggleModuleFitting(item.moduleId);
                 } else if (item.type === 'lens_unfit') {
                   unfitLens();
                 } else if (item.type === 'lens_fit' && item.lensType) {
@@ -17003,8 +16940,8 @@ export default function App() {
               e.stopPropagation();
               if (count > 0 && fittingFocusIndexRef.current >= 0 && fittingFocusIndexRef.current < count) {
                 const item = fittingItems[fittingFocusIndexRef.current];
-                if (item.type === 'fitted' && item.slotKey) {
-                  toggleModuleFitting(item.slotKey); // it is fitted, so this unfits it
+                if (item.type === 'fitted' && item.moduleId) {
+                  toggleModuleFitting(item.moduleId); // it is fitted, so this unfits it
                   return;
                 }
                 if (item.type === 'lens_unfit') {
@@ -30314,64 +30251,91 @@ export default function App() {
                     color: '#F6EED8',
                   };
 
-                  const renderSlotTile = (
-                    slotNum: number,
-                    typeLabel: string,
-                    fitted: boolean,
-                    moduleName: string,
-                    moduleIcon: string,
-                    slotKey: keyof typeof fittedSlots,
-                    buyTypeSub: string,
-                    posStyle: React.CSSProperties,
-                  ) => {
+                  // Slot tiles sit in a column per slot type, under the type's header, laid out
+                  // from the hull's slot layout (design/content-tree.md 4.2).
+                  const SLOT_TILE_W = 170;
+                  const SLOT_TILE_H = 128;
+                  const SLOT_HEADER_H = 24;
+                  const buyHint: Record<SlotType, string> = {extraction: 'a laser', utility: 'a hold or booster', weapon: 'a cannon'};
+                  const hullSlotLayout = layoutOf(activeHull);
+                  const hangarIds = hangarModuleIds(fitting);
+                  type StageBlock =
+                    | {kind: 'header'; type: SlotType; x: number; y: number}
+                    | {kind: 'slot'; type: SlotType; index: number; x: number; y: number}
+                    | {kind: 'none'; type: SlotType; x: number; y: number};
+                  const stageBlocks: StageBlock[] = [];
+                  const stageColumns: Array<{x: number; types: SlotType[]}> = [
+                    {x: 20, types: ['extraction', 'weapon']},
+                    {x: 450, types: ['utility']},
+                  ];
+                  for (const col of stageColumns) {
+                    let y = 14;
+                    for (const type of col.types) {
+                      stageBlocks.push({kind: 'header', type, x: col.x, y});
+                      y += SLOT_HEADER_H;
+                      const indexes = hullSlotLayout.map((t, i) => (t === type ? i : -1)).filter((i) => i >= 0);
+                      if (indexes.length === 0) {
+                        stageBlocks.push({kind: 'none', type, x: col.x, y});
+                        y += 56;
+                      }
+                      for (const index of indexes) {
+                        stageBlocks.push({kind: 'slot', type, index, x: col.x, y});
+                        y += SLOT_TILE_H + 8;
+                      }
+                      y += 14;
+                    }
+                  }
+
+                  const renderSlotTile = (index: number, type: SlotType, posStyle: React.CSSProperties) => {
+                    const moduleId = fitting.fitted[index] ?? null;
                     const interactiveItems = getFittingInteractiveItems();
-                    const itemIdx = interactiveItems.findIndex(
-                      (it) => it.slotKey === slotKey,
-                    );
+                    const itemIdx = moduleId
+                      ? interactiveItems.findIndex((it) => it.type === 'fitted' && it.moduleId === moduleId)
+                      : -1;
                     const isFocused = itemIdx !== -1 && itemIdx === fittingFocusIndex;
 
                     const commonStyle: React.CSSProperties = {
                       position: 'absolute',
-                      width: '170px',
-                      height: '150px',
+                      width: `${SLOT_TILE_W}px`,
+                      height: `${SLOT_TILE_H}px`,
                       borderRadius: '14px',
-                      padding: '10px',
+                      padding: '8px 10px',
                       zIndex: 3,
                       boxSizing: 'border-box',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      textAlign: 'center',
                       ...posStyle,
                     };
+                    const stateLabelStyle: React.CSSProperties = {
+                      fontFamily: "'Inter', sans-serif",
+                      fontSize: '11px',
+                      fontWeight: 800,
+                      letterSpacing: '1px',
+                    };
 
-                    if (fitted) {
+                    if (moduleId) {
+                      const mod = MODULES[moduleId];
                       return (
                         <div
-                          key={slotNum}
+                          key={`slot_${index}`}
+                          data-testid={`fitting-slot-${index}`}
                           style={{
                             ...commonStyle,
                             background: '#252F47',
                             border: '3px solid #0A0E1A',
                             boxShadow: '2px 2px 0 #0A0E1A',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            justifyContent: 'center',
                             gap: '4px',
                             outline: isFocused ? '2px solid #2EC4B6' : 'none',
                             outlineOffset: isFocused ? '2px' : '0px',
                           }}>
+                          <div style={{ ...stateLabelStyle, color: '#8BD17C' }}>FITTED</div>
                           <div
                             style={{
-                              fontFamily: "'Inter', sans-serif",
-                              fontSize: '11px',
-                              fontWeight: 800,
-                              color: '#AEB6CA',
-                              letterSpacing: '1px',
-                            }}>
-                            SLOT {slotNum} · {typeLabel}
-                          </div>
-                          <div
-                            style={{
-                              width: '46px',
-                              height: '46px',
+                              width: '38px',
+                              height: '38px',
                               borderRadius: '8px',
                               background: '#0F1424',
                               border: '1.5px solid #0A0E1A',
@@ -30381,28 +30345,27 @@ export default function App() {
                               overflow: 'hidden',
                             }}>
                             <img
-                              src={moduleIcon}
+                              src={assets[mod.icon]?.src || `assets/images/${mod.icon}.png`}
                               alt=""
-                              style={{ width: '32px', height: '32px', objectFit: 'contain' }}
+                              style={{ width: '28px', height: '28px', objectFit: 'contain' }}
                             />
                           </div>
                           <div
-                            title={moduleName}
+                            title={mod.name}
                             style={{
                               fontFamily: "'Inter', sans-serif",
                               fontSize: '13px',
                               fontWeight: 700,
                               color: '#F6EED8',
-                              textAlign: 'center',
                               whiteSpace: 'nowrap',
                             }}>
-                            {moduleName}
+                            {mod.name}
                           </div>
                           <button
-                            onClick={() => toggleModuleFitting(slotKey)}
+                            onClick={() => toggleModuleFitting(moduleId)}
                             style={{
                               minWidth: '100px',
-                              height: '30px',
+                              height: '28px',
                               borderRadius: '6px',
                               border: '2px solid #0A0E1A',
                               background: '#FF5A5F',
@@ -30427,140 +30390,21 @@ export default function App() {
                       );
                     }
 
-                    const isOwnedInHangar =
-                      slotNum === 1 ||
-                      (slotNum === 2 && upgrades.cargoExpanded) ||
-                      (slotNum === 3 && upgrades.shieldBoosterHeavy) ||
-                      (slotNum === 4 && upgrades.cannon);
-
-                    if (isOwnedInHangar) {
-                      return (
-                        <div
-                          key={slotNum}
-                          style={{
-                            ...commonStyle,
-                            background: '#1A2338',
-                            border: '3px solid #2EC4B6',
-                            boxShadow: '2px 2px 0 #0A0E1A',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '4px',
-                            outline: isFocused ? '2px solid #2EC4B6' : 'none',
-                            outlineOffset: isFocused ? '2px' : '0px',
-                          }}>
-                          <div
-                            style={{
-                              fontFamily: "'Inter', sans-serif",
-                              fontSize: '11px',
-                              fontWeight: 800,
-                              color: '#2EC4B6',
-                              letterSpacing: '1px',
-                            }}>
-                            SLOT {slotNum} · IN HANGAR
-                          </div>
-                          <div
-                            style={{
-                              width: '44px',
-                              height: '44px',
-                              borderRadius: '8px',
-                              background: '#0F1424',
-                              border: '1.5px solid #0A0E1A',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              overflow: 'hidden',
-                              opacity: 0.85,
-                            }}>
-                            <img
-                              src={moduleIcon}
-                              alt=""
-                              style={{ width: '30px', height: '30px', objectFit: 'contain' }}
-                            />
-                          </div>
-                          <div
-                            title={moduleName}
-                            style={{
-                              fontFamily: "'Inter', sans-serif",
-                              fontSize: '12.5px',
-                              fontWeight: 700,
-                              color: '#F6EED8',
-                              textAlign: 'center',
-                              whiteSpace: 'nowrap',
-                            }}>
-                            {moduleName}
-                          </div>
-                          <button
-                            onClick={() => toggleModuleFitting(slotKey)}
-                            style={{
-                              minWidth: '100px',
-                              height: '30px',
-                              borderRadius: '6px',
-                              border: '2px solid #0A0E1A',
-                              background: '#2EC4B6',
-                              color: '#0A0E1A',
-                              fontFamily: "'Fredoka', cursive",
-                              fontSize: '12.5px',
-                              fontWeight: 700,
-                              cursor: 'pointer',
-                              boxShadow: '1px 1px 0 #0A0E1A',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              gap: '4px',
-                              padding: '0 8px',
-                              outline: isFocused ? '2px solid #2EC4B6' : 'none',
-                              outlineOffset: isFocused ? '2px' : '0px',
-                            }}>
-                            <span>Fit</span>
-                            {isFocused && <KeyChip label="Enter" size="sm" />}
-                          </button>
-                        </div>
-                      );
-                    }
-
+                    const spareOfType = hangarIds.some((id) => MODULES[id].slot === type);
                     return (
                       <div
-                        key={slotNum}
+                        key={`slot_${index}`}
+                        data-testid={`fitting-slot-${index}`}
                         style={{
                           ...commonStyle,
                           background: '#141A2A',
                           border: '3px dashed #AEB6CA',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          alignItems: 'center',
-                          justifyContent: 'center',
                           gap: '6px',
-                          textAlign: 'center',
                           color: '#AEB6CA',
                         }}>
-                        <div
-                          style={{
-                            fontFamily: "'Inter', sans-serif",
-                            fontSize: '11px',
-                            fontWeight: 800,
-                            color: '#AEB6CA',
-                            letterSpacing: '1px',
-                          }}>
-                          SLOT {slotNum} · {typeLabel}
-                        </div>
-                        <div
-                          style={{
-                            fontFamily: "'Inter', sans-serif",
-                            fontSize: '13px',
-                            fontWeight: 700,
-                            color: '#AEB6CA',
-                          }}>
-                          Empty
-                        </div>
-                        <div
-                          style={{
-                            fontFamily: "'Inter', sans-serif",
-                            fontSize: '11px',
-                            color: '#AEB6CA',
-                          }}>
-                          Buy {buyTypeSub} in Market
+                        <div style={{ ...stateLabelStyle, color: '#AEB6CA' }}>EMPTY</div>
+                        <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '11.5px', color: '#AEB6CA' }}>
+                          {spareOfType ? 'Fit one from the hangar list' : `Buy ${buyHint[type]} in Market`}
                         </div>
                       </div>
                     );
@@ -30680,7 +30524,7 @@ export default function App() {
                             overflow: 'hidden',
                             boxSizing: 'border-box',
                           }}>
-                          {/* SVG Leader Lines behind tiles */}
+                          {/* Leader lines from the ship to each slot, behind the tiles */}
                           <svg
                             style={{
                               position: 'absolute',
@@ -30691,10 +30535,20 @@ export default function App() {
                               pointerEvents: 'none',
                               zIndex: 1,
                             }}>
-                            <line x1="320" y1="240" x2="105" y2="115" stroke="#AEB6CA" strokeWidth="2" strokeDasharray="6,6" />
-                            <line x1="320" y1="260" x2="105" y2="365" stroke="#AEB6CA" strokeWidth="2" strokeDasharray="6,6" />
-                            <line x1="320" y1="240" x2="535" y2="115" stroke="#AEB6CA" strokeWidth="2" strokeDasharray="6,6" />
-                            <line x1="320" y1="260" x2="535" y2="365" stroke="#AEB6CA" strokeWidth="2" strokeDasharray="6,6" />
+                            {stageBlocks.map((b) =>
+                              b.kind === 'slot' ? (
+                                <line
+                                  key={`line_${b.index}`}
+                                  x1="320"
+                                  y1="240"
+                                  x2={b.x < 320 ? b.x + SLOT_TILE_W : b.x}
+                                  y2={b.y + SLOT_TILE_H / 2}
+                                  stroke="#AEB6CA"
+                                  strokeWidth="2"
+                                  strokeDasharray="6,6"
+                                />
+                              ) : null,
+                            )}
                           </svg>
 
                           {/* Player Ship Image in center */}
@@ -30772,89 +30626,56 @@ export default function App() {
                             );
                           })()}
 
-                          {/* Four Slot Tiles */}
-                          {renderSlotTile(
-                            1,
-                            'MINING',
-                            fittedSlots.slot1MiningLaser,
-                            minerFor(upgrades.laserMk2).name,
-                            assets['module_mining_laser_icon']?.src || 'assets/images/module_mining_laser_icon.png',
-                            'slot1MiningLaser',
-                            'laser',
-                            { left: '20px', top: '40px' },
-                          )}
-
-                          {renderSlotTile(
-                            2,
-                            'CARGO',
-                            fittedSlots.slot2CargoExpander,
-                            MODULES.expanded_hold.name,
-                            assets['module_cargo_expander_icon']?.src || 'assets/images/module_cargo_expander_icon.png',
-                            'slot2CargoExpander',
-                            'hold',
-                            { left: '20px', top: '290px' },
-                          )}
-
-                          {renderSlotTile(
-                            3,
-                            'DEFENSE',
-                            fittedSlots.slot3ShieldBooster,
-                            MODULES.shield_booster.name,
-                            assets['module_shield_booster_icon']?.src || 'assets/images/module_shield_booster_icon.png',
-                            'slot3ShieldBooster',
-                            'booster',
-                            { left: '450px', top: '40px' },
-                          )}
-
-                          {(() => {
-                            const curHullDef = HULL_DEFINITIONS.find((h) => h.id === activeHull) || HULL_DEFINITIONS[0];
-                            if (curHullDef.slots < 4) {
+                          {/* Slots by type: a header per type, then its slots or "None on this hull" */}
+                          {stageBlocks.map((b) => {
+                            if (b.kind === 'header') {
                               return (
                                 <div
-                                  key={4}
+                                  key={`hdr_${b.type}`}
                                   style={{
                                     position: 'absolute',
-                                    left: '450px',
-                                    top: '290px',
-                                    width: '170px',
-                                    height: '150px',
-                                    borderRadius: '14px',
-                                    padding: '10px',
+                                    left: `${b.x}px`,
+                                    top: `${b.y}px`,
+                                    width: `${SLOT_TILE_W}px`,
+                                    fontFamily: "'Inter', sans-serif",
+                                    fontSize: '11px',
+                                    fontWeight: 800,
+                                    letterSpacing: '1.5px',
+                                    color: '#4CC9F0',
                                     zIndex: 3,
-                                    boxSizing: 'border-box',
-                                    background: '#141A2A',
-                                    border: '3px dashed #3A4560',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    gap: '6px',
-                                    textAlign: 'center',
-                                    color: '#6B7489',
                                   }}>
-                                  <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '11px', fontWeight: 800, color: '#6B7489', letterSpacing: '1px' }}>
-                                    SLOT 4 · LOCKED
-                                  </div>
-                                  <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '13px', fontWeight: 700, color: '#6B7489' }}>
-                                    Unavailable
-                                  </div>
-                                  <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '11px', color: '#6B7489' }}>
-                                    {curHullDef.name} has 3 slots
-                                  </div>
+                                  {SLOT_TYPE_LABELS[b.type]}
                                 </div>
                               );
                             }
-                            return renderSlotTile(
-                              4,
-                              'WEAPON',
-                              fittedSlots.slot4Cannon,
-                              MODULES.light_cannon.name,
-                              assets['module_cannon_icon']?.src || 'assets/images/module_cannon_icon.png',
-                              'slot4Cannon',
-                              'cannon',
-                              { left: '450px', top: '290px' },
-                            );
-                          })()}
+                            if (b.kind === 'none') {
+                              return (
+                                <div
+                                  key={`none_${b.type}`}
+                                  style={{
+                                    position: 'absolute',
+                                    left: `${b.x}px`,
+                                    top: `${b.y}px`,
+                                    width: `${SLOT_TILE_W}px`,
+                                    height: '44px',
+                                    borderRadius: '10px',
+                                    border: '2px dashed #3A4560',
+                                    boxSizing: 'border-box',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontFamily: "'Inter', sans-serif",
+                                    fontSize: '12px',
+                                    fontWeight: 600,
+                                    color: '#6B7489',
+                                    zIndex: 3,
+                                  }}>
+                                  None on this hull
+                                </div>
+                              );
+                            }
+                            return renderSlotTile(b.index, b.type, { left: `${b.x}px`, top: `${b.y}px` });
+                          })}
                         </div>
 
                         {/* RIGHT COLUMN (Flex 1) */}
@@ -31181,6 +31002,153 @@ export default function App() {
                             );
                           })()}
 
+                          {/* Hangar: owned modules not fitted, grouped by slot type, with a Fit button each */}
+                          <div data-testid="fitting-hangar" style={{ display: 'flex', flexDirection: 'column', gap: '8px', flexShrink: 0 }}>
+                            <h3
+                              style={{
+                                fontFamily: "'Fredoka', cursive",
+                                fontWeight: 700,
+                                fontSize: '16px',
+                                color: '#F6EED8',
+                                margin: 0,
+                              }}>
+                              In hangar
+                            </h3>
+                            {(() => {
+                              const ids = hangarModuleIds(fitting);
+                              if (ids.length === 0) {
+                                return (
+                                  <div
+                                    style={{
+                                      fontFamily: "'Inter', sans-serif",
+                                      fontSize: '13px',
+                                      color: '#AEB6CA',
+                                      padding: '4px 0',
+                                    }}>
+                                    No spare modules in hangar
+                                  </div>
+                                );
+                              }
+                              const interactiveItems = getFittingInteractiveItems();
+                              const types = SLOT_TYPE_ORDER.filter((t) => ids.some((id) => MODULES[id].slot === t));
+                              return types.map((type) => (
+                                <div key={`hangar_${type}`} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                  <div
+                                    style={{
+                                      fontFamily: "'Inter', sans-serif",
+                                      fontSize: '11px',
+                                      fontWeight: 800,
+                                      letterSpacing: '1.5px',
+                                      color: '#4CC9F0',
+                                    }}>
+                                    {SLOT_TYPE_LABELS[type]}
+                                  </div>
+                                  {ids
+                                    .filter((id) => MODULES[id].slot === type)
+                                    .map((id) => {
+                                      const mod = MODULES[id];
+                                      const count = fitting.hangar[id] ?? 0;
+                                      const reason = fitBlockReason(fitting, activeHull, id);
+                                      const itemIdx = interactiveItems.findIndex((it) => it.type === 'hangar' && it.moduleId === id);
+                                      const isFocused = itemIdx !== -1 && itemIdx === fittingFocusIndex;
+                                      return (
+                                        <div
+                                          key={id}
+                                          data-testid={`hangar-${id}`}
+                                          style={{
+                                            background: '#252F47',
+                                            border: '2px solid #0A0E1A',
+                                            borderRadius: '10px',
+                                            padding: '8px 10px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'space-between',
+                                            gap: '10px',
+                                            boxSizing: 'border-box',
+                                            outline: isFocused ? '2px solid #2EC4B6' : 'none',
+                                            outlineOffset: isFocused ? '2px' : '0px',
+                                          }}>
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                                            <div
+                                              style={{
+                                                width: '34px',
+                                                height: '34px',
+                                                minWidth: '34px',
+                                                borderRadius: '6px',
+                                                background: '#0F1424',
+                                                border: '1.5px solid #0A0E1A',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                overflow: 'hidden',
+                                              }}>
+                                              <img
+                                                src={assets[mod.icon]?.src || `assets/images/${mod.icon}.png`}
+                                                alt=""
+                                                style={{ width: '24px', height: '24px', objectFit: 'contain' }}
+                                              />
+                                            </div>
+                                            <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                                              <span
+                                                style={{
+                                                  fontFamily: "'Inter', sans-serif",
+                                                  fontWeight: 700,
+                                                  fontSize: '13.5px',
+                                                  color: '#F6EED8',
+                                                  whiteSpace: 'nowrap',
+                                                }}>
+                                                {mod.name}{' '}
+                                                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: '#AEB6CA' }}>
+                                                  ×{count}
+                                                </span>
+                                              </span>
+                                              <span
+                                                style={{
+                                                  fontSize: '11.5px',
+                                                  color: reason ? '#FFB547' : '#AEB6CA',
+                                                  fontFamily: "'Inter', sans-serif",
+                                                }}>
+                                                {reason ?? mod.statBadge}
+                                              </span>
+                                            </div>
+                                          </div>
+
+                                          <button
+                                            onClick={() => toggleModuleFitting(id)}
+                                            disabled={Boolean(reason)}
+                                            title={reason ?? `Fit the ${mod.name}`}
+                                            style={{
+                                              minWidth: '70px',
+                                              height: '32px',
+                                              borderRadius: '8px',
+                                              border: '2px solid #0A0E1A',
+                                              background: reason ? '#3A4560' : '#2EC4B6',
+                                              color: reason ? '#AEB6CA' : '#0A0E1A',
+                                              fontFamily: "'Fredoka', cursive",
+                                              fontWeight: 700,
+                                              fontSize: '13.5px',
+                                              cursor: reason ? 'not-allowed' : 'pointer',
+                                              boxShadow: '2px 2px 0 #0A0E1A',
+                                              flexShrink: 0,
+                                              display: 'inline-flex',
+                                              alignItems: 'center',
+                                              justifyContent: 'center',
+                                              gap: '4px',
+                                              padding: '0 8px',
+                                              outline: isFocused ? '2px solid #2EC4B6' : 'none',
+                                              outlineOffset: isFocused ? '2px' : '0px',
+                                            }}>
+                                            <span>Fit</span>
+                                            {isFocused && !reason && <KeyChip label="Enter" size="sm" />}
+                                          </button>
+                                        </div>
+                                      );
+                                    })}
+                                </div>
+                              ));
+                            })()}
+                          </div>
+
                           {/* Ship stats section dynamically bound to activeHull */}
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -31364,173 +31332,6 @@ export default function App() {
                             </div>
                           </div>
 
-                          {/* In hangar section */}
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
-                            <h3
-                              style={{
-                                fontFamily: "'Fredoka', cursive",
-                                fontWeight: 700,
-                                fontSize: '16px',
-                                color: '#F6EED8',
-                                margin: 0,
-                              }}>
-                              In hangar
-                            </h3>
-                            {(() => {
-                              const hangarList: Array<{
-                                name: string;
-                                slotNum: number;
-                                slotKey: keyof typeof fittedSlots;
-                                icon: string;
-                              }> = [];
-
-                              if (!fittedSlots.slot1MiningLaser) {
-                                hangarList.push({
-                                  name: minerFor(upgrades.laserMk2).name,
-                                  slotNum: 1,
-                                  slotKey: 'slot1MiningLaser',
-                                  icon: assets['module_mining_laser_icon']?.src || 'assets/images/module_mining_laser_icon.png',
-                                });
-                              }
-                              if (upgrades.cargoExpanded && !fittedSlots.slot2CargoExpander) {
-                                hangarList.push({
-                                  name: MODULES.expanded_hold.name,
-                                  slotNum: 2,
-                                  slotKey: 'slot2CargoExpander',
-                                  icon: assets['module_cargo_expander_icon']?.src || 'assets/images/module_cargo_expander_icon.png',
-                                });
-                              }
-                              if (upgrades.shieldBoosterHeavy && !fittedSlots.slot3ShieldBooster) {
-                                hangarList.push({
-                                  name: MODULES.shield_booster.name,
-                                  slotNum: 3,
-                                  slotKey: 'slot3ShieldBooster',
-                                  icon: assets['module_shield_booster_icon']?.src || 'assets/images/module_shield_booster_icon.png',
-                                });
-                              }
-                              if (upgrades.cannon && !fittedSlots.slot4Cannon) {
-                                hangarList.push({
-                                  name: MODULES.light_cannon.name,
-                                  slotNum: 4,
-                                  slotKey: 'slot4Cannon',
-                                  icon: assets['module_cannon_icon']?.src || 'assets/images/module_cannon_icon.png',
-                                });
-                              }
-
-                              if (hangarList.length === 0) {
-                                return (
-                                  <div
-                                    style={{
-                                      fontFamily: "'Inter', sans-serif",
-                                      fontSize: '13px',
-                                      color: '#AEB6CA',
-                                      padding: '4px 0',
-                                    }}>
-                                    No spare modules in hangar
-                                  </div>
-                                );
-                              }
-
-                              return (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                  {hangarList.map((mod) => {
-                                    const interactiveItems = getFittingInteractiveItems();
-                                    const itemIdx = interactiveItems.findIndex(
-                                      (it) => it.type === 'hangar' && it.slotKey === mod.slotKey,
-                                    );
-                                    const isFocused = itemIdx !== -1 && itemIdx === fittingFocusIndex;
-
-                                    return (
-                                      <div
-                                        key={mod.slotKey}
-                                        style={{
-                                          background: '#252F47',
-                                          border: '2px solid #0A0E1A',
-                                          borderRadius: '10px',
-                                          padding: '10px',
-                                          display: 'flex',
-                                          alignItems: 'center',
-                                          justifyContent: 'space-between',
-                                          gap: '10px',
-                                          boxSizing: 'border-box',
-                                          outline: isFocused ? '2px solid #2EC4B6' : 'none',
-                                          outlineOffset: isFocused ? '2px' : '0px',
-                                        }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
-                                          <div
-                                            style={{
-                                              width: '34px',
-                                              height: '34px',
-                                              minWidth: '34px',
-                                              borderRadius: '6px',
-                                              background: '#0F1424',
-                                              border: '1.5px solid #0A0E1A',
-                                              display: 'flex',
-                                              alignItems: 'center',
-                                              justifyContent: 'center',
-                                              overflow: 'hidden',
-                                            }}>
-                                            <img
-                                              src={mod.icon}
-                                              alt=""
-                                              style={{ width: '24px', height: '24px', objectFit: 'contain' }}
-                                            />
-                                          </div>
-                                          <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                                            <span
-                                              style={{
-                                                fontFamily: "'Inter', sans-serif",
-                                                fontWeight: 700,
-                                                fontSize: '13.5px',
-                                                color: '#F6EED8',
-                                                whiteSpace: 'nowrap',
-                                              }}>
-                                              {mod.name}
-                                            </span>
-                                            <span
-                                              style={{
-                                                fontSize: '11.5px',
-                                                color: '#AEB6CA',
-                                                fontFamily: "'Inter', sans-serif",
-                                              }}>
-                                              fits Slot {mod.slotNum}
-                                            </span>
-                                          </div>
-                                        </div>
-
-                                        <button
-                                          onClick={() => toggleModuleFitting(mod.slotKey)}
-                                          style={{
-                                            minWidth: '70px',
-                                            height: '32px',
-                                            borderRadius: '8px',
-                                            border: '2px solid #0A0E1A',
-                                            background: '#2EC4B6',
-                                            color: '#0A0E1A',
-                                            fontFamily: "'Fredoka', cursive",
-                                            fontWeight: 700,
-                                            fontSize: '13.5px',
-                                            cursor: 'pointer',
-                                            boxShadow: '2px 2px 0 #0A0E1A',
-                                            flexShrink: 0,
-                                            display: 'inline-flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            gap: '4px',
-                                            padding: '0 8px',
-                                            outline: isFocused ? '2px solid #2EC4B6' : 'none',
-                                            outlineOffset: isFocused ? '2px' : '0px',
-                                          }}>
-                                          <span>Fit</span>
-                                          {isFocused && <KeyChip label="Enter" size="sm" />}
-                                        </button>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              );
-                            })()}
-                          </div>
                         </div>
                       </div>
 
