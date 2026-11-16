@@ -11,7 +11,7 @@
 import type {HullId} from './hulls';
 import type {ModuleId} from './modules';
 import {MODULES} from './modules';
-import type {SlotType} from './types';
+import type {ModuleDef, SlotType, StatId} from './types';
 
 export type Slots = Array<ModuleId | null>;
 
@@ -63,6 +63,17 @@ function put(h: FittingState['hangar'], id: ModuleId) {
 function freeSlotFor(fitted: Slots, hull: HullId, id: ModuleId): number {
   const type = MODULES[id].slot;
   return layoutOf(hull).findIndex((t, i) => t === type && !fitted[i]);
+}
+
+/** The first fitted module that has this stat (the weapon, the shield booster), or null. */
+export function fittedWith(fitted: Slots, stat: StatId): ModuleDef | null {
+  for (const id of fitted) if (id && MODULES[id].stats[stat] !== undefined) return MODULES[id];
+  return null;
+}
+
+/** A stat added up over the fitted modules, such as the hold space they give. */
+export function fittedTotal(fitted: Slots, stat: StatId): number {
+  return fitted.reduce((sum, id) => sum + (id ? (MODULES[id].stats[stat] ?? 0) : 0), 0);
 }
 
 /** A new pilot: Miner MK1 and Light Cannon fitted on the Ferrier. */

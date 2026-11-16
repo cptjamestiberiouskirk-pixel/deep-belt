@@ -1,8 +1,8 @@
 // Module catalog: today's four slot modules, with the names, prices and stats
 // the market and Fitting screen show (design/content-tree.md, step 1).
 //
-// Step 1 moves the data only. Until step 2 the game's own formulas still hold
-// these numbers too, and `upgrades` / `fittedSlots` still record ownership.
+// Since step 2 the game reads these stats from whatever is fitted
+// (content/fitting.ts fittedWith / fittedTotal), so a number changes here only.
 
 import {EXPANDER_BONUS} from '../constants';
 import type {ModuleDef} from './types';
@@ -61,7 +61,7 @@ export const MODULES: Record<ModuleId, ModuleDef> = {
     volume: 0,
     basePrice: 950,
     slot: 'utility',
-    stats: {shieldHpPerSec: 8, cycleSec: 3},
+    stats: {shieldHpPerSec: 8, cycleSec: 3, capPerCycle: 25},
     statBadge: '+8 HP/s pulse',
     desc: 'Matrix generator restoring 8 shield HP per second on active cycle.',
     icon: 'module_shield_booster_icon',

@@ -38,7 +38,6 @@ import {
 } from 'lucide-react';
 import {
   MINING_RANGE_KM,
-  EXPANDER_BONUS,
   getConfig,
   getStationPrices,
   STATION_PRICES,
@@ -128,6 +127,9 @@ import {
   toLegacy,
   unfit as unfitModule,
   type FittingState,
+  fittedTotal,
+  fittedWith,
+  type Slots,
 } from './content/fitting';
 import {SpriteRenderer, SpriteActionConfig, SpriteAnimationState, drawCorridorCharacter} from './SpriteRenderer';
 
@@ -1377,7 +1379,7 @@ export const SKILL_DEFINITIONS: SkillDefinition[] = [
     category: 'WEAPON SYSTEMS',
     description: '+10% cannon damage per level',
     getBonusText: (level: number) =>
-      `+${level * 10}% kinetic damage (${Math.round(30 * (1 + 0.1 * level))} dmg/shot)`,
+      `+${level * 10}% kinetic damage (${Math.round((MODULES.light_cannon.stats.damage ?? 30) * (1 + 0.1 * level))} dmg/shot)`,
   },
   {
     id: 'shieldOp',
@@ -5280,6 +5282,12 @@ export default function App() {
   const minerCycleSec = () => minerRef.current.stats.cycleSec ?? 10;
   // Yield against the MK1's: 1.5 for the MK2 (+50%), on every ore type.
   const minerYieldMult = () => (minerRef.current.stats.oreYield ?? 50) / (MODULES.miner_mk1.stats.oreYield ?? 50);
+  // The fitted weapon and shield booster: their catalog stats drive combat. Each falls
+  // back to today's module for the timers and labels read while none is fitted.
+  const weaponStats = () => (fittedWith(fittingRef.current.fitted, 'damage') ?? MODULES.light_cannon).stats;
+  const boosterStats = () => (fittedWith(fittingRef.current.fitted, 'shieldHpPerSec') ?? MODULES.shield_booster).stats;
+  // Hold space the fitted modules add (the Expanded Hold's +500 m³).
+  const holdBonus = (fitted: Slots = fittingRef.current.fitted) => fittedTotal(fitted, 'cargoM3');
 
   const [skillsFocusIndex, setSkillsFocusIndex] = useState(0);
   const skillsFocusIndexRef = useRef(0);
@@ -6150,10 +6158,9 @@ export default function App() {
     const activeDef = HULL_DEFINITIONS.find((h) => h.id === curHull) || HULL_DEFINITIONS[0];
     const curLayout = hullLayoutsRef.current[curHull] || {};
 
-    // cargoMax = baseCargo + (expander ? EXPANDER_BONUS : 0) + (hullLayouts[activeHull]?.cargo_pod ? 200 : 0)
-    const isExpanderFitted = fittedSlotsRef.current.slot2CargoExpander;
+    // cargoMax = baseCargo + the fitted modules' hold space + (hullLayouts[activeHull]?.cargo_pod ? 200 : 0)
     const effectiveBaseCargo = (curHull === 'gantry' && gantryRefitRef.current) ? 2500 : activeDef.baseCargo;
-    const newCargoMax = effectiveBaseCargo + (isExpanderFitted ? EXPANDER_BONUS : 0) + (curLayout.cargo_pod ? 200 : 0);
+    const newCargoMax = effectiveBaseCargo + holdBonus() + (curLayout.cargo_pod ? 200 : 0);
     cargoMaxRef.current = newCargoMax;
     setCargoMax(newCargoMax);
 
@@ -11485,18 +11492,19 @@ export default function App() {
     }
     const next = !moduleShieldActive;
     if (next) {
-      if (p.capacitor < 25) {
+      const boosterCap = boosterStats().capPerCycle ?? 25;
+      if (p.capacitor < boosterCap) {
         gameAudio.playErrorBuzz();
-        addFloatingText('Not enough capacitor (25 Cap)', p.x, p.y - 40, '#f59e0b');
+        addFloatingText(`Not enough capacitor (${boosterCap} Cap)`, p.x, p.y - 40, '#f59e0b');
         return;
       }
-      p.capacitor = Math.max(0, p.capacitor - 25);
+      p.capacitor = Math.max(0, p.capacitor - boosterCap);
       setShipCapacitor(Math.round(p.capacitor));
       p.shieldBoosterTimer = 0;
       setModuleShieldActive(true);
       p.shieldBoosterActive = true;
       gameAudio.playModuleActivate();
-      const boostRate = Math.round(8 * (1 + 0.10 * (skillsRef.current.shieldOp || 0)));
+      const boostRate = Math.round((boosterStats().shieldHpPerSec ?? 8) * (1 + 0.10 * (skillsRef.current.shieldOp || 0)));
       addFloatingText(`SHIELD BOOSTER ACTIVE (+${boostRate}/s)`, p.x, p.y - 40, '#00f0ff');
     } else {
       setModuleShieldActive(false);
@@ -14682,9 +14690,9 @@ export default function App() {
     const destDef = HULL_DEFINITIONS.find((h) => h.id === destHullId) || HULL_DEFINITIONS[0];
     const destLayout = hullLayoutsRef.current[destHullId] || {};
     // What the destination hull will fit from its own loadout once boarded.
-    const isExpanderFitted = switchHull(fittingRef.current, activeHullRef.current, destHullId).fitted.includes('expanded_hold');
+    const destHoldBonus = holdBonus(switchHull(fittingRef.current, activeHullRef.current, destHullId).fitted);
     const effectiveBaseCargo = (destHullId === 'gantry' && gantryRefitRef.current) ? 2500 : destDef.baseCargo;
-    return effectiveBaseCargo + (isExpanderFitted ? EXPANDER_BONUS : 0) + (destLayout.cargo_pod ? 200 : 0);
+    return effectiveBaseCargo + destHoldBonus + (destLayout.cargo_pod ? 200 : 0);
   }, []);
 
   const boardHull = useCallback(
@@ -18342,7 +18350,7 @@ export default function App() {
       }
 
       const mineSec = p.miningLaserActive ? Math.min(minerCycleSec(), Math.max(1, Math.ceil(p.miningTimer))) : 0;
-      const cannonSec = p.cannonActive ? Math.min(3, Math.max(1, Math.ceil(p.cannonTimer))) : 0;
+      const cannonSec = p.cannonActive ? Math.min(weaponStats().cycleSec ?? 3, Math.max(1, Math.ceil(p.cannonTimer))) : 0;
       if (mineSec !== lastPublishedStateRef.current.mineSec || cannonSec !== lastPublishedStateRef.current.cannonSec) {
         lastPublishedStateRef.current.mineSec = mineSec;
         lastPublishedStateRef.current.cannonSec = cannonSec;
@@ -19315,25 +19323,26 @@ export default function App() {
       }
     }
 
-    // 6. Shield Booster Functionality: Costs 25 Cap per cycle
+    // 6. Shield Booster: the fitted booster's catalog stats (8 HP/s, 25 Cap per 3 s cycle)
+    const booster = boosterStats();
     if (moduleShieldActive && fittedSlots.slot3ShieldBooster) {
       p.shieldBoosterTimer = (p.shieldBoosterTimer || 0) + dt;
 
       const shieldOpLvl = skillsRef.current.shieldOp || 0;
-      const boostRate = 8 * (1 + 0.10 * shieldOpLvl);
+      const boostRate = (booster.shieldHpPerSec ?? 8) * (1 + 0.10 * shieldOpLvl);
       if (p.shield < p.maxShield) {
         p.shield = Math.min(p.maxShield, p.shield + boostRate * dt);
       }
 
-      if (p.shieldBoosterTimer >= 3.0) {
-        if (p.capacitor < 25) {
+      if (p.shieldBoosterTimer >= (booster.cycleSec ?? 3)) {
+        if (p.capacitor < (booster.capPerCycle ?? 25)) {
           p.shieldBoosterActive = false;
           p.shieldBoosterTimer = 0;
           setModuleShieldActive(false);
           gameAudio.playErrorBuzz();
-          addFloatingText('Not enough capacitor (25 Cap)', p.x, p.y - 25, '#f59e0b');
+          addFloatingText(`Not enough capacitor (${booster.capPerCycle ?? 25} Cap)`, p.x, p.y - 25, '#f59e0b');
         } else {
-          p.capacitor = Math.max(0, p.capacitor - 25);
+          p.capacitor = Math.max(0, p.capacitor - (booster.capPerCycle ?? 25));
           setShipCapacitor(Math.round(p.capacitor));
           p.shieldBoosterTimer = 0;
           gameAudio.playModuleActivate();
@@ -19344,7 +19353,9 @@ export default function App() {
     }
 
     // 7. Light Cannon Operation: Instant-Hit Turret (Requirement 1, 2, 3)
-    // 8.0 km optimal range, 3.0s cycle, 8 Cap cost, instant hit 30 kinetic damage layered Shield->Armor->Hull
+    // The fitted weapon's catalog stats: 8.0 km optimal range, 3.0s cycle, 8 Cap cost,
+    // instant hit 30 kinetic damage layered Shield->Armor->Hull
+    const weapon = weaponStats();
     if (moduleCannonActive && fittedSlots.slot4Cannon) {
       const isTargetHostile = Boolean(p.targetLockedId && isHostileTarget(p.targetLockedId));
       const isTargetAshPirate = (p.targetLockedId === ashPirateRef.current.id || p.targetLockedId === 'pirate_frigate_ash');
@@ -19359,24 +19370,24 @@ export default function App() {
       if (isTargetHostile && activePirateTarget && activePirateTarget.isAlive) {
         const distanceKm = calcDistanceKm(p.x, p.y, activePirateTarget.x, activePirateTarget.y);
 
-        if (distanceKm <= 8.0) {
-          // Within optimal 8.0 km range: advance cycle
+        if (distanceKm <= (weapon.rangeKm ?? 8)) {
+          // Within optimal range: advance cycle
           p.cannonTimer += dt;
 
-          if (p.cannonTimer >= 3.0) {
-            if (p.capacitor < 8) {
+          const weaponCap = weapon.capPerCycle ?? 8;
+          if (p.cannonTimer >= (weapon.cycleSec ?? 3)) {
+            if (p.capacitor < weaponCap) {
               // Pause until enough capacitor (regen is 2.5/s)
-              addFloatingText('LOW CAPACITOR (8 Cap needed)', p.x, p.y - 25, '#f59e0b');
+              addFloatingText(`LOW CAPACITOR (${weaponCap} Cap needed)`, p.x, p.y - 25, '#f59e0b');
             } else {
-              // Deduct 8 Cap (Requirement 2)
-              p.capacitor = Math.max(0, p.capacitor - 8);
+              p.capacitor = Math.max(0, p.capacitor - weaponCap);
               setShipCapacitor(Math.round(p.capacitor));
               p.cannonTimer = 0;
 
               // Instant hit: base 30 kinetic damage + gunnery bonus + Skirmisher perk (+25%)
               const gunneryLvl = skillsRef.current.gunnery || 0;
               const hullMult = activeHullRef.current === 'skirmisher' ? 1.25 : 1.0;
-              const effectiveDamage = Math.round(30 * (1 + 0.10 * gunneryLvl) * hullMult);
+              const effectiveDamage = Math.round((weapon.damage ?? 30) * (1 + 0.10 * gunneryLvl) * hullMult);
 
               const prowX = p.x + Math.cos(p.heading) * 28;
               const prowY = p.y + Math.sin(p.heading) * 28;
@@ -31956,13 +31967,13 @@ export default function App() {
 
                   const curActiveDef = HULL_DEFINITIONS.find((h) => h.id === activeHull) || HULL_DEFINITIONS[0];
                   const curLayout = hullLayouts[activeHull] || {};
-                  const isExpanderFitted = fittedSlots.slot2CargoExpander;
+                  const fittedHoldBonus = fittedTotal(fitting.fitted, 'cargoM3');
 
                   // Live current stats
                   const effectiveBaseHull = (activeHull === 'gantry' && gantryRefit) ? 150 : curActiveDef.baseHull;
                   const currentHullMax = effectiveBaseHull + (curLayout.armor_plate ? 20 : 0);
                   const effectiveBaseCargo = (activeHull === 'gantry' && gantryRefit) ? 2500 : curActiveDef.baseCargo;
-                  const currentCargoMax = effectiveBaseCargo + (isExpanderFitted ? EXPANDER_BONUS : 0) + (curLayout.cargo_pod ? 200 : 0);
+                  const currentCargoMax = effectiveBaseCargo + fittedHoldBonus + (curLayout.cargo_pod ? 200 : 0);
 
                   const baseMaxSpeed = getConfig('playerMaxSpeed') as number;
                   const navLevel = skills.navigation || 0;
@@ -32937,13 +32948,13 @@ export default function App() {
                           const hullLayout = hullLayouts[hull.id] || {};
                           const armorInstalled = Boolean(hullLayout.armor_plate);
                           const cargoPodInstalled = Boolean(hullLayout.cargo_pod);
-                          const activeExpander = isCurrentActive && fittedSlots.slot2CargoExpander;
+                          const activeHoldBonus = isCurrentActive ? fittedTotal(fitting.fitted, 'cargoM3') : 0;
 
                           const baseCargoVal = (hull.id === 'gantry' && gantryRefit) ? 2500 : hull.baseCargo;
                           const baseHullVal = (hull.id === 'gantry' && gantryRefit) ? 150 : hull.baseHull;
 
                           const appliedHull = baseHullVal + (armorInstalled ? 20 : 0);
-                          const appliedCargo = baseCargoVal + (activeExpander ? EXPANDER_BONUS : 0) + (cargoPodInstalled ? 200 : 0);
+                          const appliedCargo = baseCargoVal + activeHoldBonus + (cargoPodInstalled ? 200 : 0);
 
                           const capDisplay = hull.baseCap + (capBatteryCount * 20);
 
@@ -37754,12 +37765,12 @@ export default function App() {
                 </div>
                 <div style={btnSubLabelStyle}>
                   {moduleCannonActive
-                    ? `cycling ${Math.min(3, Math.max(1, actionCycleSecs.cannon || 1))}/3s`
+                    ? `cycling ${Math.min(weaponStats().cycleSec ?? 3, Math.max(1, actionCycleSecs.cannon || 1))}/${weaponStats().cycleSec ?? 3}s`
                     : (fireReason ?? 'ready')}
                 </div>
                 <CycleProgressBar
                   active={moduleCannonActive}
-                  getProgress={() => playerRef.current.cannonTimer / 3.0}
+                  getProgress={() => playerRef.current.cannonTimer / (weaponStats().cycleSec ?? 3)}
                 />
               </button>
 
@@ -37812,7 +37823,7 @@ export default function App() {
                 </div>
                 <CycleProgressBar
                   active={moduleShieldActive}
-                  getProgress={() => playerRef.current.shieldBoosterTimer / 3.0}
+                  getProgress={() => playerRef.current.shieldBoosterTimer / (boosterStats().cycleSec ?? 3)}
                 />
               </button>
 

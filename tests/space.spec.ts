@@ -246,3 +246,23 @@ test('overview: a rock is as far away in the Overview as in the Target panel', a
   await expect.poll(gap).toBeLessThanOrEqual(0.2);
   expectClean(problems);
 });
+
+test('combat: a Light Cannon hit takes 30 off the pirate, as the catalog says', async ({page}) => {
+  // No Gunnery skill and a Ferrier, so no bonus: one hit is the catalog's 30 damage.
+  const problems = await launch(page, {skills: {gunnery: 0, shieldOp: 0}});
+  await flyTo(page, 'Belt Two');
+  await selectTarget(page, /Pirate Frigate/);
+  const pirateShield = async () => {
+    const text = await page.innerText('body');
+    const m = text.slice(text.indexOf('Pirate Frigate')).match(/SHIELD\s*\n\s*(\d+)\/84/);
+    return m ? Number(m[1]) : null;
+  };
+  await expect.poll(pirateShield).toBe(84);
+  await page.keyboard.press('l');
+  await expect.poll(() => targetPanel(page), {timeout: 20_000}).toMatch(/Locked/);
+  await page.keyboard.press('2');
+  // The first value under 84 is after exactly one hit: the next is 3 s later.
+  await expect.poll(async () => ((await pirateShield()) ?? 84) < 84, {timeout: 60_000, intervals: [200]}).toBe(true);
+  expect(await pirateShield()).toBe(54);
+  expectClean(problems);
+});

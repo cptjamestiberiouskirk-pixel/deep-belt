@@ -277,7 +277,7 @@ test('fitting: at 800x600 each lens bonus stays on one line, clear of the hold c
 const PINNED_MODULES = [
   {id: 'miner_mk2', name: 'Miner MK2', price: 1200, badge: '+50% yield', stats: {oreYield: 75, cycleSec: 8, capPerCycle: 12}},
   {id: 'expanded_hold', name: 'Expanded Hold', price: 850, badge: '+500 hold', stats: {cargoM3: 500}},
-  {id: 'shield_booster', name: 'Shield Booster', price: 950, badge: '+8 HP/s pulse', stats: {shieldHpPerSec: 8, cycleSec: 3}},
+  {id: 'shield_booster', name: 'Shield Booster', price: 950, badge: '+8 HP/s pulse', stats: {shieldHpPerSec: 8, cycleSec: 3, capPerCycle: 25}},
   {id: 'light_cannon', name: 'Light Cannon', price: 600, badge: '30 dmg / 3s', stats: {damage: 30, cycleSec: 3, rangeKm: 8, capPerCycle: 8}},
 ] as const;
 

@@ -1,5 +1,5 @@
 import {expect, test} from '@playwright/test';
-import {buy, fit, fromLegacy, newGameFitting, owned, parseFitting, switchHull, toLegacy, unfit, type FittingState} from '../content/fitting';
+import {buy, fit, fittedTotal, fittedWith, fromLegacy, newGameFitting, owned, parseFitting, switchHull, toLegacy, unfit, type FittingState} from '../content/fitting';
 
 // The fitting model's rules (design/content-tree.md 4.2), checked without a browser.
 
@@ -91,4 +91,14 @@ test('fitting model: a saved fitting reads back, and junk is dropped', () => {
   expect(parseFitting(JSON.parse(JSON.stringify(s)), 'ferrier')).toEqual(s);
   expect(parseFitting(null, 'ferrier')).toBeNull();
   expect(parseFitting({hangar: {bogus: 3, light_cannon: -1}, fitted: ['miner_mk1', 'nope']}, 'tern')).toEqual({hangar: {}, fitted: ['miner_mk1', null, null], loadouts: {}});
+});
+
+test('fitting model: combat and hold stats come from what is fitted', () => {
+  const s = buy(newGameFitting(), 'ferrier', 'expanded_hold').state;
+  expect(fittedWith(s.fitted, 'damage')?.stats).toEqual({damage: 30, cycleSec: 3, rangeKm: 8, capPerCycle: 8});
+  expect(fittedWith(s.fitted, 'shieldHpPerSec')).toBeNull();
+  expect(fittedTotal(s.fitted, 'cargoM3')).toBe(500);
+  const boosted = buy(s, 'ferrier', 'shield_booster').state;
+  expect(fittedWith(boosted.fitted, 'shieldHpPerSec')?.stats).toEqual({shieldHpPerSec: 8, cycleSec: 3, capPerCycle: 25});
+  expect(fittedTotal(unfit(boosted, 'ferrier', 'expanded_hold')!.fitted, 'cargoM3')).toBe(0);
 });
