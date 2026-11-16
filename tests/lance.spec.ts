@@ -10,7 +10,7 @@ import {toLegacy} from '../content/fitting';
 const BASE = {...RICH, milestoneIndustrialistClaimed: true};
 const SKILLS_AT = (gunnery: number) => ({skills: {mining: 0, gunnery, shieldOp: 0, navigation: 0}});
 
-test('catalog: the Lance Driver is a weapon behind Gunnery II, sold after the four old modules', () => {
+test('catalog: the Lance Driver is a weapon behind Gunnery II, the last module card', () => {
   expect(MODULES.lance_driver).toMatchObject({
     name: 'Lance Driver',
     slot: 'weapon',
@@ -19,7 +19,7 @@ test('catalog: the Lance Driver is a weapon behind Gunnery II, sold after the fo
     stats: {damage: 45, cycleSec: 4, rangeKm: 12, capPerCycle: 14},
     requires: {skill: 'gunnery', level: 2},
   });
-  expect(MARKET_MODULE_IDS).toEqual(['miner_mk2', 'expanded_hold', 'shield_booster', 'light_cannon', 'lance_driver']);
+  expect(MARKET_MODULE_IDS).toEqual(['miner_mk2', 'expanded_hold', 'bulk_hold', 'shield_booster', 'light_cannon', 'lance_driver']);
   expect(missingSkill({gunnery: 1}, 'lance_driver')).toBe('Gunnery II');
   expect(missingSkill({gunnery: 2}, 'lance_driver')).toBeNull();
   expect(missingSkill({}, 'light_cannon')).toBeNull();

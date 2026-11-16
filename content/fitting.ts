@@ -98,6 +98,11 @@ export function fittedTotal(fitted: Slots, stat: StatId): number {
   return fitted.reduce((sum, id) => sum + (id ? (MODULES[id].stats[stat] ?? 0) : 0), 0);
 }
 
+/** The fitted modules' effect on top speed and thrust: 0.8 with a Bulk Hold. Never below half. */
+export function fittedSpeedMult(fitted: Slots): number {
+  return Math.max(0.5, 1 + fittedTotal(fitted, 'speedPct') / 100);
+}
+
 /**
  * Puts saved modules into a hull's layout. A module keeps its index when that
  * slot is of its type; the rest take the first free slot of their type, and what

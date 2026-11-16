@@ -13,7 +13,8 @@ export type StatId =
   | 'shieldHpPerSec' // shield restored per second while active
   | 'damage' // damage per shot
   | 'rangeKm' // optimal range
-  | 'capPerCycle'; // capacitor used per cycle
+  | 'capPerCycle' // capacitor used per cycle
+  | 'speedPct'; // max speed and thrust, as a percent change (-20 is 20% slower)
 
 export interface ItemDef {
   id: string;

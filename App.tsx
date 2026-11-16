@@ -133,6 +133,7 @@ import {
   toLegacy,
   unfit as unfitModule,
   type FittingState,
+  fittedSpeedMult,
   fittedTotal,
   fittedWith,
   hangarModuleIds,
@@ -18920,8 +18921,10 @@ export default function App() {
     const basePlayerMaxSpeed = baseMaxSpeed * (1 + 0.10 * navLevel);
 
     const decaySpeedMult = getRiftDecaySpeedMult(currentSystemRef.current, riftRunRef.current?.left);
-    const thrustPower = baseThrust * (1 + 0.10 * navLevel) * hullSpeedMultRef.current * (1.0 - 0.40 * loadFrac) * decaySpeedMult;
-    const maxSpeed = basePlayerMaxSpeed * hullSpeedMultRef.current * (1.0 - 0.30 * loadFrac) * decaySpeedMult;
+    // Fitted modules: 0.8 with a Bulk Hold (content/fitting.ts fittedSpeedMult).
+    const moduleSpeedMult = fittedSpeedMult(fittingRef.current.fitted);
+    const thrustPower = baseThrust * (1 + 0.10 * navLevel) * hullSpeedMultRef.current * moduleSpeedMult * (1.0 - 0.40 * loadFrac) * decaySpeedMult;
+    const maxSpeed = basePlayerMaxSpeed * hullSpeedMultRef.current * moduleSpeedMult * (1.0 - 0.30 * loadFrac) * decaySpeedMult;
     const plumeScale = (1.0 - 0.40 * loadFrac) * decaySpeedMult;
 
     if (thrusting) {
@@ -31281,6 +31284,29 @@ export default function App() {
                                         {bonus > 0 && (
                                           <span style={{ color: '#8BD17C', fontSize: '12px', marginLeft: '4px' }}>
                                             (+{bonus.toLocaleString()})
+                                          </span>
+                                        )}
+                                      </span>
+                                    );
+                                  })()}
+                                </span>
+                              </div>
+
+                              {/* Stat 3b: Max speed, with an empty hold */}
+                              <div style={statRowStyle}>
+                                <span style={statLabelStyle}>Max speed</span>
+                                <span style={statValueStyle}>
+                                  {(() => {
+                                    const thrusterMult = 1 + (hullLayouts[activeHull]?.thruster ? 0.15 : 0);
+                                    const moduleMult = fittedSpeedMult(fitting.fitted);
+                                    const speed = Math.round((getConfig('playerMaxSpeed') as number) * (1 + 0.1 * (skills.navigation || 0)) * thrusterMult * moduleMult);
+                                    const pct = Math.round((moduleMult - 1) * 100);
+                                    return (
+                                      <span>
+                                        {speed} m/s
+                                        {pct < 0 && (
+                                          <span style={{ color: '#FF5A5F', fontSize: '12px', marginLeft: '4px' }}>
+                                            ({pct}%)
                                           </span>
                                         )}
                                       </span>

@@ -8,7 +8,7 @@ import {EXPANDER_BONUS} from '../constants';
 import {prerequisiteText, type SkillId} from './skills';
 import type {ModuleDef} from './types';
 
-export type ModuleId = 'miner_mk1' | 'miner_mk2' | 'expanded_hold' | 'shield_booster' | 'light_cannon' | 'lance_driver';
+export type ModuleId = 'miner_mk1' | 'miner_mk2' | 'expanded_hold' | 'bulk_hold' | 'shield_booster' | 'light_cannon' | 'lance_driver';
 
 export const MODULES: Record<ModuleId, ModuleDef> = {
   miner_mk1: {
@@ -54,6 +54,23 @@ export const MODULES: Record<ModuleId, ModuleDef> = {
     icon: 'module_cargo_expander_icon',
     // Up to three: the most utility slots any hull has (the Gantry). Doubles add up.
     maxOwned: 3,
+  },
+  // Step 8: a side-grade to the Expanded Hold. Almost twice the space in one
+  // slot, for 20% less top speed and thrust, so a hauler is easier to catch.
+  // One only: the slowdown does not stack.
+  bulk_hold: {
+    id: 'bulk_hold',
+    name: 'Bulk Hold',
+    category: 'module',
+    group: 'Cargo expanders',
+    tier: 2,
+    volume: 0,
+    basePrice: 1600,
+    slot: 'utility',
+    stats: {cargoM3: 900, speedPct: -20},
+    statBadge: '+900 hold, -20% speed',
+    desc: 'Bolt-on ore bunker: +900 hold units, but the extra mass cuts top speed and thrust by 20%.',
+    icon: 'module_cargo_expander_icon',
   },
   shield_booster: {
     id: 'shield_booster',
