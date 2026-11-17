@@ -19,7 +19,7 @@ test('catalog: the Lance Driver is a weapon behind Gunnery II, the last module c
     stats: {damage: 47, cycleSec: 4, rangeKm: 12, capPerCycle: 14},
     requires: {skill: 'gunnery', level: 2},
   });
-  expect(MARKET_MODULE_IDS).toEqual(['miner_mk2', 'expanded_hold', 'bulk_hold', 'shield_booster', 'light_cannon', 'lance_driver']);
+  expect(MARKET_MODULE_IDS).toEqual(['miner_mk2', 'expanded_hold', 'bulk_hold', 'shield_booster', 'composite_armor', 'light_cannon', 'lance_driver']);
   expect(missingSkill({gunnery: 1}, 'lance_driver')).toBe('Gunnery II');
   expect(missingSkill({gunnery: 2}, 'lance_driver')).toBeNull();
   expect(missingSkill({}, 'light_cannon')).toBeNull();

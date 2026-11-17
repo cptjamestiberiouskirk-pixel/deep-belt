@@ -11,6 +11,7 @@ export type StatId =
   | 'cycleSec' // seconds per cycle
   | 'cargoM3' // hold space added
   | 'shieldHpPerSec' // shield restored per second while active
+  | 'armorHp' // armor HP added (never regenerates; the station repairs it for MARKS)
   | 'damage' // damage per shot
   | 'rangeKm' // optimal range
   | 'capPerCycle' // capacitor used per cycle

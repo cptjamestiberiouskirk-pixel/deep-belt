@@ -5405,6 +5405,8 @@ export default function App() {
   };
   // Hold space the fitted modules add (the Expanded Hold's +500 m³).
   const holdBonus = (fitted: Slots = fittingRef.current.fitted) => fittedTotal(fitted, 'cargoM3');
+  // Armor the fitted modules add (Composite Armor, step 12).
+  const armorBonus = (fitted: Slots = fittingRef.current.fitted) => fittedTotal(fitted, 'armorHp');
 
   const [skillsFocusIndex, setSkillsFocusIndex] = useState(0);
   const skillsFocusIndexRef = useRef(0);
@@ -6305,6 +6307,14 @@ export default function App() {
     playerRef.current.maxHull = newMaxHull;
     playerRef.current.hull = Math.min(playerRef.current.hull, newMaxHull);
     setShipHull(Math.round((playerRef.current.hull / newMaxHull) * 100));
+
+    // maxArmor = baseArmor + the fitted modules' armor. Armor fitted now arrives
+    // intact (damage already taken stays), and armor unfitted takes its share away.
+    const newMaxArmor = activeDef.baseArmor + armorBonus();
+    const armorGain = Math.max(0, newMaxArmor - playerRef.current.maxArmor);
+    playerRef.current.maxArmor = newMaxArmor;
+    playerRef.current.armor = Math.min(playerRef.current.armor + armorGain, newMaxArmor);
+    setShipArmor(Math.round((playerRef.current.armor / newMaxArmor) * 100));
 
     // lockRangeKmRef.current = 10.0 + (hullLayouts[activeHull]?.sensor ? 2.0 : 0)
     lockRangeKmRef.current = 10.0 + (curLayout.sensor ? 2.0 : 0);
@@ -11495,8 +11505,9 @@ export default function App() {
     p.shield = respawnMaxShield;
     p.maxShield = respawnMaxShield;
     p.shieldRegenDelayTimer = 0;
-    p.armor = activeDef.baseArmor;
-    p.maxArmor = activeDef.baseArmor;
+    // The fitted modules survive the tow, and so does their armor.
+    p.armor = activeDef.baseArmor + armorBonus();
+    p.maxArmor = activeDef.baseArmor + armorBonus();
     p.hull = effectiveBaseHull;
     p.maxHull = effectiveBaseHull;
     p.capacitor = p.maxCapacitor;
@@ -14649,7 +14660,7 @@ export default function App() {
     }
     setFitting(next);
     const stats = MODULES[moduleId].stats;
-    if (stats.cargoM3 !== undefined) {
+    if (stats.cargoM3 !== undefined || stats.armorHp !== undefined) {
       applyHullLayout();
     } else if (stats.shieldHpPerSec !== undefined && isFitted) {
       setModuleShieldActive(false);
@@ -29890,6 +29901,7 @@ export default function App() {
                                 return (
                                   <div
                                     key={mod.key}
+                                    data-testid={`market-card-${mod.key}`}
                                     style={{
                                       height: '114px',
                                       borderRadius: '10px',
@@ -31476,10 +31488,23 @@ export default function App() {
                               </div>
 
                               {/* Stat 5: Armor */}
-                              <div style={statRowStyle}>
+                              <div style={statRowStyle} data-testid="ship-stat-armor">
                                 <span style={statLabelStyle}>Armor</span>
                                 <span style={statValueStyle}>
-                                  {(HULL_DEFINITIONS.find((h) => h.id === activeHull) || HULL_DEFINITIONS[0]).baseArmor} HP
+                                  {(() => {
+                                    const baseArmor = (HULL_DEFINITIONS.find((h) => h.id === activeHull) || HULL_DEFINITIONS[0]).baseArmor;
+                                    const bonus = fittedTotal(fitting.fitted, 'armorHp');
+                                    return (
+                                      <span>
+                                        {baseArmor + bonus} HP
+                                        {bonus > 0 && (
+                                          <span style={{ color: '#8BD17C', fontSize: '12px', marginLeft: '4px' }}>
+                                            (+{bonus})
+                                          </span>
+                                        )}
+                                      </span>
+                                    );
+                                  })()}
                                 </span>
                               </div>
 

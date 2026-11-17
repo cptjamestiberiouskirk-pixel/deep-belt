@@ -89,7 +89,7 @@ for (const trim of [0, 5]) {
 }
 
 // --- The Belt Two pirate fight in a Ferrier, at Gunnery III unless named.
-const FIGHTS: Array<{name: string; weapon: string; cc: number; booster: boolean; gunnery?: number}> = [
+const FIGHTS: Array<{name: string; weapon: string; cc: number; booster: boolean; gunnery?: number; armor?: boolean}> = [
   {name: 'Light Cannon, Gunnery II', weapon: 'light_cannon', cc: 0, booster: false, gunnery: 2},
   {name: 'Lance Driver, Gunnery II', weapon: 'lance_driver', cc: 0, booster: false, gunnery: 2},
   {name: 'Light Cannon', weapon: 'light_cannon', cc: 0, booster: false},
@@ -104,11 +104,15 @@ const FIGHTS: Array<{name: string; weapon: string; cc: number; booster: boolean;
   {name: 'Light Cannon, Charge Control V', weapon: 'light_cannon', cc: 5, booster: false},
   {name: 'Lance Driver, Charge Control V', weapon: 'lance_driver', cc: 5, booster: false},
   {name: 'Light Cannon + booster, Charge Control V', weapon: 'light_cannon', cc: 5, booster: true},
+  // Step 12: Composite Armor in the booster's slot.
+  {name: 'Light Cannon + armor', weapon: 'light_cannon', cc: 0, booster: false, armor: true},
+  {name: 'Lance Driver + armor', weapon: 'lance_driver', cc: 0, booster: false, armor: true},
+  {name: 'Lance Driver + armor, Charge Control V', weapon: 'lance_driver', cc: 5, booster: false, armor: true},
 ];
 for (const f of FIGHTS) {
   test(`fight: ${f.name}`, async ({page}) => {
     test.setTimeout(240_000);
-    const fitted = ['miner_mk1', f.booster ? 'shield_booster' : null, null, f.weapon];
+    const fitted = ['miner_mk1', f.booster ? 'shield_booster' : f.armor ? 'composite_armor' : null, null, f.weapon];
     await openWithSave(page, {...BASE, ...skills({gunnery: f.gunnery ?? 3, chargeControl: f.cc}), ...fitting(fitted)});
     await enterGame(page);
     await undock(page);
@@ -145,6 +149,50 @@ for (const f of FIGHTS) {
       secBelow8Cap: lowCapSec,
       boosterStillOn: p.boosterActive,
       pirateTopSpeed: Math.round(pirateTop),
+    });
+  });
+}
+
+// --- Holding out: park at Belt Two without firing and time how long the pirate
+// takes to destroy the ship; then read the armor after the tow home (step 12).
+const HOLDOUTS = [
+  {name: 'nothing in the utility slots', fitted: PLAIN, booster: false},
+  {name: 'Shield Booster, active', fitted: ['miner_mk1', 'shield_booster', null, 'light_cannon'], booster: true},
+  {name: 'Composite Armor', fitted: ['miner_mk1', 'composite_armor', null, 'light_cannon'], booster: false},
+];
+for (const c of HOLDOUTS) {
+  test(`holdout: Belt Two pirate, ${c.name}`, async ({page}) => {
+    test.setTimeout(300_000);
+    await openWithSave(page, {...BASE, ...skills({gunnery: 3}), ...fitting(c.fitted), marks: 50_000});
+    await enterGame(page);
+    await undock(page);
+    await flyTo(page, 'Belt Two');
+    if (c.booster) await page.keyboard.press('3');
+    const start = Date.now();
+    let firstHit: number | null = null;
+    let p = await player(page);
+    const startHp = p.shield + p.armor + p.hull;
+    let minCap = Infinity;
+    while (Date.now() - start < 240_000) {
+      await page.waitForTimeout(250);
+      if (await page.getByText('Docked · safe').isVisible()) break;
+      p = await player(page);
+      minCap = Math.min(minCap, p.capacitor);
+      if (firstHit === null && p.shield + p.armor + p.hull < startHp) firstHit = Date.now();
+    }
+    const destroyed = await page.getByText('Docked · safe').isVisible();
+    await page.waitForTimeout(1000);
+    const after = await player(page);
+    const armorText = (await page.innerText('body')).match(/Armor Integrity:\s*(\d+)\s*\/\s*(\d+)/);
+    record({
+      probe: 'holdout',
+      case: c.name,
+      startHp: Math.round(startHp),
+      destroyed,
+      secFromFirstHitToTow: firstHit && destroyed ? Math.round((Date.now() - firstHit) / 100) / 10 : null,
+      minCap: Math.round(minCap),
+      armorAfterTow: Math.round(after.armor),
+      repairScreenArmor: armorText ? `${armorText[1]}/${armorText[2]}` : null,
     });
   });
 }

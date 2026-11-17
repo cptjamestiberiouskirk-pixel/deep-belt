@@ -8,7 +8,18 @@ import {EXPANDER_BONUS} from '../constants';
 import {prerequisiteText, type SkillId} from './skills';
 import type {ModuleDef} from './types';
 
-export type ModuleId = 'miner_mk1' | 'miner_mk2' | 'expanded_hold' | 'bulk_hold' | 'shield_booster' | 'light_cannon' | 'lance_driver';
+export type ModuleId =
+  | 'miner_mk1'
+  | 'miner_mk2'
+  | 'expanded_hold'
+  | 'bulk_hold'
+  | 'shield_booster'
+  | 'composite_armor'
+  | 'light_cannon'
+  | 'lance_driver';
+
+/** Composite Armor's armor HP (step 12). */
+export const COMPOSITE_ARMOR_HP = 100;
 
 export const MODULES: Record<ModuleId, ModuleDef> = {
   miner_mk1: {
@@ -88,6 +99,23 @@ export const MODULES: Record<ModuleId, ModuleDef> = {
     // Up to three: the most utility slots any hull has (the Gantry). Doubles add up.
     maxOwned: 3,
   },
+  // Step 12: a side-grade to the Shield Booster. Flat armor that uses no Cap and
+  // needs no activation, so a Cap-hungry weapon keeps firing; but armor never
+  // regenerates, and the station charges for every point repaired. One only.
+  composite_armor: {
+    id: 'composite_armor',
+    name: 'Composite Armor',
+    category: 'module',
+    group: 'Armor',
+    tier: 1,
+    volume: 0,
+    basePrice: 900,
+    slot: 'utility',
+    stats: {armorHp: COMPOSITE_ARMOR_HP},
+    statBadge: `+${COMPOSITE_ARMOR_HP} armor`,
+    desc: `Layered ceramic and alloy plating: +${COMPOSITE_ARMOR_HP} armor HP. Uses no capacitor, but armor does not regenerate; the station repairs it for MARKS.`,
+    icon: 'module_armor_plate',
+  },
   light_cannon: {
     id: 'light_cannon',
     name: 'Light Cannon',
@@ -115,7 +143,7 @@ export const MODULES: Record<ModuleId, ModuleDef> = {
     slot: 'weapon',
     stats: {damage: 47, cycleSec: 4, rangeKm: 12, capPerCycle: 14},
     statBadge: '47 dmg / 4s',
-    desc: 'Long-barrel mass driver: 45 kinetic damage per slug out to 12.0 km optimal range.',
+    desc: 'Long-barrel mass driver: 47 kinetic damage per slug out to 12.0 km optimal range.',
     icon: 'module_cannon_icon',
     requires: {skill: 'gunnery', level: 2},
   },
