@@ -36,9 +36,24 @@ From: 2026-11-15 "Two tests timed out once under full local load"; 2026-11-15 "F
 
 ## Station keys in tests
 
-From: 2026-11-15 "A market Enter went to the officer's line, not the focused card"
+From: 2026-11-15 "A market Enter went to the officer's line, not the focused card"; 2026-11-17 "A dock key pressed right after undocking did nothing"
 
 1. A test presses Enter in a station terminal only after `settle(page)`, which waits for "[Enter] Skip" to go.
+2. A key pressed right after docking, undocking or loading is pressed until its effect shows, as `undock()` does, not once.
+
+## Reading game state from the save
+
+From: 2026-11-15 "A test read the save once, right after a toast, and saw old values"; 2026-11-17 "A test checked a loaded save before the game had rewritten it"
+
+1. A test that checks game state through the save polls it with `expect.poll` after the event, and does not read it once.
+2. The poll waits for a value only the expected write can produce (on load, the converted fields), not one the old save already has.
+
+## Text with backslashes or $ from the Bash tool
+
+From: 2026-11-15 "A scripted edit wrote a literal $1 into App.tsx"; 2026-11-17 "A commit message sent through a heredoc lost its backslashes"
+
+1. Any text that holds backslashes or `$` (a script, a commit message, file contents) is saved with the Write tool and passed by its file (`node file`, `git commit -F file`), not through a Bash heredoc or `sed`.
+2. A scripted edit to App.tsx counts its matches, and is followed by the type-check and a read of the whole diff before any test run.
 
 ## Windows programs from the Bash tool
 

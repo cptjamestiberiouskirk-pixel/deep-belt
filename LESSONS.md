@@ -13,6 +13,34 @@ Format, checked by `node dev/lessons.mjs --check`. A field's text may go on over
 - Status: open | promoted to PLAYBOOK "<section>" | closed: <why the rule no longer holds>
 ```
 
+## 2026-11-17: A commit message sent through a heredoc lost its backslashes
+- What went wrong: a commit message passed to `git commit -F -` through an unquoted Bash heredoc said a regex was now '\s*MARKS' where it meant '\\s*MARKS'. Read back before the push and amended. This is the fourth time for "A scripted edit wrote a literal $1 into App.tsx", now outside scripts.
+- Why: an unquoted heredoc (needed there to expand `$V`) treats backslashes as escapes, so each `\\` became `\`.
+- Rule going forward: any text that holds backslashes or `$` (a script, a commit message, file contents) is saved with the Write tool and passed by its file (`node file`, `git commit -F file`), not through a Bash heredoc.
+- Evidence: b337ec2's message, amended from the scratchpad file `msg1.txt`.
+- Status: promoted to PLAYBOOK "Text with backslashes or $ from the Bash tool"
+
+## 2026-11-17: A test checked a loaded save before the game had rewritten it
+- What went wrong: the old-save test polled the save until `marks` matched the old build's, then read `fitting.fitted` and the skills and found them missing (both fixtures failed). This is the second time for "A test read the save once, right after a toast, and saw old values".
+- Why: on load the game first copies the old save across as it is, then writes its own converted save at the next autosave. `marks` was the same in both, so the poll passed on the unconverted copy.
+- Rule going forward: a poll of the save waits for a value only the expected write can produce (on load, the converted fields), not one the old save already has.
+- Evidence: tests/old-saves.spec.ts, search "wait for the game's own".
+- Status: promoted to PLAYBOOK "Reading game state from the save"
+
+## 2026-11-17: A dock key pressed right after undocking did nothing
+- What went wrong: the old-save test undocked and pressed `f` at once; the station was in range and "Dock [F]" lit, but the ship never docked and the wait timed out after 60 s, in both tests.
+- Why: the same station input debounce that `undock()` already presses through: a key in the first moments after docking, undocking or loading can be dropped.
+- Rule going forward: a key pressed right after docking, undocking or loading is pressed until its effect shows, as `undock()` does, not once.
+- Evidence: tests/old-saves.spec.ts, search "press until it takes"; the failure screenshot showed "Station in range: Press Dock [F]".
+- Status: promoted to PLAYBOOK "Station keys in tests"
+
+## 2026-11-17: A promoted playbook step was missed because the lessons check used the task's words
+- What went wrong: `cmd //c mklink /J` failed with `Invalid switch` while building old versions of the game, the exact case of PLAYBOOK "Windows programs from the Bash tool".
+- Why: the lessons check before that step ran with the task's topics ("save migration old save load"), not with the programs the step ran, so it never named the section.
+- Rule going forward: the lessons check words for a step include the programs and tools it runs (`mklink`, `cmd`, `git`, `npm`), not only its topic.
+- Evidence: this session's build-old.sh in the scratchpad, first run; fixed with PowerShell `New-Item -ItemType Junction`.
+- Status: open
+
 ## 2026-11-16: A check that a toast was gone passed by waiting for it to expire
 - What went wrong: a new test said a tip still showing when the pilot quits does not show on the title screen. It passed with and without the code that hides it, so it proved nothing. A logged run then showed the tip still in the page when the title appeared, drawn over it.
 - Why: `await expect(locator).toHaveCount(0)` retries for up to 5 s, and the toast removes itself after 4.5 s, so the assertion waited until it was gone.
@@ -56,7 +84,7 @@ Format, checked by `node dev/lessons.mjs --check`. A field's text may go on over
 - Why: the script's replace helper always passed a callback to `String.replace`, and a callback's return value is used as it is: `$1` is expanded only in a replacement string. The `sed` command's own quoting ate `\$` and `\d`.
 - Rule going forward: a scripted edit to App.tsx counts its matches, is followed by the type-check and a read of the whole diff before any test run, and is fixed with the Edit tool, not `sed`, when the fix holds backslashes or `$`. A script whose text holds backslashes is saved with the Write tool and run from the file, not passed through a Bash heredoc.
 - Evidence: the step 1 commit's diff; the script at the session scratchpad, `step1-app.cjs`, search "to.replace". Second time, step 2b: a Node script sent through a Bash heredoc wrote a test regex without its backslashes into tests/space.spec.ts; the type-check caught it. The same session's App.tsx script, saved with the Write tool as `step2b.cjs`, applied cleanly. Recurred 2026-11-16: the mining pace probe was rewritten by a Node script sent through a Bash heredoc (scratchpad `pace.mjs`), and its regex `/(\d+)\/\d+m³/` landed as `/(d+)/d+m³/`; the type-check caught it before any run.
-- Status: open
+- Status: promoted to PLAYBOOK "Text with backslashes or $ from the Bash tool"
 
 ## 2026-11-15: Two new text tests failed on fixed code
 - What went wrong: in the text-fix round, two new tests failed on the code they were written for. "dock officer: the hold tip..." read the page after each Enter and never saw the new line, which the failure snapshot showed in full. "contracts: the hint after undocking..." asked that "Station in range: Press Dock [F]" appear nowhere, and the Target panel still shows it beside its Dock button.
@@ -98,7 +126,7 @@ Format, checked by `node dev/lessons.mjs --check`. A field's text may go on over
 - Why: the Rift run is changed in a ref and saved by the periodic autosave (about every 5 s), so the save can trail what the page already shows.
 - Rule going forward: a test that checks game state through the save polls it with `expect.poll` after the event, and does not read it once.
 - Evidence: `tests/lategame.spec.ts`, search "The run is saved every few seconds".
-- Status: open
+- Status: promoted to PLAYBOOK "Reading game state from the save"
 
 ## 2026-11-15: A seeded save mixed a hull with another hull's hold size
 - What went wrong: the Gantry refit test seeded `activeHull: 'gantry'` and found `cargoMax` 600, the Ferrier's.
