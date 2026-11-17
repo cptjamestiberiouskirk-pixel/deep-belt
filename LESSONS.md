@@ -13,6 +13,13 @@ Format, checked by `node dev/lessons.mjs --check`. A field's text may go on over
 - Status: open | promoted to PLAYBOOK "<section>" | closed: <why the rule no longer holds>
 ```
 
+## 2026-11-17: A check for no Buy button passed on code that showed one
+- What went wrong: the Composite Armor one-only test found its market card with `page.locator('div', {hasText: ..., has: <the stat badge>}).last()` and checked it had no Buy button. With the module made buyable three times it still passed.
+- Why: `.last()` picked an inner div that held the name and badge but not the button row, so the button could never be inside it.
+- Rule going forward: a check that something is absent is run once where it is present (a mutant or the state that shows it) and must fail there; a card or row is found by a test id on its outer element, not by text and `.last()`.
+- Evidence: tests/composite-armor.spec.ts, search "market-card-composite_armor"; on the mutant the card read "1 owned ... Buy" and the test failed.
+- Status: open
+
 ## 2026-11-17: A commit message sent through a heredoc lost its backslashes
 - What went wrong: a commit message passed to `git commit -F -` through an unquoted Bash heredoc said a regex was now '\s*MARKS' where it meant '\\s*MARKS'. Read back before the push and amended. This is the fourth time for "A scripted edit wrote a literal $1 into App.tsx", now outside scripts.
 - Why: an unquoted heredoc (needed there to expand `$V`) treats backslashes as escapes, so each `\\` became `\`.
