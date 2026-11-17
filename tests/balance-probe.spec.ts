@@ -26,7 +26,7 @@ const player = (page: Page) => page.evaluate(() => (window as any).__DEEP_BELT_P
 const pirate = (page: Page) => page.evaluate(() => (window as any).__DEEP_BELT_PROBE__.pirate() as Pirate);
 
 const BASE = {...RICH, milestoneIndustrialistClaimed: true};
-const skills = (s: Record<string, number>) => ({skills: {mining: 0, laserTuning: 0, lowProfile: 0, gunnery: 0, chargeControl: 0, shieldOp: 0, navigation: 0, cargoTrim: 0, ...s}});
+const skills = (s: Record<string, number>) => ({skills: {mining: 0, laserTuning: 0, lowProfile: 0, gunnery: 0, chargeControl: 0, shieldOp: 0, boosterEfficiency: 0, navigation: 0, cargoTrim: 0, ...s}});
 const fitting = (fitted: Array<string | null>) => ({fitting: {hangar: {}, fitted, loadouts: {}}});
 const PLAIN = ['miner_mk1', null, null, 'light_cannon'];
 const BULK = ['miner_mk1', 'bulk_hold', null, 'light_cannon'];
@@ -89,7 +89,7 @@ for (const trim of [0, 5]) {
 }
 
 // --- The Belt Two pirate fight in a Ferrier, at Gunnery III unless named.
-const FIGHTS: Array<{name: string; weapon: string; cc: number; booster: boolean; gunnery?: number; armor?: boolean}> = [
+const FIGHTS: Array<{name: string; weapon: string; cc: number; booster: boolean; gunnery?: number; armor?: boolean; so?: number; be?: number}> = [
   {name: 'Light Cannon, Gunnery II', weapon: 'light_cannon', cc: 0, booster: false, gunnery: 2},
   {name: 'Lance Driver, Gunnery II', weapon: 'lance_driver', cc: 0, booster: false, gunnery: 2},
   {name: 'Light Cannon', weapon: 'light_cannon', cc: 0, booster: false},
@@ -108,12 +108,16 @@ const FIGHTS: Array<{name: string; weapon: string; cc: number; booster: boolean;
   {name: 'Light Cannon + armor', weapon: 'light_cannon', cc: 0, booster: false, armor: true},
   {name: 'Lance Driver + armor', weapon: 'lance_driver', cc: 0, booster: false, armor: true},
   {name: 'Lance Driver + armor, Charge Control V', weapon: 'lance_driver', cc: 5, booster: false, armor: true},
+  // Step 13: Booster Efficiency needs Shield Operation II, so both sides have it.
+  {name: 'Lance Driver + booster, Shield Operation II', weapon: 'lance_driver', cc: 0, booster: true, so: 2},
+  {name: 'Lance Driver + booster, Shield Operation II, Booster Efficiency V', weapon: 'lance_driver', cc: 0, booster: true, so: 2, be: 5},
+  {name: 'Lance Driver + booster, Shield Operation II, Booster Efficiency V, Charge Control V', weapon: 'lance_driver', cc: 5, booster: true, so: 2, be: 5},
 ];
 for (const f of FIGHTS) {
   test(`fight: ${f.name}`, async ({page}) => {
     test.setTimeout(240_000);
     const fitted = ['miner_mk1', f.booster ? 'shield_booster' : f.armor ? 'composite_armor' : null, null, f.weapon];
-    await openWithSave(page, {...BASE, ...skills({gunnery: f.gunnery ?? 3, chargeControl: f.cc}), ...fitting(fitted)});
+    await openWithSave(page, {...BASE, ...skills({gunnery: f.gunnery ?? 3, chargeControl: f.cc, shieldOp: f.so ?? 0, boosterEfficiency: f.be ?? 0}), ...fitting(fitted)});
     await enterGame(page);
     await undock(page);
     await flyTo(page, 'Belt Two');
@@ -155,15 +159,18 @@ for (const f of FIGHTS) {
 
 // --- Holding out: park at Belt Two without firing and time how long the pirate
 // takes to destroy the ship; then read the armor after the tow home (step 12).
-const HOLDOUTS = [
+const HOLDOUTS: Array<{name: string; fitted: Array<string | null>; booster: boolean; so?: number; be?: number}> = [
   {name: 'nothing in the utility slots', fitted: PLAIN, booster: false},
   {name: 'Shield Booster, active', fitted: ['miner_mk1', 'shield_booster', null, 'light_cannon'], booster: true},
   {name: 'Composite Armor', fitted: ['miner_mk1', 'composite_armor', null, 'light_cannon'], booster: false},
+  // Step 13.
+  {name: 'Shield Booster, active, Shield Operation II', fitted: ['miner_mk1', 'shield_booster', null, 'light_cannon'], booster: true, so: 2},
+  {name: 'Shield Booster, active, Shield Operation II, Booster Efficiency V', fitted: ['miner_mk1', 'shield_booster', null, 'light_cannon'], booster: true, so: 2, be: 5},
 ];
 for (const c of HOLDOUTS) {
   test(`holdout: Belt Two pirate, ${c.name}`, async ({page}) => {
     test.setTimeout(300_000);
-    await openWithSave(page, {...BASE, ...skills({gunnery: 3}), ...fitting(c.fitted), marks: 50_000});
+    await openWithSave(page, {...BASE, ...skills({gunnery: 3, shieldOp: c.so ?? 0, boosterEfficiency: c.be ?? 0}), ...fitting(c.fitted), marks: 50_000});
     await enterGame(page);
     await undock(page);
     await flyTo(page, 'Belt Two');

@@ -118,7 +118,7 @@ import {MARKET_MODULE_IDS, MODULES, minerFor, missingSkill, type ModuleId} from 
 import type {SlotType} from './content/types';
 import {LENSES, LENS_IDS, lensBonusLabel} from './content/lenses';
 import {readItem} from './content/inventory';
-import {CARGO_TRIM_CUT, CHARGE_CONTROL_CUT, effectiveLoad, freeFerriteAt, LASER_TUNING_CUT, LOW_PROFILE_FREE_FERRITE, LOW_PROFILE_MINING_CUT, minerCycleAt, miningNoticePerSec, prerequisiteText, saleNotice, SKILL_CATEGORY_ORDER, skillLevels, SKILLS, unmetPrerequisites, weaponCycleAt} from './content/skills';
+import {BOOSTER_EFFICIENCY_CUT, boosterCapAt, CARGO_TRIM_CUT, CHARGE_CONTROL_CUT, effectiveLoad, freeFerriteAt, LASER_TUNING_CUT, LOW_PROFILE_FREE_FERRITE, LOW_PROFILE_MINING_CUT, minerCycleAt, miningNoticePerSec, prerequisiteText, saleNotice, SKILL_CATEGORY_ORDER, skillLevels, SKILLS, unmetPrerequisites, weaponCycleAt} from './content/skills';
 import {formatSpeed, FULL_HOLD_THRUST_CUT, flightLimits, PIXELS_PER_KM, topSpeed} from './content/flight';
 import type {ModuleDef} from './content/types';
 import {
@@ -1487,6 +1487,14 @@ export const SKILL_DEFINITIONS: SkillDefinition[] = [
     description: '+10% shield HP per level',
     getBonusText: (level: number) =>
       `+${level * 10}% shield HP (${Math.round(100 * (1 + 0.1 * level))} max HP)`,
+  },
+  {
+    id: 'boosterEfficiency',
+    name: 'Booster Efficiency',
+    category: SKILLS.boosterEfficiency.category,
+    description: `-${Math.round(BOOSTER_EFFICIENCY_CUT * 100)}% Shield Booster Cap per cycle, per level`,
+    getBonusText: (level: number) =>
+      `-${Math.round(BOOSTER_EFFICIENCY_CUT * 100 * level)}% booster Cap (${boosterCapAt(MODULES.shield_booster.stats.capPerCycle ?? 25, level)} Cap a cycle)`,
   },
   {
     id: 'navigation',
@@ -5395,12 +5403,17 @@ export default function App() {
   };
   const boosterStats = () => {
     const boosters = fittingRef.current.fitted.flatMap((m) => (m && MODULES[m].stats.shieldHpPerSec !== undefined ? [MODULES[m].stats] : []));
-    if (boosters.length === 0) return MODULES.shield_booster.stats;
+    // Booster Efficiency (step 13) cuts the Cap per cycle, of one booster or all together.
+    const efficiency = skillsRef.current.boosterEfficiency || 0;
+    if (boosters.length === 0) {
+      const one = MODULES.shield_booster.stats;
+      return {...one, capPerCycle: boosterCapAt(one.capPerCycle ?? 25, efficiency)};
+    }
     // Two boosters boost twice as much and cost twice the Cap, on the first one's cycle.
     return {
       ...boosters[0],
       shieldHpPerSec: boosters.reduce((sum, b) => sum + (b.shieldHpPerSec ?? 0), 0),
-      capPerCycle: boosters.reduce((sum, b) => sum + (b.capPerCycle ?? 0), 0),
+      capPerCycle: boosterCapAt(boosters.reduce((sum, b) => sum + (b.capPerCycle ?? 0), 0), efficiency),
     };
   };
   // Hold space the fitted modules add (the Expanded Hold's +500 m³).
@@ -37859,8 +37872,8 @@ export default function App() {
                   e.stopPropagation();
                   toggleShieldBooster();
                 }}
-                disabled={!fittedSlots.slot3ShieldBooster || (p.capacitor < 25 && !moduleShieldActive)}
-                title="Boost [3] — Shield Booster (+8 HP/s pulse, 25 Cap)"
+                disabled={!fittedSlots.slot3ShieldBooster || (p.capacitor < (boosterStats().capPerCycle ?? 25) && !moduleShieldActive)}
+                title={`Boost [3] — Shield Booster (+${Math.round((boosterStats().shieldHpPerSec ?? 8) * (1 + 0.1 * (skills.shieldOp || 0)))} HP/s pulse, ${boosterStats().capPerCycle ?? 25} Cap)`}
                 style={{
                   ...actionBtnBaseStyle,
                   position: 'relative',

@@ -4,7 +4,7 @@
 //
 // The bonus each level gives stays in App.tsx's SKILL_DEFINITIONS for now.
 
-export type SkillId = 'mining' | 'laserTuning' | 'lowProfile' | 'gunnery' | 'chargeControl' | 'shieldOp' | 'navigation' | 'cargoTrim';
+export type SkillId = 'mining' | 'laserTuning' | 'lowProfile' | 'gunnery' | 'chargeControl' | 'shieldOp' | 'boosterEfficiency' | 'navigation' | 'cargoTrim';
 export type SkillCategory = 'Extraction' | 'Gunnery' | 'Defense' | 'Navigation' | 'Industry' | 'Science';
 
 export interface SkillDef {
@@ -33,6 +33,9 @@ export const SKILLS: Record<SkillId, SkillDef> = {
   // ran short of Cap), so on 2026-11-16 it became a shorter cycle.
   chargeControl: {id: 'chargeControl', name: 'Charge Control', category: 'Gunnery', rank: 2, prerequisites: [{skill: 'gunnery', level: 3}]},
   shieldOp: {id: 'shieldOp', name: 'Shield Operation', category: 'Defense', rank: 1, prerequisites: []},
+  // Step 13: less Cap per Shield Booster cycle, so the booster runs longer. Rank 2,
+  // after Shield Operation II. The probe found an active booster ran Cap down to 14.
+  boosterEfficiency: {id: 'boosterEfficiency', name: 'Booster Efficiency', category: 'Defense', rank: 2, prerequisites: [{skill: 'shieldOp', level: 2}]},
   navigation: {id: 'navigation', name: 'Navigation', category: 'Navigation', rank: 1, prerequisites: []},
   // Step 9: a loaded hold slows and handles less. Rank 2, after Navigation II.
   cargoTrim: {id: 'cargoTrim', name: 'Cargo Trim', category: 'Navigation', rank: 2, prerequisites: [{skill: 'navigation', level: 2}]},
@@ -88,6 +91,14 @@ export const CHARGE_CONTROL_CUT = 0.04;
 /** A weapon cycle in seconds at a Charge Control level, to 0.1 s: the Light Cannon's 3 s is 2.4 s at level 5. */
 export function weaponCycleAt(baseSec: number, chargeControlLevel: number): number {
   return Math.round(baseSec * (1 - CHARGE_CONTROL_CUT * chargeControlLevel) * 10) / 10;
+}
+
+/** Booster Efficiency: each level cuts the Shield Booster's Cap per cycle by this share. */
+export const BOOSTER_EFFICIENCY_CUT = 0.08;
+
+/** Shield Booster Cap per cycle at a Booster Efficiency level, whole Cap: one booster's 25 is 15 at level 5. */
+export function boosterCapAt(baseCap: number, boosterEfficiencyLevel: number): number {
+  return Math.round(baseCap * (1 - BOOSTER_EFFICIENCY_CUT * boosterEfficiencyLevel));
 }
 
 /** Cargo Trim: each level cuts the hold's load effect on handling by this share. */
