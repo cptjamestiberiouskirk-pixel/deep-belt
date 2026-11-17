@@ -55,6 +55,19 @@ From: 2026-11-15 "A scripted edit wrote a literal $1 into App.tsx"; 2026-11-17 "
 1. Any text that holds backslashes or `$` (a script, a commit message, file contents) is saved with the Write tool and passed by its file (`node file`, `git commit -F file`), not through a Bash heredoc or `sed`.
 2. A scripted edit to App.tsx counts its matches, and is followed by the type-check and a read of the whole diff before any test run.
 
+## Selecting a target in tests
+
+From: 2026-11-15 "Tab never reached a pirate 44 km away under full load"
+
+1. A test selects an object more than a few km away from its Overview row, not with Tab (`selectTarget`).
+
+## Editing files with a script
+
+From: 2026-11-15 "A sed edit turned App.tsx from CRLF to LF"
+
+1. A scripted edit splits lines on an optional CR before LF and writes back with the line ending the file had. Git Bash `sed -i` does not: it writes LF, so App.tsx is edited with the Edit tool or such a script.
+2. Before a test run or commit, `git ls-files --eol <file>` shows the ending the file had before the edit (App.tsx: `w/crlf`), never `w/mixed`.
+
 ## Windows programs from the Bash tool
 
 From: 2026-11-15 "Git Bash turned a `rev:path` argument into a Windows path"; 2026-11-15 "Git Bash turned a `/J` switch into a drive letter"

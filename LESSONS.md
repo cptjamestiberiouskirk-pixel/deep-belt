@@ -83,8 +83,8 @@ Format, checked by `node dev/lessons.mjs --check`. A field's text may go on over
 - What went wrong: in content-tree step 2a, `sed -i` in Git Bash rewrote App.tsx with LF line endings, and a later Node edit script added LF lines to tests/station.spec.ts, leaving it with mixed endings. Edit scripts that split on CRLF then found no lines to anchor on.
 - Why: the worktree files are CRLF (core.autocrlf is true) while the index is LF. Git Bash `sed -i` writes LF, and a script that joins with a bare LF adds LF lines to a CRLF file. Nothing reached a commit: git stores LF either way.
 - Rule going forward: an edit script splits on an optional CR before LF and writes back with the line ending the file had. Before a commit, `git ls-files --eol <file>` shows `w/crlf` or `w/lf`, not `w/mixed`.
-- Evidence: `git ls-files --eol tests/station.spec.ts` showed `w/mixed` before the 2a commit; both files were rewritten as CRLF with a Node one-liner.
-- Status: open
+- Evidence: `git ls-files --eol tests/station.spec.ts` showed `w/mixed` before the 2a commit; both files were rewritten as CRLF with a Node one-liner. Recurred 2026-11-17 in step 13: `sed -i` added an import to line 121 of App.tsx right after the lessons check had printed this lesson, and a count showed 0 CRLF lines; a Node one-liner restored CRLF (43,218 lines, 0 bare LF) before any test or commit.
+- Status: promoted to PLAYBOOK "Editing files with a script"
 
 ## 2026-11-15: A scripted edit wrote a literal $1 into App.tsx
 - What went wrong: in content-tree step 1, a Node script that edited App.tsx wrote the text "$1$2" in place of the market's module list and several Fitting lines; the type-check failed on it. A `sed` fix to the script then stripped the backslashes from its regex, so a second run did the same. Both times App.tsx was restored with `git checkout -- App.tsx`, which held no other changes.
@@ -118,8 +118,8 @@ Format, checked by `node dev/lessons.mjs --check`. A field's text may go on over
 - What went wrong: "selecting a far-off pirate does not summon it across the system" failed in two full runs of 62 tests in a row, each time at `selectTarget(page, /Rift Corsair/)`: after 40 s of Tab presses the Target panel still showed an asteroid at 36 km. Alone it passed 2 of 2. It is the same test as in "Two tests timed out once under full local load", so that rule called for fixing its cause.
 - Why: Tab steps through every object in the system nearest first and re-sorts the list on each press. With the ship under fire and moving, and pages slowed by 8 workers, the corsair behind dozens of asteroids did not come up within 40 s.
 - Rule going forward: a test selects an object more than a few km away from its Overview row, not with Tab.
-- Evidence: `tests/space.spec.ts`, search "Picked from the Overview"; the fixed test passed 4 of 4 runs alone. Again in content-tree step 6: the new Lance Driver test copied the Light Cannon test's Tab selection of the Belt Two pirate and failed once in the full run; both tests now pick it from the Overview (tests/lance.spec.ts passed 3 of 3 runs).
-- Status: open
+- Evidence: `tests/space.spec.ts`, search "Picked from the Overview"; the fixed test passed 4 of 4 runs alone. Again in content-tree step 6: the new Lance Driver test copied the Light Cannon test's Tab selection of the Belt Two pirate and failed once in the full run; both tests now pick it from the Overview (tests/lance.spec.ts passed 3 of 3 runs). Again 2026-11-17, step 13: "combat: a pirate can be locked, destroyed and its wreck salvaged" in tests/space.spec.ts still used Tab for the Belt Two pirate and failed once in the full run (an asteroid 82.4 km away after 40 s); alone it passed 3 of 3. That test and "the Belt Two pirate has 84 shield and 42 hull" now pick it from the Overview.
+- Status: promoted to PLAYBOOK "Selecting a target in tests"
 
 ## 2026-11-15: A push to main was refused because main had moved
 - What went wrong: `git push origin HEAD:main` for the late-game round was refused as not a fast-forward. Another session had pushed f4ea9ac and b0c71dd (docs only) during a 14-minute test run, after this session's last fetch.
