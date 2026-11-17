@@ -53,7 +53,7 @@ test('skills screen: at Mining III, Laser Tuning I queues for 100 MARKS and take
   await openTab(page, '3', 'SKILLS MATRIX');
   const extraction = page.getByTestId('skill-category-Extraction');
   await expect(extraction.getByRole('button', {name: /^NEEDS/})).toHaveCount(0);
-  await extraction.getByRole('button', {name: 'LVL I (100 MARKS • 2:00)'}).click();
+  await page.getByTestId('skill-card-laserTuning').getByRole('button', {name: 'LVL I (100 MARKS • 2:00)'}).click();
   await expect.poll(async () => (await readSave(page))!.trainingQueue.length).toBe(1);
   const after = (await readSave(page))!;
   expect(after.trainingQueue[0]).toMatchObject({skillId: 'laserTuning', targetLevel: 1, duration: 120, cost: 100});

@@ -20,13 +20,13 @@ function record(row: Record<string, unknown>) {
   appendFileSync(OUT, JSON.stringify(row) + '\n');
 }
 
-type Player = {speed: number; capacitor: number; maxCapacitor: number; shield: number; armor: number; hull: number; warpState: string; cannonActive: boolean; boosterActive: boolean; miningActive: boolean; miningTimer: number; x: number; y: number; heading: number};
+type Player = {speed: number; capacitor: number; maxCapacitor: number; shield: number; armor: number; hull: number; warpState: string; cannonActive: boolean; boosterActive: boolean; miningActive: boolean; miningTimer: number; x: number; y: number; heading: number; notice: number};
 type Pirate = {isAlive: boolean; shield: number; armor: number; hull: number; speed: number; x: number; y: number};
 const player = (page: Page) => page.evaluate(() => (window as any).__DEEP_BELT_PROBE__.player() as Player);
 const pirate = (page: Page) => page.evaluate(() => (window as any).__DEEP_BELT_PROBE__.pirate() as Pirate);
 
 const BASE = {...RICH, milestoneIndustrialistClaimed: true};
-const skills = (s: Record<string, number>) => ({skills: {mining: 0, laserTuning: 0, gunnery: 0, chargeControl: 0, shieldOp: 0, navigation: 0, cargoTrim: 0, ...s}});
+const skills = (s: Record<string, number>) => ({skills: {mining: 0, laserTuning: 0, lowProfile: 0, gunnery: 0, chargeControl: 0, shieldOp: 0, navigation: 0, cargoTrim: 0, ...s}});
 const fitting = (fitted: Array<string | null>) => ({fitting: {hangar: {}, fitted, loadouts: {}}});
 const PLAIN = ['miner_mk1', null, null, 'light_cannon'];
 const BULK = ['miner_mk1', 'bulk_hold', null, 'light_cannon'];
@@ -308,6 +308,125 @@ for (const c of [{name: 'empty hold', tritanium: 0}, {name: 'full hold (600 Trit
       raiderTopSpeed: Math.round(raiderTop),
       playerTopSpeed: Math.round(playerTop),
     });
+  });
+}
+
+// --- Warping away from a raider wave: wait until a raider is in firing range
+// (8 km), warp to Belt One, and record the HP lost during the spool and in the
+// 20 s after dropping out, and how close the raiders still are by then.
+const WARP_ESCAPES = [
+  {name: 'full hold (600 Tritanium), no skills', nav: 0, trim: 0},
+  {name: 'full hold (600 Tritanium), Navigation V, Cargo Trim V', nav: 5, trim: 5},
+];
+for (const c of WARP_ESCAPES) {
+  test(`raiders: warp away, ${c.name}`, async ({page}) => {
+    test.setTimeout(240_000);
+    await openWithSave(page, {...BASE, ...skills({navigation: c.nav, cargoTrim: c.trim}), ...fitting(PLAIN), cargoFerrite: 240, cargoTritanium: 600});
+    await enterGame(page);
+    await page.keyboard.press('1');
+    await settle(page);
+    await page.keyboard.press('Enter');
+    await expect.poll(async () => (await readSave(page))!.cargoFerrite).toBe(0);
+    await page.keyboard.press('Escape');
+    await undock(page);
+    await expect(page.getByText(/Raider wave inbound/).first()).toBeVisible({timeout: 20_000});
+    type R = {x: number; y: number; speed: number};
+    const raiders = () => page.evaluate(() => (window as any).__DEEP_BELT_PROBE__.raiders() as R[]);
+    const hp = (q: any) => q.shield + q.armor + q.hull;
+    const nearestKm = (q: any, rs: R[]) => (rs.length ? Math.min(...rs.map((r) => Math.hypot(q.x - r.x, q.y - r.y) / 50)) : null);
+    let p: any = await player(page);
+    const startHp = hp(p);
+    // Wait for the first raider inside 8 km.
+    const waitStart = Date.now();
+    while (Date.now() - waitStart < 60_000) {
+      p = await player(page);
+      const near = nearestKm(p, await raiders());
+      if (near !== null && near <= 8) break;
+      await page.waitForTimeout(100);
+    }
+    const hpAtRange = hp(p);
+    const warpStart = Date.now();
+    await warpTo(page, 'Belt One');
+    // Spool ends when the warp leaves ALIGNING.
+    let spoolSec = 0;
+    while (Date.now() - warpStart < 30_000) {
+      p = await player(page);
+      if (p.warpState !== 'ALIGNING') {
+        spoolSec = (Date.now() - warpStart) / 1000;
+        break;
+      }
+      await page.waitForTimeout(50);
+    }
+    const hpAfterSpool = hp(p);
+    await expect(page.getByText('Dropped out of warp at Belt One.').first()).toBeVisible({timeout: 60_000});
+    const hpOnArrival = hp(await player(page));
+    await page.waitForTimeout(20_000);
+    p = await player(page);
+    const after = await raiders();
+    record({
+      probe: 'raiders',
+      case: `warp away, ${c.name}`,
+      raidersLeft: after.length,
+      hpLostBeforeRange: Math.round(startHp - hpAtRange),
+      spoolSecWallClock: Math.round(spoolSec * 10) / 10,
+      hpLostDuringSpool: Math.round(hpAtRange - hpAfterSpool),
+      hpLostInWarp: Math.round(hpAfterSpool - hpOnArrival),
+      hpLost20sAfterArrival: Math.round(hpOnArrival - hp(p)),
+      nearestRaiderKm20sAfter: (() => { const n = nearestKm(p, after); return n === null ? null : Math.round(n * 10) / 10; })(),
+    });
+  });
+}
+
+// --- Notice from a sale: sell a full Ferrier hold of Ferrite, read Notice, then
+// undock and see whether a raider wave comes within 20 s.
+for (const lp of [0, 5]) {
+  test(`notice: sell 600 Ferrite at Low Profile ${lp}`, async ({page}) => {
+    test.setTimeout(120_000);
+    await openWithSave(page, {...BASE, ...skills({mining: 2, lowProfile: lp}), ...fitting(PLAIN), cargoFerrite: 600});
+    await enterGame(page);
+    await page.keyboard.press('1');
+    await settle(page);
+    await page.keyboard.press('Enter');
+    await expect.poll(async () => (await readSave(page))!.cargoFerrite).toBe(0);
+    const noticeAfterSale = Math.round((await player(page)).notice);
+    await page.keyboard.press('Escape');
+    await undock(page);
+    const raid = await page.getByText(/Raider wave inbound/).first().waitFor({timeout: 20_000}).then(() => true, () => false);
+    record({probe: 'notice', case: `sale of 600 Ferrite, Low Profile ${lp}`, noticeAfterSale, raidWithin20s: raid});
+  });
+}
+
+// --- Notice from mining: Notice gained per second while the laser runs, over 40 s at Belt One.
+for (const lp of [0, 5]) {
+  test(`notice: mining at Low Profile ${lp}`, async ({page}) => {
+    test.setTimeout(240_000);
+    await openWithSave(page, {...BASE, ...skills({mining: 2, lowProfile: lp}), ...fitting(['miner_mk1', 'bulk_hold', null, 'light_cannon'])});
+    await enterGame(page);
+    await undock(page);
+    await flyTo(page, 'Belt One');
+    await page.evaluate(() => {
+      const w = window as unknown as {__on: number; __rise: number; __last: {t: number; n: number; on: boolean} | null; __DEEP_BELT_PROBE__: any};
+      w.__on = 0;
+      w.__rise = 0;
+      w.__last = null;
+      setInterval(() => {
+        const q = w.__DEEP_BELT_PROBE__.player();
+        const now = {t: performance.now(), n: q.notice, on: q.miningActive};
+        // Count only spans where the laser ran at both ends and Notice was below its cap.
+        if (w.__last && w.__last.on && now.on && now.n < 100) {
+          w.__on += (now.t - w.__last.t) / 1000;
+          w.__rise += now.n - w.__last.n;
+        }
+        w.__last = now;
+      }, 250);
+    });
+    const t = Date.now();
+    await mineUntil(page, async () => Date.now() - t > 40_000, 200_000);
+    const m = await page.evaluate(() => {
+      const w = window as unknown as {__on: number; __rise: number};
+      return {on: w.__on, rise: w.__rise};
+    });
+    record({probe: 'notice', case: `mining, Low Profile ${lp}`, laserOnSec: Math.round(m.on * 10) / 10, noticePerSec: Math.round((m.rise / m.on) * 100) / 100});
   });
 }
 

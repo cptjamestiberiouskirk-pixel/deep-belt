@@ -119,7 +119,7 @@ import {MARKET_MODULE_IDS, MODULES, minerFor, missingSkill, type ModuleId} from 
 import type {SlotType} from './content/types';
 import {LENSES, LENS_IDS, lensBonusLabel} from './content/lenses';
 import {readItem} from './content/inventory';
-import {CARGO_TRIM_CUT, CHARGE_CONTROL_CUT, effectiveLoad, LASER_TUNING_CUT, minerCycleAt, prerequisiteText, SKILL_CATEGORY_ORDER, skillLevels, SKILLS, unmetPrerequisites, weaponCycleAt} from './content/skills';
+import {CARGO_TRIM_CUT, CHARGE_CONTROL_CUT, effectiveLoad, freeFerriteAt, LASER_TUNING_CUT, LOW_PROFILE_FREE_FERRITE, LOW_PROFILE_MINING_CUT, minerCycleAt, miningNoticePerSec, prerequisiteText, saleNotice, SKILL_CATEGORY_ORDER, skillLevels, SKILLS, unmetPrerequisites, weaponCycleAt} from './content/skills';
 import {formatSpeed, FULL_HOLD_THRUST_CUT, flightLimits, PIXELS_PER_KM, topSpeed} from './content/flight';
 import type {ModuleDef} from './content/types';
 import {
@@ -1452,6 +1452,14 @@ export const SKILL_DEFINITIONS: SkillDefinition[] = [
       const miner = fitted?.miner ?? MODULES.miner_mk1;
       return `-${Math.round(LASER_TUNING_CUT * 100 * level)}% cycle time (${miner.name}: ${minerCycleAt(miner.stats.cycleSec ?? 10, level).toFixed(1)} s)`;
     },
+  },
+  {
+    id: 'lowProfile',
+    name: 'Low Profile',
+    category: SKILLS.lowProfile.category,
+    description: `+${LOW_PROFILE_FREE_FERRITE} Ferrite sold without drawing Notice, and -${Math.round(LOW_PROFILE_MINING_CUT * 100)}% Notice from mining, per level`,
+    getBonusText: (level: number) =>
+      `Sell ${freeFerriteAt(level)} Ferrite unnoticed, -${Math.round(LOW_PROFILE_MINING_CUT * 100 * level)}% mining Notice (${miningNoticePerSec(level).toFixed(2)}/s)`,
   },
   {
     id: 'gunnery',
@@ -6206,7 +6214,7 @@ export default function App() {
     (window as any).__DEEP_BELT_PROBE__ = {
       player: () => {
         const p = playerRef.current;
-        return {speed: Math.hypot(p.vx, p.vy), capacitor: p.capacitor, maxCapacitor: p.maxCapacitor, shield: p.shield, armor: p.armor, hull: p.hull, warpState: p.warpState, cannonActive: p.cannonActive, boosterActive: p.shieldBoosterActive, miningActive: p.miningLaserActive, miningTimer: p.miningTimer, x: p.x, y: p.y, heading: p.heading};
+        return {speed: Math.hypot(p.vx, p.vy), capacitor: p.capacitor, maxCapacitor: p.maxCapacitor, shield: p.shield, armor: p.armor, hull: p.hull, warpState: p.warpState, cannonActive: p.cannonActive, boosterActive: p.shieldBoosterActive, miningActive: p.miningLaserActive, miningTimer: p.miningTimer, x: p.x, y: p.y, heading: p.heading, notice: noticeRef.current};
       },
       pirate: () => {
         const q = pirateRef.current;
@@ -11905,9 +11913,9 @@ export default function App() {
 
   // Notice heat accumulation helper for ore sales at stations
   const handleOreSaleNotice = useCallback((oreCount: number) => {
-    if (oreCount > 200) {
-      const extra = oreCount - 200;
-      const added = extra * 3;
+    // Ferrite beyond the free amount adds Notice; Low Profile raises the free amount (content/skills.ts).
+    const added = saleNotice(oreCount, skillsRef.current.lowProfile || 0);
+    if (added > 0) {
       const prevNotice = noticeRef.current;
       const nextNotice = Math.min(100, prevNotice + added);
       noticeRef.current = nextNotice;
@@ -18285,7 +18293,7 @@ export default function App() {
     // this frame's decay so that still counts as reaching the raid threshold.
     const noticeBeforeDecay = noticeRef.current;
     if (p.miningLaserActive) {
-      noticeRef.current = Math.min(100, noticeRef.current + 0.8 * dt);
+      noticeRef.current = Math.min(100, noticeRef.current + miningNoticePerSec(skillsRef.current.lowProfile || 0) * dt);
     } else {
       noticeRef.current = Math.max(0, noticeRef.current - 1.5 * dt);
     }
@@ -36358,6 +36366,7 @@ export default function App() {
                             return (
                               <div
                                 key={def.id}
+                                data-testid={`skill-card-${def.id}`}
                                 onClick={() => {
                                   setSkillsFocusIndex(sIdx);
                                   skillsFocusIndexRef.current = sIdx;

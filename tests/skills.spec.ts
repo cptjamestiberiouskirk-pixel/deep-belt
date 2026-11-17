@@ -49,8 +49,8 @@ test('skills: the Skills screen has a header per category, and training time and
   ]);
   await expect(page.getByTestId('skill-category-Extraction')).toContainText('MINING');
   await expect(page.getByTestId('skill-category-Defense')).toContainText('SHIELD OPERATION');
-  // Only Laser Tuning, Charge Control and Cargo Trim have a prerequisite.
-  await expect(page.getByText(/^Needs:/)).toHaveCount(3);
+  // Only Laser Tuning, Low Profile, Charge Control and Cargo Trim have a prerequisite.
+  await expect(page.getByText(/^Needs:/)).toHaveCount(4);
   await expect(page.getByTestId('skill-category-Extraction')).toContainText('LVL I (100 MARKS • 1:00)');
 
   // Enter trains the first skill: level 1 is 60 s for 100 MARKS, as before.

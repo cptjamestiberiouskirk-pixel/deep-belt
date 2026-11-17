@@ -4,7 +4,7 @@
 //
 // The bonus each level gives stays in App.tsx's SKILL_DEFINITIONS for now.
 
-export type SkillId = 'mining' | 'laserTuning' | 'gunnery' | 'chargeControl' | 'shieldOp' | 'navigation' | 'cargoTrim';
+export type SkillId = 'mining' | 'laserTuning' | 'lowProfile' | 'gunnery' | 'chargeControl' | 'shieldOp' | 'navigation' | 'cargoTrim';
 export type SkillCategory = 'Extraction' | 'Gunnery' | 'Defense' | 'Navigation' | 'Industry' | 'Science';
 
 export interface SkillDef {
@@ -23,6 +23,10 @@ export const SKILLS: Record<SkillId, SkillDef> = {
   mining: {id: 'mining', name: 'Mining', category: 'Extraction', rank: 1, prerequisites: []},
   // Step 10: a shorter mining cycle, so ore comes faster. Rank 2, after Mining III.
   laserTuning: {id: 'laserTuning', name: 'Laser Tuning', category: 'Extraction', rank: 2, prerequisites: [{skill: 'mining', level: 3}]},
+  // Step 11: less Notice from ore sales and mining, so fewer raider waves. Rank 2,
+  // after Mining II. (A warp spool skill was dropped first: the probe found a
+  // shorter spool saves no HP, and raiders catch up after an in-system warp.)
+  lowProfile: {id: 'lowProfile', name: 'Low Profile', category: 'Extraction', rank: 2, prerequisites: [{skill: 'mining', level: 2}]},
   gunnery: {id: 'gunnery', name: 'Gunnery', category: 'Gunnery', rank: 1, prerequisites: []},
   // Step 7, the first new skill: a faster weapon cycle. Rank 2, after Gunnery III.
   // It first cut Cap per shot, which the probe found changed no fight (no fight
@@ -50,6 +54,32 @@ export const LASER_TUNING_CUT = 0.04;
 /** A mining cycle in seconds at a Laser Tuning level, to 0.1 s: the MK1's 10 s is 8 s at level 5. */
 export function minerCycleAt(baseSec: number, laserTuningLevel: number): number {
   return Math.round(baseSec * (1 - LASER_TUNING_CUT * laserTuningLevel) * 10) / 10;
+}
+
+/** Ferrite sold at once without drawing Notice, before Low Profile. */
+export const NOTICE_FREE_FERRITE = 200;
+/** Notice for each Ferrite sold beyond the free amount (100 Notice brings a raider wave). */
+export const NOTICE_PER_FERRITE = 3;
+/** Low Profile: each level adds this much Ferrite to the free amount (600 at level V). */
+export const LOW_PROFILE_FREE_FERRITE = 80;
+/** Notice a second while the mining laser runs, before Low Profile. */
+export const MINING_NOTICE_PER_SEC = 0.8;
+/** Low Profile: each level cuts the mining laser's Notice by this share. */
+export const LOW_PROFILE_MINING_CUT = 0.1;
+
+/** Ferrite that sells at once without drawing Notice, at a Low Profile level. */
+export function freeFerriteAt(lowProfileLevel: number): number {
+  return NOTICE_FREE_FERRITE + LOW_PROFILE_FREE_FERRITE * lowProfileLevel;
+}
+
+/** Notice a Ferrite sale adds (before the cap at 100), at a Low Profile level. */
+export function saleNotice(ferriteSold: number, lowProfileLevel: number): number {
+  return Math.max(0, ferriteSold - freeFerriteAt(lowProfileLevel)) * NOTICE_PER_FERRITE;
+}
+
+/** Notice a second while mining, at a Low Profile level: 0.8 at 0, 0.4 at V. */
+export function miningNoticePerSec(lowProfileLevel: number): number {
+  return Math.round(MINING_NOTICE_PER_SEC * (1 - LOW_PROFILE_MINING_CUT * lowProfileLevel) * 100) / 100;
 }
 
 /** Charge Control: each level cuts the weapon cycle by this share. */
