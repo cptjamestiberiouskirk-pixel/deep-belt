@@ -177,7 +177,10 @@ test('notice: dumping ore on the market brings a raider wave, and docking sheds 
   await page.keyboard.press('Escape');
   await undock(page);
   await expect(page.getByText(/Raider wave inbound/).first()).toBeVisible({timeout: 20_000});
-  await selectTarget(page, /Raider/);
+  // Picked from the Overview, not with Tab: the raiders come in about 7.5 km out.
+  await page.getByText('Ships', {exact: true}).click();
+  await page.getByText(/^Raider \d+$/).first().click();
+  await expect.poll(() => targetPanel(page)).toMatch(/Raider/);
   await pressUntil(page, 'f', async () => {
     await expect(page.getByText('Docked · safe')).toBeVisible({timeout: 3000});
   }, 60_000);
