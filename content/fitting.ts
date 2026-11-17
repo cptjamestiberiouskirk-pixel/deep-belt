@@ -38,7 +38,8 @@ export const SLOT_LAYOUTS: Record<HullId, SlotType[]> = {
 };
 
 export function layoutOf(hull: HullId): SlotType[] {
-  return SLOT_LAYOUTS[hull] ?? SLOT_LAYOUTS.ferrier;
+  // Own keys only: "toString" or "constructor" from a save must not reach Object.prototype.
+  return Object.hasOwn(SLOT_LAYOUTS, hull) ? SLOT_LAYOUTS[hull] : SLOT_LAYOUTS.ferrier;
 }
 
 /** The order slot types are listed in, and their headers on the Fitting screen. */
@@ -148,8 +149,8 @@ export interface LegacyFlags {
  * retrofit: a save with nothing in the weapon slot and no cannon gets one fitted.
  */
 export function fromLegacy(data: LegacyFlags, hull: HullId): FittingState {
-  const up = {laserMk2: false, cargoExpanded: false, shieldBoosterHeavy: false, cannon: true, ...(data.upgrades ?? {})};
-  const fs = {slot1MiningLaser: true, slot2CargoExpander: false, slot3ShieldBooster: false, slot4Cannon: true, ...(data.fittedSlots ?? {})};
+  const up = {laserMk2: false, cargoExpanded: false, shieldBoosterHeavy: false, cannon: true, ...data.upgrades};
+  const fs = {slot1MiningLaser: true, slot2CargoExpander: false, slot3ShieldBooster: false, slot4Cannon: true, ...data.fittedSlots};
   if (fs.slot4Cannon !== true && !up.cannon) {
     up.cannon = true;
     fs.slot4Cannon = true;
@@ -278,10 +279,11 @@ export function switchHull(s: FittingState, from: HullId, to: HullId): FittingSt
 export function parseFitting(raw: unknown, hull: HullId): FittingState | null {
   if (!raw || typeof raw !== 'object') return null;
   const r = raw as Partial<FittingState>;
-  const isId = (x: unknown): x is ModuleId => typeof x === 'string' && x in MODULES;
+  const isId = (x: unknown): x is ModuleId => typeof x === 'string' && Object.hasOwn(MODULES, x);
   if (!r.hangar || typeof r.hangar !== 'object' || !Array.isArray(r.fitted)) return null;
   const hangar: FittingState['hangar'] = {};
-  for (const [k, v] of Object.entries(r.hangar)) if (isId(k) && typeof v === 'number' && v > 0) hangar[k] = Math.floor(v);
+  // At least 1 and finite, so a count of 0.5 or Infinity can't load as 0 or Infinity.
+  for (const [k, v] of Object.entries(r.hangar)) if (isId(k) && Number.isFinite(v) && (v as number) >= 1) hangar[k] = Math.floor(v as number);
   const valid = (list: unknown[]) => list.map((x) => (isId(x) ? x : null));
   // By type, so a save made before a layout changed keeps every module; what has no slot goes to the hangar.
   const placed = placeByType(layoutOf(hull), valid(r.fitted));
@@ -290,7 +292,7 @@ export function parseFitting(raw: unknown, hull: HullId): FittingState | null {
   const loadouts: FittingState['loadouts'] = {};
   if (r.loadouts && typeof r.loadouts === 'object') {
     for (const [k, v] of Object.entries(r.loadouts)) {
-      if (k in SLOT_LAYOUTS && Array.isArray(v)) loadouts[k as HullId] = placeByType(layoutOf(k as HullId), valid(v)).slots;
+      if (Object.hasOwn(SLOT_LAYOUTS, k) && Array.isArray(v)) loadouts[k as HullId] = placeByType(layoutOf(k as HullId), valid(v)).slots;
     }
   }
   return {hangar, fitted, loadouts};
