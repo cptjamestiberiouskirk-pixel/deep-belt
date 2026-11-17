@@ -1,5 +1,4 @@
 // tslint:disable
-/* eslint-disable */
 // IMPORT_REACT_1
 // IMPORT_REACT_2
 // IMPORT_REACT_5
@@ -6525,7 +6524,7 @@ export default function App() {
     let liquidatedUnits = 0;
     let liquidatedMarks = 0;
 
-    const manifestItems = { ...(run.manifest.items || {}) };
+    const manifestItems = { ...run.manifest.items };
 
     // Priority 1: riftSync is deposited first (always added).
     if (manifestItems.riftSync && manifestItems.riftSync > 0) {
@@ -8187,12 +8186,12 @@ export default function App() {
       }
       if (data.hullLayouts && typeof data.hullLayouts === 'object') {
         const loadedLayouts = {
-          ferrier: { ...(data.hullLayouts.ferrier || {}) },
-          tern: { ...(data.hullLayouts.tern || {}) },
-          skirmisher: { ...(data.hullLayouts.skirmisher || {}) },
-          lattice: { ...(data.hullLayouts.lattice || {}) },
-          shade: { ...(data.hullLayouts.shade || {}) },
-          gantry: { ...(data.hullLayouts.gantry || {}) },
+          ferrier: { ...data.hullLayouts.ferrier },
+          tern: { ...data.hullLayouts.tern },
+          skirmisher: { ...data.hullLayouts.skirmisher },
+          lattice: { ...data.hullLayouts.lattice },
+          shade: { ...data.hullLayouts.shade },
+          gantry: { ...data.hullLayouts.gantry },
         };
         setHullLayouts(loadedLayouts);
         hullLayoutsRef.current = loadedLayouts;

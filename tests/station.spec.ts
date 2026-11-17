@@ -308,7 +308,7 @@ test('market: each module card shows its catalog name, price and stat', async ({
     // The innermost box holding both the name and a Buy button is the module's card.
     const card = page.locator('div', {hasText: p.name, has: page.getByRole('button', {name: 'Buy'})}).last();
     await expect(card).toContainText(p.badge);
-    await expect(card).toContainText(new RegExp(String(p.price).replace(/\B(?=(\d{3})+$)/g, ',?') + '\s*MARKS'));
+    await expect(card).toContainText(new RegExp(String(p.price).replace(/\B(?=(\d{3})+$)/g, ',?') + '\\s*MARKS'));
   }
   expectClean(problems);
 });
