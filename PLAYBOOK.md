@@ -34,6 +34,12 @@ From: 2026-11-15 "Two tests timed out once under full local load"; 2026-11-15 "F
 2. If the same test times out again, raise its wait or fix its cause.
 3. A wait for the title screen after a page load allows for the asset load under full parallel load, not the 15 s default.
 
+## Station keys in tests
+
+From: 2026-11-15 "A market Enter went to the officer's line, not the focused card"
+
+1. A test presses Enter in a station terminal only after `settle(page)`, which waits for "[Enter] Skip" to go.
+
 ## Windows programs from the Bash tool
 
 From: 2026-11-15 "Git Bash turned a `rev:path` argument into a Windows path"; 2026-11-15 "Git Bash turned a `/J` switch into a drive letter"

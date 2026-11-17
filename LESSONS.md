@@ -31,8 +31,8 @@ Format, checked by `node dev/lessons.mjs --check`. A field's text may go on over
 - What went wrong: in content-tree step 6, a new test opened the market, pressed ArrowUp to a module card and pressed Enter; nothing was bought. The screenshot showed the right card focused.
 - Why: while the officer's line is still typing out, Enter finishes the line instead of acting on the focused item. The market had just opened, so the line was still typing.
 - Rule going forward: a test presses Enter in a station terminal only after `settle(page)`, which waits for "[Enter] Skip" to go.
-- Evidence: tests/lance.spec.ts, search "Enter first finishes the officer's typed-out line"; the failing run's screenshot showed the Lance Driver card focused with no purchase.
-- Status: open
+- Evidence: tests/lance.spec.ts, search "Enter first finishes the officer's typed-out line"; the failing run's screenshot showed the Lance Driver card focused with no purchase. Recurred 2026-11-17: tests/low-profile.spec.ts's sale helper pressed Enter right after the market opened, and the 600 Ferrite stayed in the hold (search "Wait out the officer's line").
+- Status: promoted to PLAYBOOK "Station keys in tests"
 
 ## 2026-11-15: A skills test expected a name in the case the source wrote
 - What went wrong: in content-tree step 5, a new test looked for "Mining" in the Skills screen's Extraction group and failed. The screen shows "MINING".
