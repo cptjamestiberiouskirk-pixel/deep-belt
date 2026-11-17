@@ -7,7 +7,10 @@ test('combat: a pirate can be locked, destroyed and its wreck salvaged', async (
   const problems = await launch(page, FIGHTER);
   const before = (await readSave(page))!;
   await flyTo(page, 'Belt Two');
-  await selectTarget(page, /Pirate Frigate/);
+  // Picked from the Overview, not with Tab: under full load Tab may not reach it.
+  await page.getByText('Ships', {exact: true}).click();
+  await page.getByText('Pirate Frigate', {exact: true}).first().click();
+  await expect.poll(() => targetPanel(page)).toMatch(/Pirate Frigate/);
   await page.keyboard.press('l');
   await expect.poll(() => targetPanel(page), {timeout: 20_000}).toMatch(/Locked/);
   await page.keyboard.press('2');
@@ -24,7 +27,10 @@ test('combat: a pirate can be locked, destroyed and its wreck salvaged', async (
 test('the Belt Two pirate has 84 shield and 42 hull, 1.4x the first tuning', async ({page}) => {
   const problems = await launch(page);
   await flyTo(page, 'Belt Two');
-  await selectTarget(page, /Pirate Frigate/);
+  // Picked from the Overview, not with Tab: under full load Tab may not reach it.
+  await page.getByText('Ships', {exact: true}).click();
+  await page.getByText('Pirate Frigate', {exact: true}).first().click();
+  await expect.poll(() => targetPanel(page)).toMatch(/Pirate Frigate/);
   // The panel shows current/max; the current values may already be falling. The
   // ship's own SHIELD and HULL come first on the page, so read after the pirate's name.
   const maxOf = async (label: string) => {
