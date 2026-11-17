@@ -25956,7 +25956,8 @@ export default function App() {
         )}
 
           {/* TOAST NOTIFICATIONS (TUTORIAL: TOP-CENTER; STANDARD: LEFT COLUMN STACK OR DOCKED RIGHT) */}
-          {toasts.length > 0 && (() => {
+          {/* Not on the title screen: a toast still running when the pilot quits would draw over it. */}
+          {toasts.length > 0 && gameState.status !== 'START' && (() => {
             const isTutorialToast = (t: ToastNotice) =>
               t.id.startsWith('toast_tut_') || t.title.startsWith('STEP ');
 
@@ -26056,7 +26057,9 @@ export default function App() {
                   <div
                     style={{
                       position: 'absolute',
-                      zIndex: activeColonyPlanetId ? 100 : 50,
+                      // Above the station terminals (50), so a tip about a terminal shows on top
+                      // of it; below the milestone banner (85) and the modals (94 and up).
+                      zIndex: activeColonyPlanetId ? 100 : 60,
                       pointerEvents: 'none',
                       ...(isDocked
                         ? { right: '16px', bottom: '88px', left: 'auto', top: 'auto', width: '320px', maxWidth: '320px', alignItems: 'flex-end' }
