@@ -26,6 +26,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run typecheck
+      # oxlint, rules in .oxlintrc.json; any finding fails the job.
+      - run: npm run lint
       - run: npm run build
       # Only pushes to main publish, so only they need the site artifact.
       - if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'

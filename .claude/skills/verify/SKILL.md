@@ -10,7 +10,7 @@ The goal is evidence: what ran, what the game showed, and whether that matches w
 ## 1. Pick the route
 
 - **A throwaway Playwright spec**, for a state that takes setup (a save with skills, modules, cargo) or a number to measure. Name it `tests/tmp-<topic>.spec.ts`, run it, read what it prints, and delete it before any commit. It runs on the production build at port 4173, which the suite owns.
-- **The built-in browser**, to show the user, or to look around freely. Run `npm run build`, then `preview_start` with the name `deep-belt-playtest` (port 4174, from `.claude/launch.json`). Never leave a preview on 4173: the suite reuses it without rebuilding and then tests an old build.
+- **The built-in browser**, to show the user, or to look around freely. Run `npm run build`, then `preview_start` with the name `deep-belt-playtest` (port 4174, from `.claude/launch.json`). Never leave a preview on 4173: the suite then stops with "already used".
 
 ## 2. Mute the game first
 

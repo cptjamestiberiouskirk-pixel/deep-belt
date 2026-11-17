@@ -12,16 +12,18 @@ A change is verified when it has run and the result was seen, not when it type-c
 2. **Running the game.** The `verify` skill (`.claude/skills/verify/SKILL.md`) boots the build, seeds a save, drives it and takes screenshots. Use it before committing any change a player can see.
 3. **Measured balance numbers.** Speeds, damage, cycle times and ore rates are measured with `PROBE=1 npx playwright test tests/balance-probe.spec.ts`, not only computed. A number worked out from the formulas is INFERRED until the probe confirms it. Example: the mining pace probe first counted ore over a 40 s window, which cut cycles at random points and gave 2.2x where the game delivers 2.9x; it now times yields on the game's own clock over 80 s.
 
+Pure code in `content/` also has **property tests** in `tests/properties.spec.ts` (fast-check). Each states a rule that must always hold, such as "fitting, unfitting and boarding a hull never make or lose a module" or "any saved fitting loads well formed", tries hundreds of generated inputs, and shrinks a failure to its smallest case. A case a property once found stays pinned in its `examples`.
+
 A number the screen does not show (speed, Cap, the pirate's layers) is read from the read-only probe hook `window.__DEEP_BELT_PROBE__` (`player()`, `pirate()`, `raiders()`), set up in App.tsx.
 
 ## Cheap checks first
 
-1. `npx tsc -p .`
+1. `npx tsc -p .` and `npm run lint` (oxlint, rules in `.oxlintrc.json`, under a second; CI fails on any finding).
 2. The specs for the feature touched.
 3. The full suite, with its exit code kept: `set -o pipefail; npx playwright test 2>&1 | tail -6; echo "exit=${PIPESTATUS[0]}"`. Passed plus skipped must equal the total from `npx playwright test --list`.
 4. Push, then the CI run for that commit's full SHA. A CI result counts only for the commit it ran on; a later push makes it stale.
 
-Port 4173 belongs to the suite. Locally Playwright reuses a server already on it without rebuilding, so a preview left running there tests an old build. Manual play uses port 4174.
+Port 4173 belongs to the suite. Each run builds and serves the game there fresh; if something is already on the port, the run stops with "already used" rather than test an old build (`PW_REUSE_SERVER=1` reuses it on purpose). Manual play uses port 4174.
 
 ## Keep tests fast and honest
 
@@ -45,6 +47,8 @@ Read the diff, then run the checks whose trigger it matches. Add a row when a mi
 | A number in `content/` (damage, speed, yield, cycle, price) | The probe cases for it; every test that pins it; the status line of `design/content-tree.md` |
 | Layout or text on a screen | The 800x600 tests in `tests/fitting-save.spec.ts`; screenshots at 800x600 and 1280x800 |
 | Hostile speed, range or leash | The probe's fight, flee and raider cases |
+| A pure function in `content/` with a rule that must always hold | A property in `tests/properties.spec.ts` |
+| A lint finding | Fix it. A rule turned off or a file waived in `.oxlintrc.json` says why in its commit |
 | A new module or skill | A spec on the pattern of `tests/lance.spec.ts` (module) or `tests/laser-tuning.spec.ts` (skill) |
 
 ## Say how each commit was verified
@@ -57,7 +61,6 @@ After three rounds of fixing the same failing check without a pass, stop and rep
 
 ## Test kinds not in use yet
 
-- **Property tests:** state what must always hold and let a library try thousands of inputs against it. Fits the pure functions in `content/`: a cycle time never rises with skill level and never drops below its floor; `formatSpeed` and `PIXELS_PER_KM` agree; saving, loading and saving again gives the same save. It needs the `fast-check` dev dependency, so ask the user before installing it.
 - **Differential tests:** run the old and the new code on the same inputs and compare. Fits a change that should alter nothing, such as splitting App.tsx into modules: the same seeded saves and key sequences through both builds, compared on probe readings and the save each writes, with timing noise ignored and a list of intended differences.
 
 ## Learn from misses, prune the rest

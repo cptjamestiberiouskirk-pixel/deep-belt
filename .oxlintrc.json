@@ -1,0 +1,27 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "unicorn", "oxc", "react"],
+  "categories": {
+    "correctness": "error"
+  },
+  "rules": {
+    "react-hooks/rules-of-hooks": "error",
+    "react-hooks/exhaustive-deps": "off",
+    "react/purity": "off",
+    "react/refs": "off",
+    "react/immutability": "off",
+    "react/globals": "off",
+    "react/preserve-manual-memoization": "off",
+    "react/set-state-in-effect": "off",
+    "no-unused-vars": ["error", {"caughtErrors": "none", "argsIgnorePattern": "^_", "varsIgnorePattern": "^_"}]
+  },
+  "overrides": [
+    {
+      "files": ["App.tsx"],
+      "rules": {
+        "no-unused-vars": "off"
+      }
+    }
+  ],
+  "ignorePatterns": ["dist/**", "node_modules/**", "test-results/**", "playwright-report/**", ".adversarial-review/**", ".claude/**"]
+}
