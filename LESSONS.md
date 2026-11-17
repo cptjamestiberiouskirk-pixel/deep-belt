@@ -13,6 +13,13 @@ Format, checked by `node dev/lessons.mjs --check`. A field's text may go on over
 - Status: open | promoted to PLAYBOOK "<section>" | closed: <why the rule no longer holds>
 ```
 
+## 2026-11-16: A check that a toast was gone passed by waiting for it to expire
+- What went wrong: a new test said a tip still showing when the pilot quits does not show on the title screen. It passed with and without the code that hides it, so it proved nothing. A logged run then showed the tip still in the page when the title appeared, drawn over it.
+- Why: `await expect(locator).toHaveCount(0)` retries for up to 5 s, and the toast removes itself after 4.5 s, so the assertion waited until it was gone.
+- Rule going forward: a check that something is not shown, where that thing goes away by itself, reads once right after the event (`expect(await locator.count()).toBe(0)`), not with a retrying assertion. A test for a fix is run once without the fix and must fail there.
+- Evidence: tests/tips.spec.ts, search "Read once, at once"; without the title-screen gate in App.tsx it fails with "Expected: 0, Received: 1".
+- Status: open
+
 ## 2026-11-16: A suite run reported exit 0 with a failed test
 - What went wrong: after the hostile-speed fix, the full suite run printed "exited with code 0", but one test had failed (the Rift stage 3 test). It was caught only because "124 passed" was one short of the 125 expected.
 - Why: the command was `npx playwright test 2>&1 | tail -6`, so the exit code was tail's, not Playwright's, and the failure line had scrolled above the six lines kept.
