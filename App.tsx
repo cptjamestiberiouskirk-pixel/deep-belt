@@ -7880,7 +7880,7 @@ export default function App() {
         setCargoPackedRadflux(loadedPackedRadflux);
         cargoPackedRadfluxRef.current = loadedPackedRadflux;
       }
-      // Every hold item but the Station Core is saved in `inventory` (content/inventory.ts): it wins,
+      // Every hold item is saved in `inventory` (content/inventory.ts): it wins,
       // even at 0, and an item's old cargoXxx key is read only when inventory lacks it.
       const loadedSilicate = readItem(data, 'silicateLens');
       if (loadedSilicate !== null) {
@@ -7974,9 +7974,10 @@ export default function App() {
         setColonies(data.colonies);
         coloniesRef.current = data.colonies;
       }
-      if (typeof data.cargoStationCore === 'number') {
-        setCargoStationCore(data.cargoStationCore);
-        cargoStationCoreRef.current = data.cargoStationCore;
+      const loadedStationCore = readItem(data, 'stationCore');
+      if (loadedStationCore !== null) {
+        setCargoStationCore(loadedStationCore);
+        cargoStationCoreRef.current = loadedStationCore;
       }
       if (data.outpost && typeof data.outpost.deployed === 'boolean') {
         setOutpostDeployed(data.outpost.deployed);
@@ -8301,7 +8302,7 @@ export default function App() {
       const data = {
         currentSystem,
         marks,
-        // The hold, one item group at a time (content/inventory.ts): lenses, drones, colony goods, Rift goods, Vael ores, components, refined bars, raw ores and scrap.
+        // The whole hold (content/inventory.ts): lenses, drones, colony goods, Rift goods, Vael ores, components, refined bars, raw ores, scrap and the Station Core.
         inventory: {
           silicateLens: cargoSilicateLensRef.current,
           metallicLens: cargoMetallicLensRef.current,
@@ -8344,12 +8345,12 @@ export default function App() {
           chromite: cargoChromite,
           pyrox: cargoPyrox,
           scrap: cargoScrap,
+          stationCore: cargoStationCoreRef.current,
         },
         riftRun: riftRunRef.current,
         riftStats: riftStatsRef.current,
         gantryRefit: gantryRefitRef.current,
         colonies: coloniesRef.current,
-        cargoStationCore: cargoStationCoreRef.current,
         outpost: {
           deployed: outpostDeployedRef.current,
           modules: outpostModulesRef.current,
@@ -13513,7 +13514,8 @@ export default function App() {
         storage: outpostStorageRef.current,
       };
       data.outpostDeployed = true;
-      data.cargoStationCore = cargoStationCoreRef.current;
+      data.inventory = {...data.inventory, stationCore: cargoStationCoreRef.current};
+      delete data.cargoStationCore;
       localStorage.setItem(SAVE_SESSION_STORAGE_KEY, JSON.stringify(data));
     } catch (_) {}
   }, [setToastNotice]);

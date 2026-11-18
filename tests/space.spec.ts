@@ -1,5 +1,5 @@
 import {expect, test} from '@playwright/test';
-import {expectClean, expectTitle, flyTo, launch, mineState, readSave, selectTarget, settle, targetPanel, tuneLaser, whereAmI} from './helpers';
+import {expectClean, expectTitle, flyTo, launch, mineState, readSave, SAVE_KEY, selectTarget, settle, targetPanel, tuneLaser, whereAmI} from './helpers';
 
 const FIGHTER = {skills: {gunnery: 5, shieldOp: 5}};
 
@@ -108,13 +108,31 @@ test('jump gate: with a permit the ship reaches Vael and docks there', async ({p
 
 test('outpost: a station core deploys at the anchor and the outpost can be docked', async ({page}) => {
   const problems = await launch(page, {cargoStationCore: 1});
+  // Record every save the game writes from here: deploying edits the saved JSON in place,
+  // and no save may hold a deployed outpost with the core still in the hold.
+  await page.evaluate((key) => {
+    const w = window as unknown as {__coreSaves: Array<{deployed: boolean; core: unknown}>};
+    w.__coreSaves = [];
+    const setItem = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (k: string, v: string) {
+      if (k === key) {
+        const d = JSON.parse(v);
+        const inv = d.inventory ?? {};
+        w.__coreSaves.push({deployed: d.outpostDeployed === true, core: 'stationCore' in inv ? inv.stationCore : d.cargoStationCore});
+      }
+      return setItem.call(this, k, v);
+    };
+  }, SAVE_KEY);
   await flyTo(page, 'Belt One Anchor');
   // A key pressed in the same instant the ship drops out of warp can be lost.
   await expect(async () => {
     await page.keyboard.press('v');
     await expect.poll(async () => (await readSave(page))!.outpostDeployed, {timeout: 3000}).toBe(true);
   }).toPass({timeout: 30_000});
-  expect((await readSave(page))!.cargoStationCore).toBe(0);
+  expect((await readSave(page))!.inventory.stationCore).toBe(0);
+  const saves = await page.evaluate(() => (window as unknown as {__coreSaves: Array<{deployed: boolean; core: unknown}>}).__coreSaves);
+  expect(saves.some((s) => s.deployed), 'a save with the outpost deployed was recorded').toBe(true);
+  expect(saves.filter((s) => s.deployed && s.core !== 0), 'saves with the outpost deployed and a Station Core still held').toEqual([]);
   await expect(async () => {
     await page.keyboard.press('f');
     await expect(page.getByText('Docked at Your Outpost')).toBeVisible({timeout: 3000});

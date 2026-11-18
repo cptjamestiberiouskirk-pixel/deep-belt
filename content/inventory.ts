@@ -3,7 +3,7 @@
 // a time: the lenses (step 4), the three drones (step 19), the colony goods
 // (step 20), the Rift goods (step 21), the Vael ores (step 22), then the
 // manufactured components (step 23), the refined bars (step 24), then the raw
-// ores and scrap (step 25). Only the Station Core keeps its old key. A moved
+// ores and scrap (step 25), and last the Station Core (step 26). A moved
 // item's old `cargoXxx` save key is no longer written.
 //
 // Loading follows 4.4: an item present in `inventory` wins, even at 0; its old
@@ -34,9 +34,12 @@ export const REFINED_BAR_IDS = ['tritanium', 'auriteConc', 'chromiteBar', 'pyrox
 /** Raw ores as mined, and the Module Scrap that wrecks drop. */
 export const RAW_ORE_IDS = ['ferrite', 'rare', 'aurite', 'chromite', 'pyrox', 'scrap'] as const;
 
+/** The Station Core that deploys an outpost: the last hold item to move (step 26). */
+export const STATION_CORE_IDS = ['stationCore'] as const;
+
 /** Items saved in `inventory`, with the old save key each one replaces. */
 export const INVENTORY_ITEMS: Record<string, string> = Object.fromEntries(
-  [...LENS_IDS, ...DRONE_IDS, ...COLONY_GOOD_IDS, ...RIFT_GOOD_IDS, ...VAEL_ORE_IDS, ...COMPONENT_IDS, ...REFINED_BAR_IDS, ...RAW_ORE_IDS].map((id) => [id, `cargo${id[0].toUpperCase()}${id.slice(1)}`]),
+  [...LENS_IDS, ...DRONE_IDS, ...COLONY_GOOD_IDS, ...RIFT_GOOD_IDS, ...VAEL_ORE_IDS, ...COMPONENT_IDS, ...REFINED_BAR_IDS, ...RAW_ORE_IDS, ...STATION_CORE_IDS].map((id) => [id, `cargo${id[0].toUpperCase()}${id.slice(1)}`]),
 );
 
 const count = (x: unknown): number | null => (typeof x === 'number' && Number.isFinite(x) && x >= 0 ? Math.floor(x) : null);
