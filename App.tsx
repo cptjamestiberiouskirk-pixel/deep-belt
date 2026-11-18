@@ -886,8 +886,11 @@ const TargetAsteroidHarmonics = React.memo(({
 // Subscribed capacitor gauge with 60fps direct rAF DOM updates
 const CapacitorGauge = React.memo(({
   playerRef,
+  fireCap,
 }: {
   playerRef: React.MutableRefObject<any>;
+  /** Cap per shot of the fitted weapon, or null with none fitted. */
+  fireCap: number | null;
 }) => {
   const capRadius = 20;
   const capCircumference = 2 * Math.PI * capRadius;
@@ -977,7 +980,7 @@ const CapacitorGauge = React.memo(({
           </span>{' '}
           capacitor
         </span>
-        <span style={{ fontSize: '11px', whiteSpace: 'nowrap' }}>+2.5/s · Mine 12 · Fire 8</span>
+        <span data-testid="cap-costs" style={{ fontSize: '11px', whiteSpace: 'nowrap' }}>+2.5/s · Mine 12{fireCap !== null ? ` · Fire ${fireCap}` : ''}</span>
       </div>
     </div>
   );
@@ -26501,7 +26504,7 @@ export default function App() {
                     </div>
 
                     {/* Below bars: Capacitor section */}
-                    <CapacitorGauge playerRef={playerRef} />
+                    <CapacitorGauge playerRef={playerRef} fireCap={fittedWith(fitting.fitted, 'damage')?.stats.capPerCycle ?? null} />
 
                     {/* Below capacitor: Slim Cel Ink NOTICE meter */}
                     <NoticeBar
