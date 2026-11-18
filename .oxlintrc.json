@@ -15,13 +15,5 @@
     "react/set-state-in-effect": "off",
     "no-unused-vars": ["error", {"caughtErrors": "none", "argsIgnorePattern": "^_", "varsIgnorePattern": "^_"}]
   },
-  "overrides": [
-    {
-      "files": ["App.tsx"],
-      "rules": {
-        "no-unused-vars": "off"
-      }
-    }
-  ],
   "ignorePatterns": ["dist/**", "node_modules/**", "test-results/**", "playwright-report/**", ".adversarial-review/**", ".claude/**"]
 }
