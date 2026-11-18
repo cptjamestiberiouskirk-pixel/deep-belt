@@ -11,29 +11,19 @@
 /* TEST */
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
-  Play,
   RotateCw,
   Volume2,
   VolumeX,
   Compass,
-  Zap,
-  Shield,
   Layers,
-  Crosshair,
   Package,
   Wrench,
-  Radio,
   FileText,
-  HelpCircle,
-  Menu,
   X,
-  ArrowRight,
   Anchor,
   Sparkles,
   Target,
   GraduationCap,
-  BookOpen,
-  Clock,
 } from 'lucide-react';
 import {
   MINING_RANGE_KM,
@@ -42,7 +32,6 @@ import {
   STATION_PRICES,
   THEME,
   FABRICATOR_RECIPES,
-  FabricatorRecipe,
   fabricatorRecipeOrder,
   getRecipeCategory,
   getRecipeTierMultiplier,
@@ -57,10 +46,8 @@ import {
   RECIPE_OUTPUT_MAP,
   HAUL_CONTRACTS,
   HAUL_CONTRACTS_LIST,
-  HaulContract,
   HULL_HARDPOINTS,
   HULL_MODULES,
-  HullHardpointDef,
   SHIP_MODULE_ASSETS,
   SHIP_HULL_ASSETS,
   EXOTIC_ORE_ASSETS,
@@ -71,7 +58,6 @@ import {
   STATION_CORE_VOLUME,
   STATION_MODULES,
   STATION_MODULES_LIST,
-  StationModuleDef,
   getPoiZone,
   PoiZone,
   ZONE_COLORS,
@@ -83,13 +69,11 @@ import {
   getPlanetHeat,
   getPlanetHeatColor,
   getColonyNetwork,
-  ColonyCell,
   ColonyData,
   getColonyRawName,
   getColonyProductInfo,
   PLANET_ASSETS,
   COLONY_ASSETS,
-  RIFT_ASSETS,
   RIFT_STAGES,
   RiftStageDef,
   RiftGuardianEntity,
@@ -100,8 +84,6 @@ import {
 import {
   createFixedStepper,
   drawAsset,
-  drawBackground,
-  Entity,
   formatTime,
   gameAudio,
   GameState,
@@ -110,9 +92,7 @@ import {
   prepareCanvas,
   soundManager,
   useAssets,
-  useAutoFocus,
   useInput,
-  useIsMobile,
 } from './utils/helper';
 import {MARKET_MODULE_IDS, MODULES, minerFor, missingSkill, type ModuleId} from './content/modules';
 import type {SlotType} from './content/types';
@@ -1683,11 +1663,6 @@ export const COACH_STEPS_DATA: CoachStepData[] = [
   },
 ];
 
-const TUTORIAL_GLOW_STYLE: React.CSSProperties = {
-  background: '#FFB547',
-  color: '#0A0E1A',
-  border: '3px solid #0A0E1A',
-};
 
 // Reusable Cartoon Flat-Cel Key Chip Component
 export function KeyChip({label, size = 'sm'}: {label: string; size?: 'sm' | 'md'}) {
@@ -3509,7 +3484,6 @@ export default function App() {
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stepperRef = useRef<ReturnType<typeof createFixedStepper> | undefined>(undefined);
-  const lastCancelRef = useRef(false);
 
   // Performance Telemetry & Commit Counting
   const perfTelemetryRef = useRef({
@@ -3767,7 +3741,6 @@ export default function App() {
 
   // Asset preloading
   const {assets, isReady: assetsReady} = useAssets(ASSETS_MANIFEST);
-  const isMobile = useIsMobile();
 
   const getPlanetCanvas = useCallback((type: string): HTMLCanvasElement | null => {
     if (planetCanvasesRef.current[type]) {
@@ -4239,7 +4212,7 @@ export default function App() {
   const currentZoneRef = useRef<PoiZone>('core');
 
   // Jump animation state for flat-cel cartoon flash wipe
-  const [jumpFlashProgress, setJumpFlashProgress] = useState<number | null>(null);
+  const [, setJumpFlashProgress] = useState<number | null>(null);
   const jumpFlashProgressRef = useRef<number | null>(null);
   const jumpFlashAnimRef = useRef<number | null>(null);
 
@@ -4280,7 +4253,7 @@ export default function App() {
   const isOutpostBuildOpenRef = useRef(false);
   isOutpostBuildOpenRef.current = isOutpostBuildOpen;
 
-  const [outpostBuildTab, setOutpostBuildTab] = useState<'modules' | 'vault'>('modules');
+  const [outpostBuildTab] = useState<'modules' | 'vault'>('modules');
   const outpostBuildTabRef = useRef<'modules' | 'vault'>('modules');
   outpostBuildTabRef.current = outpostBuildTab;
 
@@ -4577,7 +4550,7 @@ export default function App() {
   }, []);
 
   const [isOverviewOpen, setIsOverviewOpen] = useState(true);
-  const [overviewTick, setOverviewTick] = useState(0);
+  const [, setOverviewTick] = useState(0);
   const overviewUpdateTimerRef = useRef(0);
   const [overviewFilter, setOverviewFilter] = useState<'All' | 'Ships' | 'Ore' | 'Nav'>('All');
 
@@ -4774,7 +4747,7 @@ export default function App() {
     [],
   );
 
-  const [featureTip, setFeatureTip] = useState<{
+  const [, setFeatureTip] = useState<{
     id: string;
     title: string;
     detail: string;
@@ -4821,11 +4794,6 @@ export default function App() {
 
   // Sprite Renderer for Mission Agent Osk Varran
   const missionAgentRendererRef = useRef<SpriteRenderer | null>(null);
-  const agentAnimStateRef = useRef<SpriteAnimationState>({
-    currentAction: 'IDLE',
-    currentFrame: 0,
-    timer: 0,
-  });
 
   // Stage 3 Skills & Neural Training Queue state
   const [skills, setSkills] = useState<SkillsState>(() => skillLevels(undefined));
@@ -4838,7 +4806,6 @@ export default function App() {
 
   const [trainingElapsed, setTrainingElapsed] = useState(0);
   const trainingElapsedRef = useRef(0);
-  const lastTrainingTimestampRef = useRef<number>(Date.now());
 
   // Player ship attributes state for HUD & Station
   const [marks, setMarks] = useState(() => {
@@ -4954,10 +4921,6 @@ export default function App() {
     });
   }, []);
 
-  const setShowRiftConduitModal = setShowConduitModal;
-  const setShowRiftGateModal = setShowGateModal;
-  const showRiftConduitModal = showConduitModal;
-  const showRiftGateModal = showGateModal;
 
   // Active Hacking State for Data Containers in Rift
   const [hackingTargetId, setHackingTargetId] = useState<string | null>(null);
@@ -4994,7 +4957,7 @@ export default function App() {
   const colonyAccRef = useRef(0);
   const colonySaveTimerRef = useRef(0);
   const [colonySaveCount, setColonySaveCount] = useState(0);
-  const [colonyTick, setColonyTick] = useState(0);
+  const [, setColonyTick] = useState(0);
 
   // Active Colony Screen Modal state
   const [activeColonyPlanetId, setActiveColonyPlanetId] = useState<string | null>(null);
@@ -5328,14 +5291,6 @@ export default function App() {
   compressFocusIndexRef.current = compressFocusIndex;
 
   // Deployed Autonomous Drones System State & Persistence (In-Space)
-  interface DeployedDrone {
-    id: string;
-    type: 'extractDrone' | 'defenseDrone' | 'salvageDrone';
-    x: number;
-    y: number;
-    rockId?: string;
-    timer: number;
-  }
   const deployedDronesRef = useRef<Array<{ id: string; type: 'extractDrone' | 'defenseDrone' | 'salvageDrone'; x: number; y: number; rockId?: string; timer: number }>>([]);
   const [showDronesModal, setShowDronesModal] = useState(false);
   const showDronesModalRef = useRef(false);
@@ -5343,7 +5298,7 @@ export default function App() {
   const [dronesFocusIndex, setDronesFocusIndex] = useState(0);
   const dronesFocusIndexRef = useRef(0);
   dronesFocusIndexRef.current = dronesFocusIndex;
-  const [dronesTick, setDronesTick] = useState(0);
+  const [, setDronesTick] = useState(0);
 
   const [shipShield, setShipShield] = useState(100);
   const [shipArmor, setShipArmor] = useState(100);
@@ -6486,7 +6441,7 @@ export default function App() {
   }, [setToastNotice, addFloatingText, setSelectedTargetId, setLockedTargetId]);
 
   // RIFT RUN HANDLERS: ENTRY, PULSE, ADVANCE, EXTRACT, COLLAPSE
-  const handleRiftCollapse = useCallback((reason: string) => {
+  const handleRiftCollapse = useCallback((_reason: string) => {
     gameAudio.stopAllWarpSounds();
     gameAudio.playErrorBuzz();
     gameAudio.playCollapseRumbleSound();
@@ -7317,12 +7272,6 @@ export default function App() {
   // Sprite Renderer for Station Dock Officer
   const dockOfficerRendererRef = useRef<SpriteRenderer | null>(null);
 
-  // Animation state in ref to avoid 60fps React re-renders while docked
-  const dockOfficerAnimStateRef = useRef<SpriteAnimationState>({
-    currentAction: 'IDLE',
-    currentFrame: 0,
-    timer: 0,
-  });
 
   // Sprite Renderer for Player Captain
   const playerCaptainRendererRef = useRef<SpriteRenderer | null>(null);
@@ -9289,35 +9238,6 @@ export default function App() {
     addFloatingText(`ENGAGING WARP TO ${poi.name.toUpperCase()}...`, p.x, p.y - 40, '#00f0ff');
   };
 
-  const handleWarp = () => {
-    if (isDocked) return;
-    const basePois = getSystemPois(
-      currentSystem,
-      outpostDeployed,
-      hasGatePermit,
-    ).filter((poi) => {
-      if (poi.type === 'ANCHOR' && outpostDeployed) return false;
-      if (poi.id === 'outpost' && !outpostModulesRef.current.docking_ring) return false;
-      return true;
-    });
-    const currentPois = (dataCacheRef.current && dataCacheRef.current.system === currentSystem && !dataCacheRef.current.isOpened)
-      ? [...basePois, {
-          id: 'data_cache',
-          name: 'Data Cache',
-          type: 'CACHE' as any,
-          x: dataCacheRef.current.x,
-          y: dataCacheRef.current.y,
-          radius: 36,
-          description: 'Secured orbital data cache container.',
-        }]
-      : basePois;
-    let poi = currentPois.find((item) => item.id === selectedTargetId);
-    if (!poi) {
-      poi = currentPois.find((item) => item.type === 'STATION');
-    }
-    if (!poi) return;
-    initiateWarpTo(poi);
-  };
 
   const handleLockTarget = () => {
     if (isDocked) return;
@@ -11533,7 +11453,6 @@ export default function App() {
 
     const currentPois = currentSystemRef.current === 'Vael' ? VAEL_POIS : HARROW_POIS;
     const stationPoi = currentPois.find((item) => item.id === hubId) || currentPois.find((item) => item.type === 'STATION')!;
-    const isVaelRespawn = currentSystemRef.current === 'Vael';
 
     const activeDef = HULL_DEFINITIONS.find((h) => h.id === activeHullRef.current) || HULL_DEFINITIONS[0];
     const shieldLvl = skillsRef.current.shieldOp || 0;
@@ -11742,7 +11661,6 @@ export default function App() {
       const isVaelCannon = currentSystemRef.current === 'Vael';
       const isAsh = hostileId === ashPirateRef.current.id;
       const isRift = hostileId === riftPirateRef.current.id;
-      const isRiftCorsair = isRift;
       const guardian = currentSystemRef.current === 'Rift'
         ? riftGuardiansRef.current.find((g) => g.id === hostileId && g.isAlive)
         : null;
@@ -14100,7 +14018,6 @@ export default function App() {
     } catch (_) {}
   }, [setToastNotice]);
 
-  const installOutpostModule = installStationModule;
 
   const uninstallStationModule = useCallback((modId: string) => {
     const mod = STATION_MODULES[modId];
@@ -14181,7 +14098,6 @@ export default function App() {
     } catch (_) {}
   }, [setToastNotice]);
 
-  const uninstallOutpostModule = uninstallStationModule;
 
   const depositToVault = useCallback((cargoKey: string) => {
     if (!outpostModulesRef.current.storage_bay) {
@@ -14313,9 +14229,6 @@ export default function App() {
     } catch (_) {}
   }, [setToastNotice]);
 
-  const handleOpenOutpostBuild = useCallback(() => {
-    switchStationTab(stationTabRef.current === 'BUILD' ? 'DOCK' : 'BUILD');
-  }, [switchStationTab]);
 
   const handleOpenDataCache = useCallback((cache: DataCacheEntity) => {
     if (isDocked) return;
@@ -15178,7 +15091,6 @@ export default function App() {
 
   // Market Enter Action execution
   const handleMarketEnter = useCallback(() => {
-    const totalMarketCount = 35 + 5 + 1 + 6; // 35 commodity rows + 5 modules + 1 deed + 6 buy rows = 47
     const idx = marketFocusIndexRef.current;
     if (idx === 0) {
       if (cargoFerriteRef.current > 0) sellFerriteOre();
@@ -18961,7 +18873,6 @@ export default function App() {
     let autoSteerAngle: number | null = null;
     let autoThrust = false;
 
-    const currentPois = currentSystemRef.current === 'Vael' ? VAEL_POIS : HARROW_POIS;
     const isVael = currentSystemRef.current === 'Vael';
     const pirate = isVael ? vaelPirateRef.current : pirateRef.current;
 
@@ -19725,9 +19636,6 @@ export default function App() {
       pirate.respawnTimer = 180;
     } else if (pirate.isAlive) {
       const distanceKm = calcDistanceKm(p.x, p.y, pirate.x, pirate.y);
-      const isPlayerInPirateBelt = isVael
-        ? Math.hypot(p.x - 1400, p.y - (-900)) <= 800
-        : Math.hypot(p.x - (-1500), p.y - 1100) <= 800;
 
       // Belt Two Leash & Aggro Check
       let isEngaged = false;
@@ -19743,7 +19651,6 @@ export default function App() {
       if (!isVael) {
         const beltTwoX = -1500;
         const beltTwoY = 1100;
-        const beltRadius = 400;
         const playerDistToBeltTwo = Math.hypot(p.x - beltTwoX, p.y - beltTwoY);
         const isFarFromBeltTwo = playerDistToBeltTwo > 20.0 * PIXELS_PER_KM; // > 1000px
 
@@ -22475,7 +22382,6 @@ export default function App() {
 
         const startX = planet.x;
         const startY = planet.y + planet.radius;
-        const endX = planet.x;
         const endY = planet.y + planet.radius + 150;
 
         const rx = startX;
@@ -25415,30 +25321,6 @@ export default function App() {
 
         {/* TUTORIAL SCRIM, HIGHLIGHT RING, CALLOUT PILL, & COACH CARD */}
         {!tutorialDone && gameState.status === 'PLAYING' && (() => {
-          let curCoachStep = COACH_STEPS_DATA[tutorialStep] || COACH_STEPS_DATA[0];
-
-          if (tutorialStep === 3) {
-            const targetRockId = lockedTargetId || selectedTargetId || playerRef.current.targetLockedId || playerRef.current.miningTargetId;
-            const targetRock = targetRockId ? asteroidsRef.current.find((a) => a.id === targetRockId) : null;
-            const isMismatched = Boolean(targetRock && targetRock.stabilityFreq !== laserFreq);
-            if (isMismatched) {
-              curCoachStep = {
-                title: 'Cycle Mining Lasers',
-                lines: [
-                  'Tune [ / ] laser frequency to match target FREQ.',
-                  `Target rock is FREQ ${targetRock?.stabilityFreq} (Laser is FREQ ${laserFreq}) - mismatch causes rapid strain.`,
-                ],
-              };
-            } else {
-              curCoachStep = {
-                title: 'Cycle Mining Lasers',
-                lines: [
-                  'Cycle Mining Lasers [1] (Hold <= 1000m range)',
-                  'Wait for 10.0s cycle completion to collect ore in hold.',
-                ],
-              };
-            }
-          }
 
           // Determine callout label
           let calloutLabel = 'PRESS HERE';
@@ -25478,39 +25360,6 @@ export default function App() {
             }
           }
 
-          // Helper to render instruction lines with cream key chips
-          const renderInstructionLine = (text: string) => {
-            const parts = text.split(/(\[[^\]]+\])/);
-            return (
-              <div style={{ display: 'inline-flex', alignItems: 'center', flexWrap: 'wrap', gap: '2px', lineHeight: '18px' }}>
-                {parts.map((part, idx) => {
-                  if (part.startsWith('[') && part.endsWith(']')) {
-                    const keyLabel = part.slice(1, -1);
-                    return (
-                      <span
-                        key={idx}
-                        style={{
-                          background: '#0A0E1A',
-                          color: '#F6EED8',
-                          borderRadius: '4px',
-                          padding: '1px 5px',
-                          fontFamily: "'JetBrains Mono', monospace",
-                          fontSize: '11px',
-                          fontWeight: 700,
-                          display: 'inline-block',
-                          margin: '0 2px',
-                          verticalAlign: 'middle',
-                          lineHeight: '14px',
-                        }}>
-                        {keyLabel}
-                      </span>
-                    );
-                  }
-                  return <span key={idx}>{part}</span>;
-                })}
-              </div>
-            );
-          };
 
           return (
             <>
@@ -26245,8 +26094,6 @@ export default function App() {
             const maxArmor = p.maxArmor;
             const curHull = p.hull;
             const maxHull = p.maxHull;
-            const curCap = p.capacitor;
-            const maxCap = p.maxCapacitor;
 
             // Status Pill
             let statusPillText = 'OK';
@@ -26673,7 +26520,6 @@ export default function App() {
       {/* 2. TARGET PANEL */}
       {(targetObj || isNearRiftAnomaly || isNearConduit || isNearGate) ? (
         (() => {
-          const isRiftSpecial = !targetObj && (isNearRiftAnomaly || isNearConduit || isNearGate);
           const effectiveTargetObj = targetObj || {
             id: isNearRiftAnomaly ? 'rift_anomaly' : (isNearConduit ? 'rift_conduit' : 'rift_gate'),
             name: isNearRiftAnomaly ? 'Rift Anomaly' : (isNearConduit ? 'Rift Conduit' : 'Collapse Gate'),
@@ -29047,9 +28893,6 @@ export default function App() {
                     cargoPristineNimbus * prices.pristineNimbus +
                     cargoPristineRadflux * prices.pristineRadflux;
 
-                  const miningSkillLevel = skills.mining || 0;
-                  const yieldPct = Math.min(0.90, 0.80 + 0.02 * miningSkillLevel);
-                  const mineralUnits = Math.floor(yieldPct * 40);
 
                   const commodityItems = [
                     {
@@ -31124,7 +30967,6 @@ export default function App() {
                                   {lensDefs.map((ld) => {
                                     const held = getCargoItemQty(ld.type);
                                     const savedCharges = storedLensChargesRef.current[ld.type] ?? 25;
-                                    const isThisLensFitted = curLens === ld.type;
 
                                     const fitIdx = interactiveItems.findIndex(
                                       (it) => it.type === 'lens_fit' && it.lensType === ld.type,
@@ -32515,7 +32357,6 @@ export default function App() {
                               const assetKey =
                                 (SHIP_MODULE_ASSETS.celInk as any)[hp.id] ||
                                 (SHIP_MODULE_ASSETS.celInk as any)[hp.id.replace('_plate', '').replace('_pod', '')];
-                              const modImg = assetKey ? assets[assetKey] : null;
 
                               return (
                                 <div
@@ -33834,7 +33675,6 @@ export default function App() {
                           const isFocused = refineryFocusIndex === idx;
                           const hasEnoughOre = row.held >= 50;
                           const hasEnoughMarks = marks >= row.fee;
-                          const canStart = hasEnoughOre && hasEnoughMarks && !isCurrentlyRefining;
                           const isThisRowRefining = isCurrentlyRefining && activeRefine?.oreType === row.oreType;
 
                           return (
@@ -34969,8 +34809,6 @@ export default function App() {
                           const teCostChb = 8 * nextTe;
                           const teDuration = Math.round(8 * nextTe * tierMult);
 
-                          const canAffordMe = marks >= meCostMarks && cargoTritanium >= meCostTri;
-                          const canAffordTe = marks >= teCostMarks && cargoChromiteBar >= teCostChb;
 
                           const isFocusedRow = schematicsFocusRow === idx;
                           const isFocusedMe = isFocusedRow && schematicsFocusTrack === 'me';
@@ -35451,7 +35289,6 @@ export default function App() {
                   const isHoldFullForRefund = isInstalled && (currentShipVol + 5 > cargoMax);
 
                   const stageW = 520;
-                  const stageH = 500;
                   const stageCX = stageW / 2;
                   const stageCY = 230;
 
@@ -37279,7 +37116,6 @@ export default function App() {
         const pirate = isVael ? vaelPirateRef.current : pirateRef.current;
         const currentTotalCargo = getCurrentCargoVolume();
         const isCargoFull = currentTotalCargo >= cargoMax;
-        const isNearRiftAnomaly = currentSystem === 'Harrow' && Math.hypot(p.x - (-2200), p.y - 3200) <= 250;
 
         // Context Hint Determination
         let currentHintText = "Select an asteroid to mine, or Warp [M] to Belt One / Two";
@@ -37430,7 +37266,6 @@ export default function App() {
         }
 
         // 3. Warp To [M]
-        const warpPoi = currentPois.find((item) => item.id === selectedTargetId) || currentPois.find((item) => item.type === 'STATION');
         const isWarpTutorialTarget =
           !tutorialDone &&
           ((tutorialStep === 1 && selectedTargetId === 'belt_alpha') ||
@@ -37454,15 +37289,6 @@ export default function App() {
         const hasAnyTarget = Boolean(selectedTargetId || lockedTargetId);
         const isLockTutorialTarget = !tutorialDone && tutorialStep === 2 && !lockedTargetId;
 
-        // 6. Wreck [E]
-        const targetWreck = wrecksRef.current.find((w) => w.id === selectedTargetId || w.id === lockedTargetId);
-        const activeWreck = targetWreck || nearbyWreck;
-        const activeWreckDistKm = activeWreck ? (Math.hypot(activeWreck.x - p.x, activeWreck.y - p.y) / PIXELS_PER_KM) : 9999;
-        const wreckDisabled = !activeWreck || activeWreck.isLooted || activeWreckDistKm > 2.0;
-
-        // Active cycle timers
-        const mineCycleTime = p.miningTimer;
-        const cannonCycleTime = p.cannonTimer;
 
         const btnMainRowStyle: React.CSSProperties = {
           fontFamily: "'Fredoka', cursive, sans-serif",
@@ -39859,8 +39685,6 @@ export default function App() {
         const noProcessor = network.onlineProcessors === 0 && network.onlineDrills > 0;
         const nextCycleSec = Math.max(0, 60 - Math.floor(colony.acc || 0));
 
-        const launchInSec = Math.max(0, Math.ceil(colony.launchIn ?? 300));
-        const launchTimerStr = `T-${Math.floor(launchInSec / 60)}:${String(launchInSec % 60).padStart(2, '0')}`;
         const freeHoldVol = Math.max(0, cargoMaxRef.current - getCurrentCargoVolume());
         const maxCanCollect = Math.min(depotVal, Math.floor(freeHoldVol / 2));
 
