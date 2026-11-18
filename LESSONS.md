@@ -13,6 +13,13 @@ Format, checked by `node dev/lessons.mjs --check`. A field's text may go on over
 - Status: open | promoted to PLAYBOOK "<section>" | closed: <why the rule no longer holds>
 ```
 
+## 2026-11-17: A CI watch found no run because it was given a short commit hash
+- What went wrong: after pushing step 16 (31fd11c), the background CI watch printed "run " with no id, then `gh run watch` failed with HTTP 404 on `/actions/runs/`. No CI result was read until the watch was rerun.
+- Why: `gh run list --commit` matches the full 40-character SHA only. With gh 2.104.0, `--commit 31fd11c` returned no runs while `--commit $(git rev-parse 31fd11c)` returned run 44234092958. The script also went on to `gh run watch` with the empty id instead of stopping.
+- Rule going forward: a CI lookup passes `--commit "$(git rev-parse <ref>)"`, never a short hash, and stops with an error when the run id comes back empty.
+- Evidence: step 16 session, the watch output "failed to get run: HTTP 404"; the same `gh run list` with the short and the full SHA, run side by side.
+- Status: open
+
 ## 2026-11-17: A mutant run passed because the mutant was never applied
 - What went wrong: in step 15 the mutant script for Refining refused to apply (it expected 6 call sites and found 7), but the test run after it still ran, on the real code, and reported 5 passed, as if the tests had missed the mutant.
 - Why: the Bash line joined the steps as `node mutant.mjs on && set -o pipefail; npx playwright test ...`. The `;` after `set` let the test run start whether or not the mutant step succeeded.
