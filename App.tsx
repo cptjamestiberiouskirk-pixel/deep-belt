@@ -32904,6 +32904,7 @@ export default function App() {
                           return (
                             <div
                               key={hull.id}
+                              data-testid={`hangar-hull-${hull.id}`}
                               onClick={() => updateHangarFocus(idx)}
                               style={{
                                 background: isCurrentActive ? '#252F47' : '#1A2133',

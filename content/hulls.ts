@@ -84,8 +84,8 @@ export const HULL_DEFINITIONS: HullDefinition[] = [
     baseHull: 70,
     slots: 4,
     spriteKey: 'player_ship_skirmisher',
-    perkText: '+25% Light Cannon fire damage bonus. Heavy military shielding.',
-    desc: '+25% Light Cannon fire damage bonus. Heavy military shielding.',
+    perkText: '+25% weapon damage. Heavy military shielding.',
+    desc: '+25% weapon damage. Heavy military shielding.',
   },
   {
     id: 'lattice',
