@@ -20,7 +20,7 @@ function record(row: Record<string, unknown>) {
   appendFileSync(OUT, JSON.stringify(row) + '\n');
 }
 
-type Player = {speed: number; capacitor: number; maxCapacitor: number; shield: number; armor: number; hull: number; warpState: string; cannonActive: boolean; boosterActive: boolean; miningActive: boolean; miningTimer: number; x: number; y: number; heading: number; notice: number};
+type Player = {speed: number; capacitor: number; maxCapacitor: number; shield: number; armor: number; hull: number; warpState: string; cannonActive: boolean; boosterActive: boolean; miningActive: boolean; miningTimer: number; x: number; y: number; heading: number; notice: number; docked: boolean};
 type Pirate = {isAlive: boolean; shield: number; armor: number; hull: number; speed: number; x: number; y: number};
 const player = (page: Page) => page.evaluate(() => (window as any).__DEEP_BELT_PROBE__.player() as Player);
 const pirate = (page: Page) => page.evaluate(() => (window as any).__DEEP_BELT_PROBE__.pirate() as Pirate);
@@ -488,6 +488,70 @@ for (const c of WAVES) {
       hullLost: Math.round(p0.hull - p.hull),
       repairMarks: Math.round((p0.armor - p.armor) * 3 + (p0.hull - p.hull) * 4),
       minCap: Math.round(minCap),
+    });
+  });
+}
+
+// --- The Vael Heavy Pirate Frigate (200 shield, 200 armor, 200 hull), past the
+// jump gate, in a Ferrier at Gunnery III. Locks it from the Overview and fires
+// until it or the Ferrier is dead.
+const VAEL_FIGHTS: Array<{name: string; weapon: string; second: string | null; cc?: number; hull?: string}> = [
+  {name: 'Light Cannon', weapon: 'light_cannon', second: null},
+  {name: 'Lance Driver', weapon: 'lance_driver', second: null},
+  {name: 'Lance Driver + booster', weapon: 'lance_driver', second: 'shield_booster'},
+  {name: 'Lance Driver + armor', weapon: 'lance_driver', second: 'composite_armor'},
+  {name: 'Lance Driver + Fire Control Relay', weapon: 'lance_driver', second: 'fire_control'},
+  {name: 'Lance Driver + Fire Control Relay, Charge Control V', weapon: 'lance_driver', second: 'fire_control', cc: 5},
+  {name: 'Skirmisher, Light Cannon', weapon: 'light_cannon', second: null, hull: 'skirmisher'},
+  {name: 'Skirmisher, Lance Driver', weapon: 'lance_driver', second: null, hull: 'skirmisher'},
+  {name: 'Skirmisher, Lance Driver + armor', weapon: 'lance_driver', second: 'composite_armor', hull: 'skirmisher'},
+];
+type Vael = {isAlive: boolean; shield: number; armor: number; hull: number; speed: number};
+for (const c of VAEL_FIGHTS) {
+  test(`vael fight: ${c.name}`, async ({page}) => {
+    test.setTimeout(300_000);
+    await openWithSave(page, {...BASE, ...skills({gunnery: 3, chargeControl: c.cc ?? 0, shieldOp: c.second === 'shield_booster' ? 1 : 0}), ...fitting(['miner_mk1', c.second, null, c.weapon]), missionIndex: 3, missionStatus: 'completed', hasGatePermit: true, ...(c.hull ? {ownedHulls: ['ferrier', c.hull], activeHull: c.hull} : {})});
+    await enterGame(page);
+    await undock(page);
+    await flyTo(page, 'Harrow Outer Jump Gate');
+    await expect(async () => {
+      await page.keyboard.press('j');
+      await expect(page.getByText('Vael System ·')).toBeVisible({timeout: 5000});
+    }).toPass({timeout: 60_000});
+    await flyTo(page, 'Vael Belt');
+    const vael = () => page.evaluate(() => (window as any).__DEEP_BELT_PROBE__.vaelPirate() as Vael);
+    await page.getByText('Ships', {exact: true}).click();
+    await page.getByText('Heavy Pirate Frigate', {exact: true}).first().click();
+    await expect.poll(() => targetPanel(page)).toMatch(/Heavy Pirate Frigate/);
+    await page.keyboard.press('l');
+    await expect.poll(() => targetPanel(page), {timeout: 20_000}).toMatch(/Locked/);
+    await page.keyboard.press('2');
+    if (c.second === 'shield_booster') await page.keyboard.press('3');
+    const start = Date.now();
+    let p = await player(page);
+    const startHp = {shield: p.shield, armor: p.armor, hull: p.hull};
+    let q = await vael();
+    let minHull = p.hull;
+    // A lost ship is towed to the station and repaired, so docked marks the loss.
+    while (q.isAlive && !p.docked && Date.now() - start < 240_000) {
+      await page.waitForTimeout(250);
+      p = await player(page);
+      q = await vael();
+      if (!p.docked) minHull = Math.min(minHull, p.hull);
+    }
+    record({
+      probe: 'vael fight',
+      case: c.name,
+      pirateKilled: !q.isAlive,
+      shipLost: p.docked,
+      fightSec: Math.round((Date.now() - start) / 100) / 10,
+      pirateHpLeft: q.isAlive ? Math.round(q.shield + q.armor + q.hull) : 0,
+      ...(p.docked ? {} : {
+        hpLost: Math.round(startHp.shield + startHp.armor + startHp.hull - (p.shield + p.armor + p.hull)),
+        armorLost: Math.round(startHp.armor - p.armor),
+        hullLost: Math.round(startHp.hull - p.hull),
+      }),
+      minHull: Math.round(minHull),
     });
   });
 }

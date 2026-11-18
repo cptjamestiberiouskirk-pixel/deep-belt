@@ -6211,13 +6211,17 @@ export default function App() {
     (window as any).__DEEP_BELT_PROBE__ = {
       player: () => {
         const p = playerRef.current;
-        return {speed: Math.hypot(p.vx, p.vy), capacitor: p.capacitor, maxCapacitor: p.maxCapacitor, shield: p.shield, armor: p.armor, hull: p.hull, warpState: p.warpState, cannonActive: p.cannonActive, boosterActive: p.shieldBoosterActive, miningActive: p.miningLaserActive, miningTimer: p.miningTimer, x: p.x, y: p.y, heading: p.heading, notice: noticeRef.current};
+        return {speed: Math.hypot(p.vx, p.vy), capacitor: p.capacitor, maxCapacitor: p.maxCapacitor, shield: p.shield, armor: p.armor, hull: p.hull, warpState: p.warpState, cannonActive: p.cannonActive, boosterActive: p.shieldBoosterActive, miningActive: p.miningLaserActive, miningTimer: p.miningTimer, x: p.x, y: p.y, heading: p.heading, notice: noticeRef.current, docked: isDockedRef.current};
       },
       pirate: () => {
         const q = pirateRef.current;
         return {isAlive: q.isAlive, shield: q.shield, armor: q.armor, hull: q.hull, speed: Math.hypot(q.vx, q.vy), x: q.x, y: q.y};
       },
       raiders: () => raidersRef.current.filter((r) => r.isAlive).map((r) => ({x: r.x, y: r.y, speed: Math.hypot(r.vx, r.vy)})),
+      vaelPirate: () => {
+        const q = vaelPirateRef.current;
+        return {isAlive: q.isAlive, shield: q.shield, armor: q.armor, hull: q.hull, speed: Math.hypot(q.vx, q.vy), x: q.x, y: q.y};
+      },
     };
   }, []);
 
