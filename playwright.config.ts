@@ -10,13 +10,17 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  // Hosted runners have two cores; more workers starve the game loop.
-  workers: process.env.CI ? 2 : undefined,
+  // Hosted runners have two cores; more workers starve the game loop. Locally,
+  // Playwright's default is half the logical cores (8 on a 16-thread machine);
+  // the game runs in real time, so cap it at 4.
+  workers: process.env.CI ? 2 : 4,
   reporter: process.env.CI ? [['github'], ['list']] : [['list']],
   use: {
     baseURL: `http://localhost:${PORT}`,
     viewport: {width: 1280, height: 800},
-    trace: 'retain-on-failure',
+    // No screencast frames: they were about 5,500 JPEGs per run in test-results/,
+    // written and deleted for every passing test. DOM snapshots and network stay.
+    trace: {mode: 'retain-on-failure', screenshots: false},
     screenshot: 'only-on-failure',
     // Silent in every mode: headless Chromium is muted already, a --headed run is not.
     launchOptions: {args: ['--mute-audio']},
