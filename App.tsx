@@ -4212,7 +4212,6 @@ export default function App() {
   const currentZoneRef = useRef<PoiZone>('core');
 
   // Jump animation state for flat-cel cartoon flash wipe
-  const [, setJumpFlashProgress] = useState<number | null>(null);
   const jumpFlashProgressRef = useRef<number | null>(null);
   const jumpFlashAnimRef = useRef<number | null>(null);
 
@@ -10006,7 +10005,6 @@ export default function App() {
     }
 
     jumpFlashProgressRef.current = 0;
-    setJumpFlashProgress(0);
     const startTime = performance.now();
     const jumpDuration = 1500;
 
@@ -10014,7 +10012,6 @@ export default function App() {
       const elapsed = now - startTime;
       const progress = Math.min(1, elapsed / jumpDuration);
       jumpFlashProgressRef.current = progress;
-      setJumpFlashProgress(progress);
 
       if (progress < 1) {
         jumpFlashAnimRef.current = requestAnimationFrame(step);
@@ -10063,7 +10060,6 @@ export default function App() {
 
         setTimeout(() => {
           jumpFlashProgressRef.current = null;
-          setJumpFlashProgress(null);
           jumpFlashAnimRef.current = null;
         }, 160);
       }
