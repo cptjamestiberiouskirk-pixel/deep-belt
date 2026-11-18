@@ -520,8 +520,8 @@ test('drones: a defense drone destroys a pirate and a salvage drone loots the wr
   await flyTo(page, 'Harrow Station Alpha');
   await bandwidth('Bandwidth: 0 / 2');
   const save = (await readSave(page))!;
-  expect(save.cargoDefenseDrone).toBe(1);
-  expect(save.cargoSalvageDrone).toBe(1);
+  expect(save.inventory.defenseDrone).toBe(1);
+  expect(save.inventory.salvageDrone).toBe(1);
   expectClean(problems);
 });
 
@@ -531,7 +531,7 @@ test('drones: drones out in space when the game closes are back in the hold on l
   // Let the autosave run with the drone out.
   await page.waitForTimeout(6000);
   await reloadAndContinue(page);
-  await expect.poll(async () => (await readSave(page))!.cargoDefenseDrone, {message: 'the deployed drone was lost'}).toBe(1);
+  await expect.poll(async () => (await readSave(page))!.inventory.defenseDrone, {message: 'the deployed drone was lost'}).toBe(1);
   expectClean(problems);
 });
 

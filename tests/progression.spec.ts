@@ -76,7 +76,7 @@ test('drones: an extraction drone deploys and mines on its own', async ({page}) 
   // hold so that closing the game while it works does not lose it.
   await page.keyboard.press('d');
   await expect(page.getByText('Bandwidth: 1 / 2')).toBeVisible();
-  expect((await readSave(page))!.cargoExtractDrone).toBe(1);
+  expect((await readSave(page))!.inventory.extractDrone).toBe(1);
   expectClean(problems);
 });
 

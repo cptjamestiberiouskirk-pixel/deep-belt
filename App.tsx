@@ -7855,8 +7855,8 @@ export default function App() {
         setCargoPackedRadflux(data.cargoPackedRadflux);
         cargoPackedRadfluxRef.current = data.cargoPackedRadflux;
       }
-      // Lenses are saved in `inventory` (content/inventory.ts): it wins, even at 0,
-      // and a lens's old cargoXxxLens key is read only when inventory lacks it.
+      // Lenses and drones are saved in `inventory` (content/inventory.ts): it wins,
+      // even at 0, and an item's old cargoXxx key is read only when inventory lacks it.
       const loadedSilicate = readItem(data, 'silicateLens');
       if (loadedSilicate !== null) {
         setCargoSilicateLens(loadedSilicate);
@@ -7872,17 +7872,20 @@ export default function App() {
         setCargoExoticLens(loadedExotic);
         cargoExoticLensRef.current = loadedExotic;
       }
-      if (typeof data.cargoExtractDrone === 'number') {
-        setCargoExtractDrone(data.cargoExtractDrone);
-        cargoExtractDroneRef.current = data.cargoExtractDrone;
+      const loadedExtractDrone = readItem(data, 'extractDrone');
+      if (loadedExtractDrone !== null) {
+        setCargoExtractDrone(loadedExtractDrone);
+        cargoExtractDroneRef.current = loadedExtractDrone;
       }
-      if (typeof data.cargoDefenseDrone === 'number') {
-        setCargoDefenseDrone(data.cargoDefenseDrone);
-        cargoDefenseDroneRef.current = data.cargoDefenseDrone;
+      const loadedDefenseDrone = readItem(data, 'defenseDrone');
+      if (loadedDefenseDrone !== null) {
+        setCargoDefenseDrone(loadedDefenseDrone);
+        cargoDefenseDroneRef.current = loadedDefenseDrone;
       }
-      if (typeof data.cargoSalvageDrone === 'number') {
-        setCargoSalvageDrone(data.cargoSalvageDrone);
-        cargoSalvageDroneRef.current = data.cargoSalvageDrone;
+      const loadedSalvageDrone = readItem(data, 'salvageDrone');
+      if (loadedSalvageDrone !== null) {
+        setCargoSalvageDrone(loadedSalvageDrone);
+        cargoSalvageDroneRef.current = loadedSalvageDrone;
       }
       if (typeof data.cargoCommandHub === 'number') {
         setCargoCommandHub(data.cargoCommandHub);
@@ -8290,17 +8293,17 @@ export default function App() {
         cargoPackedPrismite: cargoPackedPrismiteRef.current,
         cargoPackedNimbus: cargoPackedNimbusRef.current,
         cargoPackedRadflux: cargoPackedRadfluxRef.current,
-        // The hold, one item group at a time (content/inventory.ts); lenses first.
+        // The hold, one item group at a time (content/inventory.ts): lenses, drones.
         inventory: {
           silicateLens: cargoSilicateLensRef.current,
           metallicLens: cargoMetallicLensRef.current,
           exoticLens: cargoExoticLensRef.current,
+          // Deployed drones are not saved as such; count them as back in the hold,
+          // or closing the game while they are out would lose them for good.
+          extractDrone: cargoExtractDroneRef.current + deployedDronesRef.current.filter((d) => d.type === 'extractDrone').length,
+          defenseDrone: cargoDefenseDroneRef.current + deployedDronesRef.current.filter((d) => d.type === 'defenseDrone').length,
+          salvageDrone: cargoSalvageDroneRef.current + deployedDronesRef.current.filter((d) => d.type === 'salvageDrone').length,
         },
-        // Deployed drones are not saved as such; count them as back in the hold,
-        // or closing the game while they are out would lose them for good.
-        cargoExtractDrone: cargoExtractDroneRef.current + deployedDronesRef.current.filter((d) => d.type === 'extractDrone').length,
-        cargoDefenseDrone: cargoDefenseDroneRef.current + deployedDronesRef.current.filter((d) => d.type === 'defenseDrone').length,
-        cargoSalvageDrone: cargoSalvageDroneRef.current + deployedDronesRef.current.filter((d) => d.type === 'salvageDrone').length,
         cargoCommandHub: cargoCommandHubRef.current,
         cargoPolymer: cargoPolymerRef.current,
         cargoChemical: cargoChemicalRef.current,

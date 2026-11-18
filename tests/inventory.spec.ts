@@ -2,8 +2,8 @@ import {expect, test, type Page} from '@playwright/test';
 import {enterGame, expectClean, expectTitle, openWithSave, readSave, RICH, watch} from './helpers';
 import {readItem} from '../content/inventory';
 
-// Step 4 of design/content-tree.md: the lenses move from their cargoXxxLens save
-// keys into the `inventory` map, by the rules in 4.4.
+// Steps 4 and 19 of design/content-tree.md: the lenses, then the three drones,
+// move from their cargoXxx save keys into the `inventory` map, by the rules in 4.4.
 
 const BASE = {...RICH, milestoneIndustrialistClaimed: true};
 
@@ -13,6 +13,9 @@ test('inventory model: inventory wins even at 0, and an old key is read only for
   expect(readItem({inventory: {silicateLens: 4}}, 'metallicLens')).toBeNull();
   expect(readItem({inventory: {exoticLens: 1}, cargoMetallicLens: 5}, 'metallicLens')).toBe(5);
   expect(readItem({inventory: {exoticLens: 'junk'}}, 'exoticLens')).toBe(0);
+  expect(readItem({cargoDefenseDrone: 2}, 'defenseDrone')).toBe(2);
+  expect(readItem({inventory: {silicateLens: 1}, cargoDefenseDrone: 2}, 'defenseDrone')).toBe(2);
+  expect(readItem({inventory: {defenseDrone: 0}, cargoDefenseDrone: 2}, 'defenseDrone')).toBe(0);
 });
 
 const lensesInSave = async (page: Page) => {
@@ -24,7 +27,7 @@ test('save: lenses under their old keys load into inventory and survive a reload
   const problems = watch(page);
   await openWithSave(page, {...BASE, cargoSilicateLens: 2, cargoExoticLens: 1});
   await enterGame(page);
-  const expected = {inventory: {silicateLens: 2, metallicLens: 0, exoticLens: 1}, oldKeys: []};
+  const expected = {inventory: {silicateLens: 2, metallicLens: 0, exoticLens: 1, extractDrone: 0, defenseDrone: 0, salvageDrone: 0}, oldKeys: []};
   await expect.poll(() => lensesInSave(page), {timeout: 15_000}).toEqual(expected);
 
   await page.reload();
@@ -41,6 +44,47 @@ test('save: a lens at 0 in inventory stays 0 whatever its old key says', async (
   const problems = watch(page);
   await openWithSave(page, {...BASE, inventory: {silicateLens: 0}, cargoSilicateLens: 3});
   await enterGame(page);
-  await expect.poll(async () => (await lensesInSave(page))?.inventory, {timeout: 15_000}).toEqual({silicateLens: 0, metallicLens: 0, exoticLens: 0});
+  await expect.poll(async () => (await lensesInSave(page))?.inventory, {timeout: 15_000}).toEqual({silicateLens: 0, metallicLens: 0, exoticLens: 0, extractDrone: 0, defenseDrone: 0, salvageDrone: 0});
+  expectClean(problems);
+});
+
+const dronesInSave = async (page: Page) => {
+  const save = await readSave(page);
+  const inv = save?.inventory ?? {};
+  return save && {drones: [inv.extractDrone, inv.defenseDrone, inv.salvageDrone], oldKeys: Object.keys(save).filter((k) => /^cargo\w+Drone$/.test(k))};
+};
+
+test('save: drones under their old keys load into inventory and survive a reload', async ({page}) => {
+  const problems = watch(page);
+  await openWithSave(page, {...BASE, cargoExtractDrone: 1, cargoDefenseDrone: 2});
+  await enterGame(page);
+  const expected = {drones: [1, 2, 0], oldKeys: []};
+  await expect.poll(() => dronesInSave(page), {timeout: 15_000}).toEqual(expected);
+
+  await page.reload();
+  await expectTitle(page);
+  await enterGame(page);
+  await page.waitForTimeout(6000); // past one autosave
+  expect(await dronesInSave(page)).toEqual(expected);
+  // The hold counts them: 3 drones at 5 m³ each.
+  await expect(page.getByText(/^15\/\d+m³$/)).toBeVisible();
+  expectClean(problems);
+});
+
+test('save: a save whose inventory holds only the lenses, as from step 4 to 18, keeps its drones', async ({page}) => {
+  const problems = watch(page);
+  await openWithSave(page, {...BASE, inventory: {silicateLens: 1, metallicLens: 0, exoticLens: 0}, cargoSalvageDrone: 2});
+  await enterGame(page);
+  await expect.poll(() => dronesInSave(page), {timeout: 15_000}).toEqual({drones: [0, 0, 2], oldKeys: []});
+  // 1 lens and 2 salvage drones: 1 + 10 m³.
+  await expect(page.getByText(/^11\/\d+m³$/)).toBeVisible();
+  expectClean(problems);
+});
+
+test('save: a drone at 0 in inventory stays 0 whatever its old key says', async ({page}) => {
+  const problems = watch(page);
+  await openWithSave(page, {...BASE, inventory: {defenseDrone: 0}, cargoDefenseDrone: 3});
+  await enterGame(page);
+  await expect.poll(() => dronesInSave(page), {timeout: 15_000}).toEqual({drones: [0, 0, 0], oldKeys: []});
   expectClean(problems);
 });
