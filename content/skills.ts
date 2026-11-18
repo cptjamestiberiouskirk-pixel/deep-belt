@@ -4,7 +4,7 @@
 //
 // The bonus each level gives stays in App.tsx's SKILL_DEFINITIONS for now.
 
-export type SkillId = 'mining' | 'laserTuning' | 'lowProfile' | 'gunnery' | 'chargeControl' | 'shieldOp' | 'boosterEfficiency' | 'navigation' | 'cargoTrim';
+export type SkillId = 'mining' | 'laserTuning' | 'lowProfile' | 'gunnery' | 'chargeControl' | 'shieldOp' | 'boosterEfficiency' | 'navigation' | 'cargoTrim' | 'refining';
 export type SkillCategory = 'Extraction' | 'Gunnery' | 'Defense' | 'Navigation' | 'Industry' | 'Science';
 
 export interface SkillDef {
@@ -39,6 +39,9 @@ export const SKILLS: Record<SkillId, SkillDef> = {
   navigation: {id: 'navigation', name: 'Navigation', category: 'Navigation', rank: 1, prerequisites: []},
   // Step 9: a loaded hold slows and handles less. Rank 2, after Navigation II.
   cargoTrim: {id: 'cargoTrim', name: 'Cargo Trim', category: 'Navigation', rank: 2, prerequisites: [{skill: 'navigation', level: 2}]},
+  // Step 15, the first Industry skill: more refined goods from each 50 ore. Rank 2,
+  // after Mining II. It came after step 14 made refined sales draw Notice.
+  refining: {id: 'refining', name: 'Refining', category: 'Industry', rank: 2, prerequisites: [{skill: 'mining', level: 2}]},
 };
 
 export const SKILL_IDS = Object.keys(SKILLS) as SkillId[];
@@ -63,7 +66,7 @@ export function minerCycleAt(baseSec: number, laserTuningLevel: number): number 
 export const NOTICE_FREE_FERRITE = 200;
 /** Notice for each Ferrite sold beyond the free amount (100 Notice brings a raider wave). */
 export const NOTICE_PER_FERRITE = 3;
-/** Ferrite one Tritanium is refined from (50 ore makes 25), so a Tritanium sale draws Notice as that much Ferrite. */
+/** Ferrite one Tritanium is refined from untrained (50 ore makes 25), so a Tritanium sale draws Notice as that much Ferrite. Refining does not change it. */
 export const FERRITE_PER_TRITANIUM = 2;
 
 /** The Ferrite a sale counts for Notice: its raw Ferrite plus the Ferrite its Tritanium was refined from. */
@@ -106,6 +109,16 @@ export const BOOSTER_EFFICIENCY_CUT = 0.08;
 /** Shield Booster Cap per cycle at a Booster Efficiency level, whole Cap: one booster's 25 is 15 at level 5. */
 export function boosterCapAt(baseCap: number, boosterEfficiencyLevel: number): number {
   return Math.round(baseCap * (1 - BOOSTER_EFFICIENCY_CUT * boosterEfficiencyLevel));
+}
+
+/** Refined goods from one 50-ore batch, before Refining. */
+export const BASE_REFINE_OUTPUT = 25;
+/** Refining: each level adds this many refined goods to a batch. */
+export const REFINING_BONUS_PER_LEVEL = 1;
+
+/** Refined goods from one 50-ore batch at a Refining level: 25 untrained, 30 at level V. */
+export function refineOutputAt(refiningLevel: number): number {
+  return BASE_REFINE_OUTPUT + REFINING_BONUS_PER_LEVEL * refiningLevel;
 }
 
 /** Cargo Trim: each level cuts the hold's load effect on handling by this share. */

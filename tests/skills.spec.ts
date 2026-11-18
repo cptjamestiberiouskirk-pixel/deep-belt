@@ -40,17 +40,18 @@ test('skills: the Skills screen has a header per category, and training time and
   await expect(page.getByText('SKILLS MATRIX')).toBeVisible();
 
   const headers = page.locator('[data-testid^="skill-category-"]');
-  await expect(headers).toHaveCount(4);
+  await expect(headers).toHaveCount(5);
   expect(await headers.evaluateAll((els) => els.map((e) => e.getAttribute('data-testid')))).toEqual([
     'skill-category-Extraction',
     'skill-category-Gunnery',
     'skill-category-Defense',
     'skill-category-Navigation',
+    'skill-category-Industry',
   ]);
   await expect(page.getByTestId('skill-category-Extraction')).toContainText('MINING');
   await expect(page.getByTestId('skill-category-Defense')).toContainText('SHIELD OPERATION');
-  // Only Laser Tuning, Low Profile, Charge Control, Booster Efficiency and Cargo Trim have a prerequisite.
-  await expect(page.getByText(/^Needs:/)).toHaveCount(5);
+  // Only Laser Tuning, Low Profile, Charge Control, Booster Efficiency, Cargo Trim and Refining have a prerequisite.
+  await expect(page.getByText(/^Needs:/)).toHaveCount(6);
   await expect(page.getByTestId('skill-category-Extraction')).toContainText('LVL I (100 MARKS • 1:00)');
 
   // Enter trains the first skill: level 1 is 60 s for 100 MARKS, as before.

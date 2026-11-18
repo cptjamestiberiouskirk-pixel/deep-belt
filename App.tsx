@@ -118,7 +118,7 @@ import {MARKET_MODULE_IDS, MODULES, minerFor, missingSkill, type ModuleId} from 
 import type {SlotType} from './content/types';
 import {LENSES, LENS_IDS, lensBonusLabel} from './content/lenses';
 import {readItem} from './content/inventory';
-import {BOOSTER_EFFICIENCY_CUT, boosterCapAt, CARGO_TRIM_CUT, CHARGE_CONTROL_CUT, effectiveLoad, FERRITE_PER_TRITANIUM, freeFerriteAt, LASER_TUNING_CUT, LOW_PROFILE_FREE_FERRITE, LOW_PROFILE_MINING_CUT, minerCycleAt, miningNoticePerSec, noticeFerrite, prerequisiteText, saleNotice, SKILL_CATEGORY_ORDER, skillLevels, SKILLS, unmetPrerequisites, weaponCycleAt} from './content/skills';
+import {BASE_REFINE_OUTPUT, BOOSTER_EFFICIENCY_CUT, boosterCapAt, CARGO_TRIM_CUT, CHARGE_CONTROL_CUT, effectiveLoad, FERRITE_PER_TRITANIUM, freeFerriteAt, LASER_TUNING_CUT, LOW_PROFILE_FREE_FERRITE, LOW_PROFILE_MINING_CUT, minerCycleAt, miningNoticePerSec, noticeFerrite, prerequisiteText, REFINING_BONUS_PER_LEVEL, refineOutputAt, saleNotice, SKILL_CATEGORY_ORDER, skillLevels, SKILLS, unmetPrerequisites, weaponCycleAt} from './content/skills';
 import {formatSpeed, FULL_HOLD_THRUST_CUT, flightLimits, PIXELS_PER_KM, topSpeed} from './content/flight';
 import type {ModuleDef} from './content/types';
 import {
@@ -1511,6 +1511,14 @@ export const SKILL_DEFINITIONS: SkillDefinition[] = [
     description: `-${Math.round(CARGO_TRIM_CUT * 100)}% of the slowdown a loaded hold gives, per level`,
     getBonusText: (level: number) =>
       `-${Math.round(CARGO_TRIM_CUT * 100 * level)}% load slowdown (full hold: -${Math.round(100 * (1 - topSpeed({...speedBase(), navigation: 0, hullMult: 1, moduleMult: 1, load: effectiveLoad(1, level)}) / topSpeed({...speedBase(), navigation: 0, hullMult: 1, moduleMult: 1, load: 0})))}% top speed)`,
+  },
+  {
+    id: 'refining',
+    name: 'Refining',
+    category: SKILLS.refining.category,
+    description: `+${REFINING_BONUS_PER_LEVEL} refined goods from every ${50} ore refined, per level`,
+    getBonusText: (level: number) =>
+      `50 ore -> ${refineOutputAt(level)} refined (+${Math.round((100 * (refineOutputAt(level) - BASE_REFINE_OUTPUT)) / BASE_REFINE_OUTPUT)}%)`,
   },
 ];
 
@@ -13067,7 +13075,7 @@ export default function App() {
     setToastNotice({
       id: `toast_refine_started_${Date.now()}`,
       title: `Refining ${oreName}...`,
-      detail: `Processing 50 ${oreName} -> 25 ${productName} (${(durationMs / 1000).toFixed(1)}s, ${feeText}).`,
+      detail: `Processing 50 ${oreName} -> ${refineOutputAt(skillsRef.current.refining || 0)} ${productName} (${(durationMs / 1000).toFixed(1)}s, ${feeText}).`,
       type: 'info',
     });
   }, [canStationInput, setToastNotice]);
@@ -17940,17 +17948,19 @@ export default function App() {
       const now = performance.now();
       const taskDurMs = (task as any).durationMs || 3000;
       if (now >= task.endsAt) {
+        // Refining (step 15) adds to every batch: 25 untrained, 30 at level V.
+        const refined = refineOutputAt(skillsRef.current.refining || 0);
         if (task.oreType === 'ferrite') {
-          cargoTritaniumRef.current += 25;
+          cargoTritaniumRef.current += refined;
           setCargoTritanium(cargoTritaniumRef.current);
         } else if (task.oreType === 'aurite') {
-          cargoAuriteConcRef.current += 25;
+          cargoAuriteConcRef.current += refined;
           setCargoAuriteConc(cargoAuriteConcRef.current);
         } else if (task.oreType === 'chromite') {
-          cargoChromiteBarRef.current += 25;
+          cargoChromiteBarRef.current += refined;
           setCargoChromiteBar(cargoChromiteBarRef.current);
         } else if (task.oreType === 'pyrox') {
-          cargoPyroxiteRef.current += 25;
+          cargoPyroxiteRef.current += refined;
           setCargoPyroxite(cargoPyroxiteRef.current);
         }
 
@@ -17959,7 +17969,7 @@ export default function App() {
           task.oreType === 'aurite' ? 'Aurite' :
           task.oreType === 'chromite' ? 'Chromite' : 'Pyrox';
         const feeNote = task.fee > 0 ? ` (-${task.fee} MARKS fee)` : ' (0% fee)';
-        const toastMsg = `Refined 50 ${rawShortName} -> 25 ${task.productName}${feeNote}`;
+        const toastMsg = `Refined 50 ${rawShortName} -> ${refined} ${task.productName}${feeNote}`;
 
         gameAudio.playPurchaseConfirmed();
         setToastNotice({
@@ -33708,8 +33718,8 @@ export default function App() {
                               textOverflow: 'ellipsis',
                             }}>
                             {dockedStationId === 'outpost'
-                              ? '50 Ore -> 25 Refined in 2.0s · 0% MARKS station tariff'
-                              : '50 Ore -> 25 Refined in 3.0s · 10% MARKS station tariff'}
+                              ? `50 Ore -> ${refineOutputAt(skills.refining || 0)} Refined in 2.0s · 0% MARKS station tariff`
+                              : `50 Ore -> ${refineOutputAt(skills.refining || 0)} Refined in 3.0s · 10% MARKS station tariff`}
                           </span>
                         </div>
                         <div
@@ -33760,7 +33770,7 @@ export default function App() {
                                 fontWeight: 700,
                                 color: '#FFB547',
                               }}>
-                              Refining 50 {activeRefine.oreName} → 25 {activeRefine.productName}
+                              Refining 50 {activeRefine.oreName} → {refineOutputAt(skills.refining || 0)} {activeRefine.productName}
                             </span>
                             <span
                               style={{
