@@ -314,7 +314,7 @@ test('flagship: the Gantry hold refit raises the hold to 2,500 m³ and survives 
   for (let i = 0; i < 3; i++) await page.keyboard.press('ArrowUp');
   await page.keyboard.press('Enter');
   await expect.poll(async () => (await readSave(page))!.activeFabricate?.recipeId).toBe('gantry_refit');
-  expect((await readSave(page))!.cargoPolymerComposite).toBe(0);
+  expect((await readSave(page))!.inventory.polymerComposite).toBe(0);
   await expect
     .poll(async () => (await readSave(page))!.gantryRefit, {timeout: 80_000, intervals: [2000]})
     .toBe(true);
@@ -377,7 +377,7 @@ test('colony: goods waiting in the depot are collected into the hold', async ({p
   await page.keyboard.press('e');
   await expect.poll(async () => (await readSave(page))!.colonies.harrow_ii.depot).toBe(0);
   const save = (await readSave(page))!;
-  expect(save.cargoChemical + save.cargoPolymer).toBe(30);
+  expect(save.inventory.chemical + save.inventory.polymer).toBe(30);
   expectClean(problems);
 });
 

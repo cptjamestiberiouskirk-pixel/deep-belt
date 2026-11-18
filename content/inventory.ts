@@ -1,6 +1,7 @@
 // The ship's hold as one saved map, `inventory: Record<ItemId, number>`
 // (design/content-tree.md 4.3 and 4.4, step 4). Items move into it one group at
-// a time: the lenses first (step 4), then the three drones (step 19). A moved
+// a time: the lenses (step 4), the three drones (step 19), then the colony
+// goods (step 20). A moved
 // item's old `cargoXxx` save key is no longer written.
 //
 // Loading follows 4.4: an item present in `inventory` wins, even at 0; its old
@@ -13,9 +14,12 @@ export type Inventory = Partial<Record<string, number>>;
 /** The drones a hull carries in its hold, in the order the Drones panel lists them. */
 export const DRONE_IDS = ['extractDrone', 'defenseDrone', 'salvageDrone'] as const;
 
+/** Colony goods: the Command Hub that founds a colony, and the materials it builds with. */
+export const COLONY_GOOD_IDS = ['commandHub', 'polymer', 'chemical', 'polymerComposite'] as const;
+
 /** Items saved in `inventory`, with the old save key each one replaces. */
 export const INVENTORY_ITEMS: Record<string, string> = Object.fromEntries(
-  [...LENS_IDS, ...DRONE_IDS].map((id) => [id, `cargo${id[0].toUpperCase()}${id.slice(1)}`]),
+  [...LENS_IDS, ...DRONE_IDS, ...COLONY_GOOD_IDS].map((id) => [id, `cargo${id[0].toUpperCase()}${id.slice(1)}`]),
 );
 
 const count = (x: unknown): number | null => (typeof x === 'number' && Number.isFinite(x) && x >= 0 ? Math.floor(x) : null);

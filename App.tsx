@@ -7855,7 +7855,7 @@ export default function App() {
         setCargoPackedRadflux(data.cargoPackedRadflux);
         cargoPackedRadfluxRef.current = data.cargoPackedRadflux;
       }
-      // Lenses and drones are saved in `inventory` (content/inventory.ts): it wins,
+      // Lenses, drones and colony goods are saved in `inventory` (content/inventory.ts): it wins,
       // even at 0, and an item's old cargoXxx key is read only when inventory lacks it.
       const loadedSilicate = readItem(data, 'silicateLens');
       if (loadedSilicate !== null) {
@@ -7887,21 +7887,25 @@ export default function App() {
         setCargoSalvageDrone(loadedSalvageDrone);
         cargoSalvageDroneRef.current = loadedSalvageDrone;
       }
-      if (typeof data.cargoCommandHub === 'number') {
-        setCargoCommandHub(data.cargoCommandHub);
-        cargoCommandHubRef.current = data.cargoCommandHub;
+      const loadedCommandHub = readItem(data, 'commandHub');
+      if (loadedCommandHub !== null) {
+        setCargoCommandHub(loadedCommandHub);
+        cargoCommandHubRef.current = loadedCommandHub;
       }
-      if (typeof data.cargoPolymer === 'number') {
-        setCargoPolymer(data.cargoPolymer);
-        cargoPolymerRef.current = data.cargoPolymer;
+      const loadedPolymer = readItem(data, 'polymer');
+      if (loadedPolymer !== null) {
+        setCargoPolymer(loadedPolymer);
+        cargoPolymerRef.current = loadedPolymer;
       }
-      if (typeof data.cargoChemical === 'number') {
-        setCargoChemical(data.cargoChemical);
-        cargoChemicalRef.current = data.cargoChemical;
+      const loadedChemical = readItem(data, 'chemical');
+      if (loadedChemical !== null) {
+        setCargoChemical(loadedChemical);
+        cargoChemicalRef.current = loadedChemical;
       }
-      if (typeof data.cargoPolymerComposite === 'number') {
-        setCargoPolymerComposite(data.cargoPolymerComposite);
-        cargoPolymerCompositeRef.current = data.cargoPolymerComposite;
+      const loadedPolymerComposite = readItem(data, 'polymerComposite');
+      if (loadedPolymerComposite !== null) {
+        setCargoPolymerComposite(loadedPolymerComposite);
+        cargoPolymerCompositeRef.current = loadedPolymerComposite;
       }
       if (typeof data.cargoRiftSync === 'number') {
         setCargoRiftSync(data.cargoRiftSync);
@@ -8293,7 +8297,7 @@ export default function App() {
         cargoPackedPrismite: cargoPackedPrismiteRef.current,
         cargoPackedNimbus: cargoPackedNimbusRef.current,
         cargoPackedRadflux: cargoPackedRadfluxRef.current,
-        // The hold, one item group at a time (content/inventory.ts): lenses, drones.
+        // The hold, one item group at a time (content/inventory.ts): lenses, drones, colony goods.
         inventory: {
           silicateLens: cargoSilicateLensRef.current,
           metallicLens: cargoMetallicLensRef.current,
@@ -8303,11 +8307,11 @@ export default function App() {
           extractDrone: cargoExtractDroneRef.current + deployedDronesRef.current.filter((d) => d.type === 'extractDrone').length,
           defenseDrone: cargoDefenseDroneRef.current + deployedDronesRef.current.filter((d) => d.type === 'defenseDrone').length,
           salvageDrone: cargoSalvageDroneRef.current + deployedDronesRef.current.filter((d) => d.type === 'salvageDrone').length,
+          commandHub: cargoCommandHubRef.current,
+          polymer: cargoPolymerRef.current,
+          chemical: cargoChemicalRef.current,
+          polymerComposite: cargoPolymerCompositeRef.current,
         },
-        cargoCommandHub: cargoCommandHubRef.current,
-        cargoPolymer: cargoPolymerRef.current,
-        cargoChemical: cargoChemicalRef.current,
-        cargoPolymerComposite: cargoPolymerCompositeRef.current,
         cargoRiftSync: cargoRiftSyncRef.current,
         cargoPristinePrismite: cargoPristinePrismiteRef.current,
         cargoPristineNimbus: cargoPristineNimbusRef.current,

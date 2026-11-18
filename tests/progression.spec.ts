@@ -85,7 +85,7 @@ test('colony: a command hub founds a colony on a planet', async ({page}) => {
   await flyTo(page, 'Harrow II');
   await expect(async () => {
     await page.keyboard.press('y');
-    await expect.poll(async () => (await readSave(page))!.cargoCommandHub, {timeout: 3000}).toBe(0);
+    await expect.poll(async () => (await readSave(page))!.inventory.commandHub, {timeout: 3000}).toBe(0);
   }).toPass({timeout: 30_000});
   expect(Object.keys((await readSave(page))!.colonies)).toEqual(['harrow_ii']);
   await expect(page.getByText('COLONY COMMAND - Harrow II')).toBeVisible();
