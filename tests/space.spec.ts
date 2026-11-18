@@ -167,8 +167,8 @@ test('in-space panels open and close, and compression packs ore', async ({page})
   }
   await page.keyboard.press('c');
   await page.keyboard.press('Enter');
-  await expect.poll(async () => (await readSave(page))!.cargoPackedPrismite).toBe(1);
-  expect((await readSave(page))!.cargoPrismite).toBe(30);
+  await expect.poll(async () => (await readSave(page))!.inventory?.packedPrismite).toBe(1);
+  expect((await readSave(page))!.inventory?.prismite).toBe(30);
   expectClean(problems);
 });
 

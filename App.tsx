@@ -7831,31 +7831,37 @@ export default function App() {
         setCargoThermalGrid(data.cargoThermalGrid);
         cargoThermalGridRef.current = data.cargoThermalGrid;
       }
-      if (typeof data.cargoPrismite === 'number') {
-        setCargoPrismite(data.cargoPrismite);
-        cargoPrismiteRef.current = data.cargoPrismite;
+      const loadedPrismite = readItem(data, 'prismite');
+      if (loadedPrismite !== null) {
+        setCargoPrismite(loadedPrismite);
+        cargoPrismiteRef.current = loadedPrismite;
       }
-      if (typeof data.cargoNimbus === 'number') {
-        setCargoNimbus(data.cargoNimbus);
-        cargoNimbusRef.current = data.cargoNimbus;
+      const loadedNimbus = readItem(data, 'nimbus');
+      if (loadedNimbus !== null) {
+        setCargoNimbus(loadedNimbus);
+        cargoNimbusRef.current = loadedNimbus;
       }
-      if (typeof data.cargoRadflux === 'number') {
-        setCargoRadflux(data.cargoRadflux);
-        cargoRadfluxRef.current = data.cargoRadflux;
+      const loadedRadflux = readItem(data, 'radflux');
+      if (loadedRadflux !== null) {
+        setCargoRadflux(loadedRadflux);
+        cargoRadfluxRef.current = loadedRadflux;
       }
-      if (typeof data.cargoPackedPrismite === 'number') {
-        setCargoPackedPrismite(data.cargoPackedPrismite);
-        cargoPackedPrismiteRef.current = data.cargoPackedPrismite;
+      const loadedPackedPrismite = readItem(data, 'packedPrismite');
+      if (loadedPackedPrismite !== null) {
+        setCargoPackedPrismite(loadedPackedPrismite);
+        cargoPackedPrismiteRef.current = loadedPackedPrismite;
       }
-      if (typeof data.cargoPackedNimbus === 'number') {
-        setCargoPackedNimbus(data.cargoPackedNimbus);
-        cargoPackedNimbusRef.current = data.cargoPackedNimbus;
+      const loadedPackedNimbus = readItem(data, 'packedNimbus');
+      if (loadedPackedNimbus !== null) {
+        setCargoPackedNimbus(loadedPackedNimbus);
+        cargoPackedNimbusRef.current = loadedPackedNimbus;
       }
-      if (typeof data.cargoPackedRadflux === 'number') {
-        setCargoPackedRadflux(data.cargoPackedRadflux);
-        cargoPackedRadfluxRef.current = data.cargoPackedRadflux;
+      const loadedPackedRadflux = readItem(data, 'packedRadflux');
+      if (loadedPackedRadflux !== null) {
+        setCargoPackedRadflux(loadedPackedRadflux);
+        cargoPackedRadfluxRef.current = loadedPackedRadflux;
       }
-      // Lenses, drones, colony goods and Rift goods are saved in `inventory` (content/inventory.ts): it wins,
+      // Vael ores (above), lenses, drones, colony goods and Rift goods are saved in `inventory` (content/inventory.ts): it wins,
       // even at 0, and an item's old cargoXxx key is read only when inventory lacks it.
       const loadedSilicate = readItem(data, 'silicateLens');
       if (loadedSilicate !== null) {
@@ -8295,13 +8301,7 @@ export default function App() {
         cargoQuantumCore: cargoQuantumCoreRef.current,
         cargoIntegritySeal: cargoIntegritySealRef.current,
         cargoThermalGrid: cargoThermalGridRef.current,
-        cargoPrismite: cargoPrismiteRef.current,
-        cargoNimbus: cargoNimbusRef.current,
-        cargoRadflux: cargoRadfluxRef.current,
-        cargoPackedPrismite: cargoPackedPrismiteRef.current,
-        cargoPackedNimbus: cargoPackedNimbusRef.current,
-        cargoPackedRadflux: cargoPackedRadfluxRef.current,
-        // The hold, one item group at a time (content/inventory.ts): lenses, drones, colony goods, Rift goods.
+        // The hold, one item group at a time (content/inventory.ts): lenses, drones, colony goods, Rift goods, Vael ores.
         inventory: {
           silicateLens: cargoSilicateLensRef.current,
           metallicLens: cargoMetallicLensRef.current,
@@ -8319,6 +8319,12 @@ export default function App() {
           pristinePrismite: cargoPristinePrismiteRef.current,
           pristineNimbus: cargoPristineNimbusRef.current,
           pristineRadflux: cargoPristineRadfluxRef.current,
+          prismite: cargoPrismiteRef.current,
+          nimbus: cargoNimbusRef.current,
+          radflux: cargoRadfluxRef.current,
+          packedPrismite: cargoPackedPrismiteRef.current,
+          packedNimbus: cargoPackedNimbusRef.current,
+          packedRadflux: cargoPackedRadfluxRef.current,
         },
         riftRun: riftRunRef.current,
         riftStats: riftStatsRef.current,
