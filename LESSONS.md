@@ -13,6 +13,13 @@ Format, checked by `node dev/lessons.mjs --check`. A field's text may go on over
 - Status: open | promoted to PLAYBOOK "<section>" | closed: <why the rule no longer holds>
 ```
 
+## 2026-11-17: A mutant run passed because the mutant was never applied
+- What went wrong: in step 15 the mutant script for Refining refused to apply (it expected 6 call sites and found 7), but the test run after it still ran, on the real code, and reported 5 passed, as if the tests had missed the mutant.
+- Why: the Bash line joined the steps as `node mutant.mjs on && set -o pipefail; npx playwright test ...`. The `;` after `set` let the test run start whether or not the mutant step succeeded.
+- Rule going forward: a mutant step and its test run are joined with `&&` only, and the run counts only when the mutant step printed that it applied, with its count.
+- Evidence: step 15 session output, "expected 6 call sites, found 7" followed by "5 passed"; rerun with `&&` and 7 sites: the level V Refining test failed on the mutant.
+- Status: open
+
 ## 2026-11-17: A check for no Buy button passed on code that showed one
 - What went wrong: the Composite Armor one-only test found its market card with `page.locator('div', {hasText: ..., has: <the stat badge>}).last()` and checked it had no Buy button. With the module made buyable three times it still passed.
 - Why: `.last()` picked an inner div that held the name and badge but not the button row, so the button could never be inside it.
