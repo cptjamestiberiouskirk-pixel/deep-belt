@@ -4,7 +4,7 @@
 //
 // The bonus each level gives stays in App.tsx's SKILL_DEFINITIONS for now.
 
-export type SkillId = 'mining' | 'laserTuning' | 'lowProfile' | 'gunnery' | 'chargeControl' | 'shieldOp' | 'boosterEfficiency' | 'navigation' | 'cargoTrim' | 'refining' | 'signalAnalysis';
+export type SkillId = 'mining' | 'laserTuning' | 'lowProfile' | 'gunnery' | 'chargeControl' | 'shieldOp' | 'boosterEfficiency' | 'armorLayering' | 'navigation' | 'cargoTrim' | 'refining' | 'signalAnalysis';
 export type SkillCategory = 'Extraction' | 'Gunnery' | 'Defense' | 'Navigation' | 'Industry' | 'Science';
 
 export interface SkillDef {
@@ -36,6 +36,10 @@ export const SKILLS: Record<SkillId, SkillDef> = {
   // Step 13: less Cap per Shield Booster cycle, so the booster runs longer. Rank 2,
   // after Shield Operation II. The probe found an active booster ran Cap down to 14.
   boosterEfficiency: {id: 'boosterEfficiency', name: 'Booster Efficiency', category: 'Defense', rank: 2, prerequisites: [{skill: 'shieldOp', level: 2}]},
+  // Step 18: more armor HP, fitted armor included. Rank 1, no prerequisites, as a
+  // sibling of Shield Operation. The Vael pirate probe found armor decides the
+  // fights a Ferrier wins there, and a skill takes no slot from the booster or relay.
+  armorLayering: {id: 'armorLayering', name: 'Armor Layering', category: 'Defense', rank: 1, prerequisites: []},
   navigation: {id: 'navigation', name: 'Navigation', category: 'Navigation', rank: 1, prerequisites: []},
   // Step 9: a loaded hold slows and handles less. Rank 2, after Navigation II.
   cargoTrim: {id: 'cargoTrim', name: 'Cargo Trim', category: 'Navigation', rank: 2, prerequisites: [{skill: 'navigation', level: 2}]},
@@ -113,6 +117,14 @@ export const BOOSTER_EFFICIENCY_CUT = 0.08;
 /** Shield Booster Cap per cycle at a Booster Efficiency level, whole Cap: one booster's 25 is 15 at level 5. */
 export function boosterCapAt(baseCap: number, boosterEfficiencyLevel: number): number {
   return Math.round(baseCap * (1 - BOOSTER_EFFICIENCY_CUT * boosterEfficiencyLevel));
+}
+
+/** Armor Layering: each level adds this share of armor HP, fitted armor included. */
+export const ARMOR_LAYERING_PCT = 10;
+
+/** Max armor at an Armor Layering level: a Ferrier's 80 is 120 at level 5, or 270 with Composite Armor's 100. */
+export function maxArmorAt(baseArmor: number, fittedArmor: number, armorLayeringLevel: number): number {
+  return Math.round((baseArmor + fittedArmor) * (1 + (ARMOR_LAYERING_PCT / 100) * armorLayeringLevel));
 }
 
 /** Refined goods from one 50-ore batch, before Refining. */

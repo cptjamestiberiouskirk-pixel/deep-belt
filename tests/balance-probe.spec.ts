@@ -26,7 +26,7 @@ const player = (page: Page) => page.evaluate(() => (window as any).__DEEP_BELT_P
 const pirate = (page: Page) => page.evaluate(() => (window as any).__DEEP_BELT_PROBE__.pirate() as Pirate);
 
 const BASE = {...RICH, milestoneIndustrialistClaimed: true};
-const skills = (s: Record<string, number>) => ({skills: {mining: 0, laserTuning: 0, lowProfile: 0, gunnery: 0, chargeControl: 0, shieldOp: 0, boosterEfficiency: 0, navigation: 0, cargoTrim: 0, refining: 0, signalAnalysis: 0, ...s}});
+const skills = (s: Record<string, number>) => ({skills: {mining: 0, laserTuning: 0, lowProfile: 0, gunnery: 0, chargeControl: 0, shieldOp: 0, boosterEfficiency: 0, armorLayering: 0, navigation: 0, cargoTrim: 0, refining: 0, signalAnalysis: 0, ...s}});
 const fitting = (fitted: Array<string | null>) => ({fitting: {hangar: {}, fitted, loadouts: {}}});
 const PLAIN = ['miner_mk1', null, null, 'light_cannon'];
 const BULK = ['miner_mk1', 'bulk_hold', null, 'light_cannon'];
@@ -493,9 +493,9 @@ for (const c of WAVES) {
 }
 
 // --- The Vael Heavy Pirate Frigate (200 shield, 200 armor, 200 hull), past the
-// jump gate, in a Ferrier at Gunnery III. Locks it from the Overview and fires
+// jump gate, in a Ferrier or a Skirmisher at Gunnery III. Locks it from the Overview and fires
 // until it or the Ferrier is dead.
-const VAEL_FIGHTS: Array<{name: string; weapon: string; second: string | null; cc?: number; hull?: string}> = [
+const VAEL_FIGHTS: Array<{name: string; weapon: string; second: string | null; cc?: number; hull?: string; al?: number}> = [
   {name: 'Light Cannon', weapon: 'light_cannon', second: null},
   {name: 'Lance Driver', weapon: 'lance_driver', second: null},
   {name: 'Lance Driver + booster', weapon: 'lance_driver', second: 'shield_booster'},
@@ -505,12 +505,15 @@ const VAEL_FIGHTS: Array<{name: string; weapon: string; second: string | null; c
   {name: 'Skirmisher, Light Cannon', weapon: 'light_cannon', second: null, hull: 'skirmisher'},
   {name: 'Skirmisher, Lance Driver', weapon: 'lance_driver', second: null, hull: 'skirmisher'},
   {name: 'Skirmisher, Lance Driver + armor', weapon: 'lance_driver', second: 'composite_armor', hull: 'skirmisher'},
+  {name: 'Lance Driver, Armor Layering V', weapon: 'lance_driver', second: null, al: 5},
+  {name: 'Lance Driver + booster, Armor Layering V', weapon: 'lance_driver', second: 'shield_booster', al: 5},
+  {name: 'Lance Driver + armor, Armor Layering V', weapon: 'lance_driver', second: 'composite_armor', al: 5},
 ];
 type Vael = {isAlive: boolean; shield: number; armor: number; hull: number; speed: number};
 for (const c of VAEL_FIGHTS) {
   test(`vael fight: ${c.name}`, async ({page}) => {
     test.setTimeout(300_000);
-    await openWithSave(page, {...BASE, ...skills({gunnery: 3, chargeControl: c.cc ?? 0, shieldOp: c.second === 'shield_booster' ? 1 : 0}), ...fitting(['miner_mk1', c.second, null, c.weapon]), missionIndex: 3, missionStatus: 'completed', hasGatePermit: true, ...(c.hull ? {ownedHulls: ['ferrier', c.hull], activeHull: c.hull} : {})});
+    await openWithSave(page, {...BASE, ...skills({gunnery: 3, chargeControl: c.cc ?? 0, armorLayering: c.al ?? 0, shieldOp: c.second === 'shield_booster' ? 1 : 0}), ...fitting(['miner_mk1', c.second, null, c.weapon]), missionIndex: 3, missionStatus: 'completed', hasGatePermit: true, ...(c.hull ? {ownedHulls: ['ferrier', c.hull], activeHull: c.hull} : {})});
     await enterGame(page);
     await undock(page);
     await flyTo(page, 'Harrow Outer Jump Gate');

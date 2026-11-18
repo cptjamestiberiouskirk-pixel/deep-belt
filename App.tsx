@@ -98,7 +98,7 @@ import {MARKET_MODULE_IDS, MODULES, minerFor, missingSkill, type ModuleId} from 
 import type {SlotType} from './content/types';
 import {LENSES, LENS_IDS, lensBonusLabel} from './content/lenses';
 import {readItem} from './content/inventory';
-import {BASE_REFINE_OUTPUT, BOOSTER_EFFICIENCY_CUT, boosterCapAt, CARGO_TRIM_CUT, CHARGE_CONTROL_CUT, effectiveLoad, FERRITE_PER_TRITANIUM, freeFerriteAt, LASER_TUNING_CUT, LOW_PROFILE_FREE_FERRITE, LOW_PROFILE_MINING_CUT, minerCycleAt, miningNoticePerSec, noticeFerrite, prerequisiteText, REFINING_BONUS_PER_LEVEL, refineOutputAt, saleNotice, SCAN_BANDS, SCAN_SWEEP_RAD_PER_SEC, scanBandAt, scanWindowSec, SIGNAL_ANALYSIS_WIDEN, SKILL_CATEGORY_ORDER, skillLevels, SKILLS, unmetPrerequisites, weaponCycleAt} from './content/skills';
+import {ARMOR_LAYERING_PCT, BASE_REFINE_OUTPUT, BOOSTER_EFFICIENCY_CUT, boosterCapAt, CARGO_TRIM_CUT, CHARGE_CONTROL_CUT, effectiveLoad, FERRITE_PER_TRITANIUM, freeFerriteAt, LASER_TUNING_CUT, LOW_PROFILE_FREE_FERRITE, LOW_PROFILE_MINING_CUT, maxArmorAt, minerCycleAt, miningNoticePerSec, noticeFerrite, prerequisiteText, REFINING_BONUS_PER_LEVEL, refineOutputAt, saleNotice, SCAN_BANDS, SCAN_SWEEP_RAD_PER_SEC, scanBandAt, scanWindowSec, SIGNAL_ANALYSIS_WIDEN, SKILL_CATEGORY_ORDER, skillLevels, SKILLS, unmetPrerequisites, weaponCycleAt} from './content/skills';
 import {formatSpeed, FULL_HOLD_THRUST_CUT, flightLimits, PIXELS_PER_KM, topSpeed} from './content/flight';
 import type {ModuleDef} from './content/types';
 import {
@@ -1486,6 +1486,14 @@ export const SKILL_DEFINITIONS: SkillDefinition[] = [
     description: `-${Math.round(BOOSTER_EFFICIENCY_CUT * 100)}% Shield Booster Cap per cycle, per level`,
     getBonusText: (level: number) =>
       `-${Math.round(BOOSTER_EFFICIENCY_CUT * 100 * level)}% booster Cap (${boosterCapAt(MODULES.shield_booster.stats.capPerCycle ?? 25, level)} Cap a cycle)`,
+  },
+  {
+    id: 'armorLayering',
+    name: 'Armor Layering',
+    category: SKILLS.armorLayering.category,
+    description: `+${ARMOR_LAYERING_PCT}% armor HP per level, fitted armor included`,
+    getBonusText: (level: number) =>
+      `+${level * ARMOR_LAYERING_PCT}% armor HP (${maxArmorAt(HULL_DEFINITIONS[0].baseArmor, 0, level)} max HP)`,
   },
   {
     id: 'navigation',
@@ -6211,7 +6219,7 @@ export default function App() {
     (window as any).__DEEP_BELT_PROBE__ = {
       player: () => {
         const p = playerRef.current;
-        return {speed: Math.hypot(p.vx, p.vy), capacitor: p.capacitor, maxCapacitor: p.maxCapacitor, shield: p.shield, armor: p.armor, hull: p.hull, warpState: p.warpState, cannonActive: p.cannonActive, boosterActive: p.shieldBoosterActive, miningActive: p.miningLaserActive, miningTimer: p.miningTimer, x: p.x, y: p.y, heading: p.heading, notice: noticeRef.current, docked: isDockedRef.current};
+        return {speed: Math.hypot(p.vx, p.vy), capacitor: p.capacitor, maxCapacitor: p.maxCapacitor, shield: p.shield, armor: p.armor, maxArmor: p.maxArmor, hull: p.hull, warpState: p.warpState, cannonActive: p.cannonActive, boosterActive: p.shieldBoosterActive, miningActive: p.miningLaserActive, miningTimer: p.miningTimer, x: p.x, y: p.y, heading: p.heading, notice: noticeRef.current, docked: isDockedRef.current};
       },
       pirate: () => {
         const q = pirateRef.current;
@@ -6310,7 +6318,7 @@ export default function App() {
 
     // maxArmor = baseArmor + the fitted modules' armor. Armor fitted now arrives
     // intact (damage already taken stays), and armor unfitted takes its share away.
-    const newMaxArmor = activeDef.baseArmor + armorBonus();
+    const newMaxArmor = maxArmorAt(activeDef.baseArmor, armorBonus(), skillsRef.current.armorLayering || 0);
     const armorGain = Math.max(0, newMaxArmor - playerRef.current.maxArmor);
     playerRef.current.maxArmor = newMaxArmor;
     playerRef.current.armor = Math.min(playerRef.current.armor + armorGain, newMaxArmor);
@@ -8410,6 +8418,8 @@ export default function App() {
     playerRef.current.maxShield = updatedMaxShield;
     playerRef.current.shield = Math.min(updatedMaxShield, playerRef.current.shield + 10);
     setShipShield(Math.round((playerRef.current.shield / updatedMaxShield) * 100));
+    // Max armor follows Armor Layering; armor it adds arrives intact.
+    applyHullLayout();
 
     // Play soft two-note ascending chime with resonant reverb tail
     gameAudio.playSkillComplete();
@@ -11467,8 +11477,8 @@ export default function App() {
     p.maxShield = respawnMaxShield;
     p.shieldRegenDelayTimer = 0;
     // The fitted modules survive the tow, and so does their armor.
-    p.armor = activeDef.baseArmor + armorBonus();
-    p.maxArmor = activeDef.baseArmor + armorBonus();
+    p.armor = maxArmorAt(activeDef.baseArmor, armorBonus(), skillsRef.current.armorLayering || 0);
+    p.maxArmor = p.armor;
     p.hull = effectiveBaseHull;
     p.maxHull = effectiveBaseHull;
     p.capacitor = p.maxCapacitor;
@@ -26448,7 +26458,7 @@ export default function App() {
                         <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: '11px', color: '#F4A259' }}>
                           ARMOR
                         </span>
-                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11.5px', fontWeight: 700, color: '#F6EED8' }}>
+                        <span data-testid="hud-armor" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11.5px', fontWeight: 700, color: '#F6EED8' }}>
                           {Math.round(curArmor)}/{Math.round(maxArmor)}
                         </span>
                       </div>
@@ -31386,10 +31396,11 @@ export default function App() {
                                 <span style={statValueStyle}>
                                   {(() => {
                                     const baseArmor = (HULL_DEFINITIONS.find((h) => h.id === activeHull) || HULL_DEFINITIONS[0]).baseArmor;
-                                    const bonus = fittedTotal(fitting.fitted, 'armorHp');
+                                    const total = maxArmorAt(baseArmor, fittedTotal(fitting.fitted, 'armorHp'), skills.armorLayering || 0);
+                                    const bonus = total - baseArmor;
                                     return (
                                       <span>
-                                        {baseArmor + bonus} HP
+                                        {total} HP
                                         {bonus > 0 && (
                                           <span style={{ color: '#8BD17C', fontSize: '12px', marginLeft: '4px' }}>
                                             (+{bonus})
