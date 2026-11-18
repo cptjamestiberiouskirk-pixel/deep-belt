@@ -13,6 +13,13 @@ Format, checked by `node dev/lessons.mjs --check`. A field's text may go on over
 - Status: open | promoted to PLAYBOOK "<section>" | closed: <why the rule no longer holds>
 ```
 
+## 2026-11-18: A clean lint was read as a failure because grep -v filtered every line
+- What went wrong: during step 26, `npm run lint 2>&1 | grep -v "^npm notice" | tail -3` under `set -o pipefail` stopped an `&&` chain with exit 1 twice, once after a real lint error was fixed. Lint itself exited 0; the chain skipped the test run and left its output path unset.
+- Why: `grep -v` exits 1 when it prints nothing, and a clean lint prints only `npm notice` lines, which it removes. Under pipefail that 1 becomes the pipeline's exit code.
+- Rule going forward: a check whose exit code gates a chain runs on its own with its output to a file or /dev/null (`npm run lint >/dev/null 2>&1; echo "lint exit $?"`); a filter such as `grep -v` goes only in a pipeline whose exit code nothing reads.
+- Evidence: the step 26 run printing "tsc+lint ok" nowhere and `/usr/bin/bash: line 1: : No such file or directory`; `npm run lint` alone printing nothing, then "lint exit 0".
+- Status: open
+
 ## 2026-11-18: A moved item's before-count was read from the seeded save, which has no inventory
 - What went wrong: step 23 pointed station.spec.ts's fabricator test at `before.inventory[k]`, and it failed with "Cannot read properties of undefined (reading 'hullPlate')". `before` was read right after the Fabricator opened, while localStorage still held the seeded save, which has only old cargoXxx keys. The same edit in lategame.spec.ts passed only because its `before` is read later.
 - Why: `openWithSave` writes the seed as given, and the game writes its own save, the first with `inventory`, only at its first autosave. A test that compares two saves is comparing a seed with a game save when its first read comes before that autosave.
