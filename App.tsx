@@ -4076,8 +4076,10 @@ export default function App() {
     manifest: { marks: number; items?: Record<string, number> };
   }
   const [riftRun, setRiftRun] = useState<RiftRunInstance | null>(null);
+  // The ref is the run's one source of truth: game code changes it in place (pulse reveals,
+  // hacked containers, the manifest), and every setRiftRun call sets the ref first. Syncing
+  // the ref from state on each render dropped a change made after the 1 Hz timer copied the run.
   const riftRunRef = useRef<RiftRunInstance | null>(null);
-  riftRunRef.current = riftRun;
 
   const getSystemPois = useCallback((
     systemName: string,
@@ -18438,7 +18440,8 @@ export default function App() {
         ) {
           (lastPublishedStateRef.current as any).riftLeftSec = curLeft;
           (lastPublishedStateRef.current as any).riftPhase = curPhase;
-          setRiftRun((prev) => (prev ? { ...prev, left: riftRunRef.current?.left ?? curLeft } : null));
+          // Publish a copy of the ref for rendering and saving; the ref itself is never replaced here.
+          setRiftRun(riftRunRef.current ? { ...riftRunRef.current } : null);
         }
       }
 
