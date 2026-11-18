@@ -1,7 +1,8 @@
 // The ship's hold as one saved map, `inventory: Record<ItemId, number>`
 // (design/content-tree.md 4.3 and 4.4, step 4). Items move into it one group at
 // a time: the lenses (step 4), the three drones (step 19), the colony goods
-// (step 20), the Rift goods (step 21), then the Vael ores (step 22). A moved
+// (step 20), the Rift goods (step 21), the Vael ores (step 22), then the
+// manufactured components (step 23). A moved
 // item's old `cargoXxx` save key is no longer written.
 //
 // Loading follows 4.4: an item present in `inventory` wins, even at 0; its old
@@ -23,9 +24,12 @@ export const RIFT_GOOD_IDS = ['riftSync', 'pristinePrismite', 'pristineNimbus', 
 /** Vael ores: Prismite, Nimbus and Radflux as mined, and their packed forms. */
 export const VAEL_ORE_IDS = ['prismite', 'nimbus', 'radflux', 'packedPrismite', 'packedNimbus', 'packedRadflux'] as const;
 
+/** Manufactured components: what the Fabricator builds from refined ore and turns into modules and hulls. */
+export const COMPONENT_IDS = ['hullPlate', 'thrusterCoil', 'sensorCore', 'latticeAlloy', 'conductiveMesh', 'thermalAlloy', 'quantumCore', 'integritySeal', 'thermalGrid'] as const;
+
 /** Items saved in `inventory`, with the old save key each one replaces. */
 export const INVENTORY_ITEMS: Record<string, string> = Object.fromEntries(
-  [...LENS_IDS, ...DRONE_IDS, ...COLONY_GOOD_IDS, ...RIFT_GOOD_IDS, ...VAEL_ORE_IDS].map((id) => [id, `cargo${id[0].toUpperCase()}${id.slice(1)}`]),
+  [...LENS_IDS, ...DRONE_IDS, ...COLONY_GOOD_IDS, ...RIFT_GOOD_IDS, ...VAEL_ORE_IDS, ...COMPONENT_IDS].map((id) => [id, `cargo${id[0].toUpperCase()}${id.slice(1)}`]),
 );
 
 const count = (x: unknown): number | null => (typeof x === 'number' && Number.isFinite(x) && x >= 0 ? Math.floor(x) : null);

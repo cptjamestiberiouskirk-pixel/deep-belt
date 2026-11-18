@@ -63,7 +63,7 @@ test('hauling: a contract is accepted at the agent and paid out on delivery', as
   await expect.poll(async () => (await readSave(page))!.activeHaulContractId).toBeNull();
   const save = (await readSave(page))!;
   expect(save.marks).toBe(before + 450);
-  expect(save.cargoSensorCore).toBe(0);
+  expect(save.inventory.sensorCore).toBe(0);
   expectClean(problems);
 });
 
@@ -94,7 +94,7 @@ test('hauling: Hull Plates go through the gate and are delivered at Vael Station
   await expect.poll(async () => (await readSave(page))!.activeHaulContractId).toBeNull();
   const save = (await readSave(page))!;
   expect(save.marks).toBe(before + 600);
-  expect(save.cargoHullPlate).toBe(0);
+  expect(save.inventory.hullPlate).toBe(0);
   expectClean(problems);
 });
 
@@ -119,7 +119,7 @@ test('hauling: docking at the outpost does not deliver a contract meant for Harr
   await expect(page.getByText('HAULING DELIVERY READY')).toHaveCount(0);
   const save = (await readSave(page))!;
   expect(save.activeHaulContractId).toBe('haul_core_harrow');
-  expect(save.cargoSensorCore).toBe(1);
+  expect(save.inventory.sensorCore).toBe(1);
   expectClean(problems);
 });
 
@@ -211,7 +211,7 @@ test('outpost: modules install, the vault stores cargo, and both survive a reloa
   await settle(page);
   await page.keyboard.press('4');
   await page.keyboard.press('Enter');
-  await expect.poll(async () => (await readSave(page))!.cargoHullPlate).toBe(0);
+  await expect.poll(async () => (await readSave(page))!.inventory.hullPlate).toBe(0);
   let save = (await readSave(page))!;
   expect(save.marks).toBe(20_000 - 2000);
   expect(save.outpost.modules).toMatchObject({storage_bay: true, docking_ring: true});
@@ -282,6 +282,8 @@ test('outpost: the refinery annex refines free of charge and the fab bay builds 
   await settle(page);
   await page.keyboard.press('f');
   await expect(page.getByText(/^FABRICATOR$/).first()).toBeVisible();
+  // Wait for the game's own save, which has `inventory`, before taking the counts to compare.
+  await expect.poll(async () => (await readSave(page))!.inventory, {timeout: 15_000}).toBeDefined();
   const before = (await readSave(page))!;
   await settle(page);
   await page.keyboard.press('Enter');
@@ -290,7 +292,7 @@ test('outpost: the refinery annex refines free of charge and the fab bay builds 
     .poll(async () => (await readSave(page))!.activeFabricate, {timeout: 90_000, intervals: [2000]})
     .toBeNull();
   save = (await readSave(page))!;
-  const made = ['cargoHullPlate', 'cargoThrusterCoil', 'cargoSensorCore'].filter((k) => save[k] > before[k]);
+  const made = ['hullPlate', 'thrusterCoil', 'sensorCore'].filter((k) => save.inventory[k] > before.inventory[k]);
   expect(made, 'no fabricated part appeared in the hold').not.toEqual([]);
   expectClean(problems);
 });
@@ -665,7 +667,7 @@ test('rift: stage 3 sentinel and Warden fall, and the collapse gate extracts the
   await expect.poll(async () => (await readSave(page))!.riftRun).toBeNull();
   const save = (await readSave(page))!;
   expect(save.marks).toBeGreaterThanOrEqual(before.marks + manifest.marks);
-  expect(save.cargoIntegritySeal).toBe(before.cargoIntegritySeal + 1);
+  expect(save.inventory.integritySeal).toBe(before.inventory.integritySeal + 1);
   expectClean(problems);
 });
 
@@ -718,14 +720,14 @@ test('flagship: a build survives a reload, and the Gantry can be boarded', async
   await page.keyboard.press('ArrowUp');
   await page.keyboard.press('Enter');
   await expect.poll(async () => (await readSave(page))!.activeFabricate?.recipeId).toBe('gantry_command');
-  expect((await readSave(page))!.cargoQuantumCore).toBe(0);
+  expect((await readSave(page))!.inventory.quantumCore).toBe(0);
 
   await reloadAndContinue(page);
   await expect(page.getByText('Docked · safe')).toBeVisible();
   await expect
     .poll(async () => (await readSave(page))!.ownedHulls, {timeout: 90_000, intervals: [2000]})
     .toContain('gantry');
-  expect((await readSave(page))!.cargoQuantumCore, 'the parts came back as well as the hull').toBe(0);
+  expect((await readSave(page))!.inventory.quantumCore, 'the parts came back as well as the hull').toBe(0);
 
   await settle(page);
   await page.keyboard.press('6');

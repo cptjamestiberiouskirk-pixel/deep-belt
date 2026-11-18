@@ -180,6 +180,8 @@ test('fabricator: a recipe with materials on hand can be built', async ({page}) 
   });
   await page.keyboard.press('f');
   await expect(page.getByText(/^FABRICATOR$/).first()).toBeVisible();
+  // The seeded save has old cargoXxx keys only; wait for the game's own save, which has `inventory`.
+  await expect.poll(async () => (await readSave(page))!.inventory, {timeout: 15_000}).toBeDefined();
   const before = (await readSave(page))!;
   await settle(page);
   await page.keyboard.press('Enter');
@@ -188,7 +190,7 @@ test('fabricator: a recipe with materials on hand can be built', async ({page}) 
     .poll(async () => (await readSave(page))!.activeFabricate, {timeout: 90_000, intervals: [2000]})
     .toBeNull();
   const after = (await readSave(page))!;
-  const made = ['cargoHullPlate', 'cargoThrusterCoil', 'cargoSensorCore'].filter((k) => after[k] > before[k]);
+  const made = ['hullPlate', 'thrusterCoil', 'sensorCore'].filter((k) => after.inventory[k] > before.inventory[k]);
   expect(made, 'no fabricated part appeared in the hold').not.toEqual([]);
   expectClean(problems);
 });

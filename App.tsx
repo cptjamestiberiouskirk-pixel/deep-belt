@@ -7795,41 +7795,50 @@ export default function App() {
         setCargoPyroxite(data.cargoPyroxite);
         cargoPyroxiteRef.current = data.cargoPyroxite;
       }
-      if (typeof data.cargoHullPlate === 'number') {
-        setCargoHullPlate(data.cargoHullPlate);
-        cargoHullPlateRef.current = data.cargoHullPlate;
+      const loadedHullPlate = readItem(data, 'hullPlate');
+      if (loadedHullPlate !== null) {
+        setCargoHullPlate(loadedHullPlate);
+        cargoHullPlateRef.current = loadedHullPlate;
       }
-      if (typeof data.cargoThrusterCoil === 'number') {
-        setCargoThrusterCoil(data.cargoThrusterCoil);
-        cargoThrusterCoilRef.current = data.cargoThrusterCoil;
+      const loadedThrusterCoil = readItem(data, 'thrusterCoil');
+      if (loadedThrusterCoil !== null) {
+        setCargoThrusterCoil(loadedThrusterCoil);
+        cargoThrusterCoilRef.current = loadedThrusterCoil;
       }
-      if (typeof data.cargoSensorCore === 'number') {
-        setCargoSensorCore(data.cargoSensorCore);
-        cargoSensorCoreRef.current = data.cargoSensorCore;
+      const loadedSensorCore = readItem(data, 'sensorCore');
+      if (loadedSensorCore !== null) {
+        setCargoSensorCore(loadedSensorCore);
+        cargoSensorCoreRef.current = loadedSensorCore;
       }
-      if (typeof data.cargoLatticeAlloy === 'number') {
-        setCargoLatticeAlloy(data.cargoLatticeAlloy);
-        cargoLatticeAlloyRef.current = data.cargoLatticeAlloy;
+      const loadedLatticeAlloy = readItem(data, 'latticeAlloy');
+      if (loadedLatticeAlloy !== null) {
+        setCargoLatticeAlloy(loadedLatticeAlloy);
+        cargoLatticeAlloyRef.current = loadedLatticeAlloy;
       }
-      if (typeof data.cargoConductiveMesh === 'number') {
-        setCargoConductiveMesh(data.cargoConductiveMesh);
-        cargoConductiveMeshRef.current = data.cargoConductiveMesh;
+      const loadedConductiveMesh = readItem(data, 'conductiveMesh');
+      if (loadedConductiveMesh !== null) {
+        setCargoConductiveMesh(loadedConductiveMesh);
+        cargoConductiveMeshRef.current = loadedConductiveMesh;
       }
-      if (typeof data.cargoThermalAlloy === 'number') {
-        setCargoThermalAlloy(data.cargoThermalAlloy);
-        cargoThermalAlloyRef.current = data.cargoThermalAlloy;
+      const loadedThermalAlloy = readItem(data, 'thermalAlloy');
+      if (loadedThermalAlloy !== null) {
+        setCargoThermalAlloy(loadedThermalAlloy);
+        cargoThermalAlloyRef.current = loadedThermalAlloy;
       }
-      if (typeof data.cargoQuantumCore === 'number') {
-        setCargoQuantumCore(data.cargoQuantumCore);
-        cargoQuantumCoreRef.current = data.cargoQuantumCore;
+      const loadedQuantumCore = readItem(data, 'quantumCore');
+      if (loadedQuantumCore !== null) {
+        setCargoQuantumCore(loadedQuantumCore);
+        cargoQuantumCoreRef.current = loadedQuantumCore;
       }
-      if (typeof data.cargoIntegritySeal === 'number') {
-        setCargoIntegritySeal(data.cargoIntegritySeal);
-        cargoIntegritySealRef.current = data.cargoIntegritySeal;
+      const loadedIntegritySeal = readItem(data, 'integritySeal');
+      if (loadedIntegritySeal !== null) {
+        setCargoIntegritySeal(loadedIntegritySeal);
+        cargoIntegritySealRef.current = loadedIntegritySeal;
       }
-      if (typeof data.cargoThermalGrid === 'number') {
-        setCargoThermalGrid(data.cargoThermalGrid);
-        cargoThermalGridRef.current = data.cargoThermalGrid;
+      const loadedThermalGrid = readItem(data, 'thermalGrid');
+      if (loadedThermalGrid !== null) {
+        setCargoThermalGrid(loadedThermalGrid);
+        cargoThermalGridRef.current = loadedThermalGrid;
       }
       const loadedPrismite = readItem(data, 'prismite');
       if (loadedPrismite !== null) {
@@ -7861,7 +7870,7 @@ export default function App() {
         setCargoPackedRadflux(loadedPackedRadflux);
         cargoPackedRadfluxRef.current = loadedPackedRadflux;
       }
-      // Vael ores (above), lenses, drones, colony goods and Rift goods are saved in `inventory` (content/inventory.ts): it wins,
+      // Components and Vael ores (above), lenses, drones, colony goods and Rift goods are saved in `inventory` (content/inventory.ts): it wins,
       // even at 0, and an item's old cargoXxx key is read only when inventory lacks it.
       const loadedSilicate = readItem(data, 'silicateLens');
       if (loadedSilicate !== null) {
@@ -8292,16 +8301,7 @@ export default function App() {
         cargoAuriteConc,
         cargoChromiteBar,
         cargoPyroxite,
-        cargoHullPlate: cargoHullPlateRef.current,
-        cargoThrusterCoil: cargoThrusterCoilRef.current,
-        cargoSensorCore: cargoSensorCoreRef.current,
-        cargoLatticeAlloy: cargoLatticeAlloyRef.current,
-        cargoConductiveMesh: cargoConductiveMeshRef.current,
-        cargoThermalAlloy: cargoThermalAlloyRef.current,
-        cargoQuantumCore: cargoQuantumCoreRef.current,
-        cargoIntegritySeal: cargoIntegritySealRef.current,
-        cargoThermalGrid: cargoThermalGridRef.current,
-        // The hold, one item group at a time (content/inventory.ts): lenses, drones, colony goods, Rift goods, Vael ores.
+        // The hold, one item group at a time (content/inventory.ts): lenses, drones, colony goods, Rift goods, Vael ores, components.
         inventory: {
           silicateLens: cargoSilicateLensRef.current,
           metallicLens: cargoMetallicLensRef.current,
@@ -8325,6 +8325,15 @@ export default function App() {
           packedPrismite: cargoPackedPrismiteRef.current,
           packedNimbus: cargoPackedNimbusRef.current,
           packedRadflux: cargoPackedRadfluxRef.current,
+          hullPlate: cargoHullPlateRef.current,
+          thrusterCoil: cargoThrusterCoilRef.current,
+          sensorCore: cargoSensorCoreRef.current,
+          latticeAlloy: cargoLatticeAlloyRef.current,
+          conductiveMesh: cargoConductiveMeshRef.current,
+          thermalAlloy: cargoThermalAlloyRef.current,
+          quantumCore: cargoQuantumCoreRef.current,
+          integritySeal: cargoIntegritySealRef.current,
+          thermalGrid: cargoThermalGridRef.current,
         },
         riftRun: riftRunRef.current,
         riftStats: riftStatsRef.current,
