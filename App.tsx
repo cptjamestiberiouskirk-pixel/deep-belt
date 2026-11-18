@@ -7855,7 +7855,7 @@ export default function App() {
         setCargoPackedRadflux(data.cargoPackedRadflux);
         cargoPackedRadfluxRef.current = data.cargoPackedRadflux;
       }
-      // Lenses, drones and colony goods are saved in `inventory` (content/inventory.ts): it wins,
+      // Lenses, drones, colony goods and Rift goods are saved in `inventory` (content/inventory.ts): it wins,
       // even at 0, and an item's old cargoXxx key is read only when inventory lacks it.
       const loadedSilicate = readItem(data, 'silicateLens');
       if (loadedSilicate !== null) {
@@ -7907,21 +7907,25 @@ export default function App() {
         setCargoPolymerComposite(loadedPolymerComposite);
         cargoPolymerCompositeRef.current = loadedPolymerComposite;
       }
-      if (typeof data.cargoRiftSync === 'number') {
-        setCargoRiftSync(data.cargoRiftSync);
-        cargoRiftSyncRef.current = data.cargoRiftSync;
+      const loadedRiftSync = readItem(data, 'riftSync');
+      if (loadedRiftSync !== null) {
+        setCargoRiftSync(loadedRiftSync);
+        cargoRiftSyncRef.current = loadedRiftSync;
       }
-      if (typeof data.cargoPristinePrismite === 'number') {
-        setCargoPristinePrismite(data.cargoPristinePrismite);
-        cargoPristinePrismiteRef.current = data.cargoPristinePrismite;
+      const loadedPristinePrismite = readItem(data, 'pristinePrismite');
+      if (loadedPristinePrismite !== null) {
+        setCargoPristinePrismite(loadedPristinePrismite);
+        cargoPristinePrismiteRef.current = loadedPristinePrismite;
       }
-      if (typeof data.cargoPristineNimbus === 'number') {
-        setCargoPristineNimbus(data.cargoPristineNimbus);
-        cargoPristineNimbusRef.current = data.cargoPristineNimbus;
+      const loadedPristineNimbus = readItem(data, 'pristineNimbus');
+      if (loadedPristineNimbus !== null) {
+        setCargoPristineNimbus(loadedPristineNimbus);
+        cargoPristineNimbusRef.current = loadedPristineNimbus;
       }
-      if (typeof data.cargoPristineRadflux === 'number') {
-        setCargoPristineRadflux(data.cargoPristineRadflux);
-        cargoPristineRadfluxRef.current = data.cargoPristineRadflux;
+      const loadedPristineRadflux = readItem(data, 'pristineRadflux');
+      if (loadedPristineRadflux !== null) {
+        setCargoPristineRadflux(loadedPristineRadflux);
+        cargoPristineRadfluxRef.current = loadedPristineRadflux;
       }
       if (data.riftStats && typeof data.riftStats === 'object') {
         const rs = {
@@ -8297,7 +8301,7 @@ export default function App() {
         cargoPackedPrismite: cargoPackedPrismiteRef.current,
         cargoPackedNimbus: cargoPackedNimbusRef.current,
         cargoPackedRadflux: cargoPackedRadfluxRef.current,
-        // The hold, one item group at a time (content/inventory.ts): lenses, drones, colony goods.
+        // The hold, one item group at a time (content/inventory.ts): lenses, drones, colony goods, Rift goods.
         inventory: {
           silicateLens: cargoSilicateLensRef.current,
           metallicLens: cargoMetallicLensRef.current,
@@ -8311,11 +8315,11 @@ export default function App() {
           polymer: cargoPolymerRef.current,
           chemical: cargoChemicalRef.current,
           polymerComposite: cargoPolymerCompositeRef.current,
+          riftSync: cargoRiftSyncRef.current,
+          pristinePrismite: cargoPristinePrismiteRef.current,
+          pristineNimbus: cargoPristineNimbusRef.current,
+          pristineRadflux: cargoPristineRadfluxRef.current,
         },
-        cargoRiftSync: cargoRiftSyncRef.current,
-        cargoPristinePrismite: cargoPristinePrismiteRef.current,
-        cargoPristineNimbus: cargoPristineNimbusRef.current,
-        cargoPristineRadflux: cargoPristineRadfluxRef.current,
         riftRun: riftRunRef.current,
         riftStats: riftStatsRef.current,
         gantryRefit: gantryRefitRef.current,

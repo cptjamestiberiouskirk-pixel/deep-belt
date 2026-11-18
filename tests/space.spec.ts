@@ -142,7 +142,7 @@ test('rift: a synchronizer opens the rift, and a reload mid-run recovers safely'
   await page.keyboard.press('Enter');
   await expect(page.getByText('Rift System ·')).toBeVisible({timeout: 30_000});
   await expect(page.getByText(/RIFT \d+:\d+/).first()).toBeVisible();
-  await expect.poll(async () => (await readSave(page))!.cargoRiftSync).toBe(0);
+  await expect.poll(async () => (await readSave(page))!.inventory.riftSync).toBe(0);
 
   await page.reload();
   await expectTitle(page);
