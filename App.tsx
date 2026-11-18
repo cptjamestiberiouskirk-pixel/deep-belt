@@ -118,7 +118,7 @@ import {MARKET_MODULE_IDS, MODULES, minerFor, missingSkill, type ModuleId} from 
 import type {SlotType} from './content/types';
 import {LENSES, LENS_IDS, lensBonusLabel} from './content/lenses';
 import {readItem} from './content/inventory';
-import {BOOSTER_EFFICIENCY_CUT, boosterCapAt, CARGO_TRIM_CUT, CHARGE_CONTROL_CUT, effectiveLoad, freeFerriteAt, LASER_TUNING_CUT, LOW_PROFILE_FREE_FERRITE, LOW_PROFILE_MINING_CUT, minerCycleAt, miningNoticePerSec, prerequisiteText, saleNotice, SKILL_CATEGORY_ORDER, skillLevels, SKILLS, unmetPrerequisites, weaponCycleAt} from './content/skills';
+import {BOOSTER_EFFICIENCY_CUT, boosterCapAt, CARGO_TRIM_CUT, CHARGE_CONTROL_CUT, effectiveLoad, FERRITE_PER_TRITANIUM, freeFerriteAt, LASER_TUNING_CUT, LOW_PROFILE_FREE_FERRITE, LOW_PROFILE_MINING_CUT, minerCycleAt, miningNoticePerSec, noticeFerrite, prerequisiteText, saleNotice, SKILL_CATEGORY_ORDER, skillLevels, SKILLS, unmetPrerequisites, weaponCycleAt} from './content/skills';
 import {formatSpeed, FULL_HOLD_THRUST_CUT, flightLimits, PIXELS_PER_KM, topSpeed} from './content/flight';
 import type {ModuleDef} from './content/types';
 import {
@@ -1456,7 +1456,7 @@ export const SKILL_DEFINITIONS: SkillDefinition[] = [
     id: 'lowProfile',
     name: 'Low Profile',
     category: SKILLS.lowProfile.category,
-    description: `+${LOW_PROFILE_FREE_FERRITE} Ferrite sold without drawing Notice, and -${Math.round(LOW_PROFILE_MINING_CUT * 100)}% Notice from mining, per level`,
+    description: `+${LOW_PROFILE_FREE_FERRITE} Ferrite sold without drawing Notice (a Tritanium counts as ${FERRITE_PER_TRITANIUM}), and -${Math.round(LOW_PROFILE_MINING_CUT * 100)}% Notice from mining, per level`,
     getBonusText: (level: number) =>
       `Sell ${freeFerriteAt(level)} Ferrite unnoticed, -${Math.round(LOW_PROFILE_MINING_CUT * 100 * level)}% mining Notice (${miningNoticePerSec(level).toFixed(2)}/s)`,
   },
@@ -11936,7 +11936,8 @@ export default function App() {
 
   // Notice heat accumulation helper for ore sales at stations
   const handleOreSaleNotice = useCallback((oreCount: number) => {
-    // Ferrite beyond the free amount adds Notice; Low Profile raises the free amount (content/skills.ts).
+    // Ferrite beyond the free amount adds Notice (Tritanium counts as the Ferrite it was
+    // refined from); Low Profile raises the free amount (content/skills.ts).
     const added = saleNotice(oreCount, skillsRef.current.lowProfile || 0);
     if (added > 0) {
       const prevNotice = noticeRef.current;
@@ -12102,6 +12103,8 @@ export default function App() {
     if (!isDocked) return;
     const current = cargoTritaniumRef.current;
     if (current <= 0) return;
+    // Refined Ferrite draws Notice as the ore it came from, or refining would hide a sale.
+    handleOreSaleNotice(noticeFerrite(0, current));
     cargoTritaniumRef.current = 0;
     setCargoTritanium(0);
 
@@ -13245,6 +13248,10 @@ export default function App() {
       setGameState((g) => ({...g, score: newMarks}));
       return newMarks;
     });
+
+    // Sell All draws Notice as the single sales do, except the training's last sale,
+    // after which Notice starts to apply.
+    if (!isCompletingTutorial) handleOreSaleNotice(noticeFerrite(fOre, tri));
 
     gameAudio.playPurchaseConfirmed();
 

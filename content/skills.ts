@@ -63,6 +63,13 @@ export function minerCycleAt(baseSec: number, laserTuningLevel: number): number 
 export const NOTICE_FREE_FERRITE = 200;
 /** Notice for each Ferrite sold beyond the free amount (100 Notice brings a raider wave). */
 export const NOTICE_PER_FERRITE = 3;
+/** Ferrite one Tritanium is refined from (50 ore makes 25), so a Tritanium sale draws Notice as that much Ferrite. */
+export const FERRITE_PER_TRITANIUM = 2;
+
+/** The Ferrite a sale counts for Notice: its raw Ferrite plus the Ferrite its Tritanium was refined from. */
+export function noticeFerrite(ferrite: number, tritanium: number): number {
+  return ferrite + FERRITE_PER_TRITANIUM * tritanium;
+}
 /** Low Profile: each level adds this much Ferrite to the free amount (600 at level V). */
 export const LOW_PROFILE_FREE_FERRITE = 80;
 /** Notice a second while the mining laser runs, before Low Profile. */
