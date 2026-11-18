@@ -15,11 +15,14 @@ export type ModuleId =
   | 'bulk_hold'
   | 'shield_booster'
   | 'composite_armor'
+  | 'fire_control'
   | 'light_cannon'
   | 'lance_driver';
 
 /** Composite Armor's armor HP (step 12). */
 export const COMPOSITE_ARMOR_HP = 100;
+/** Fire Control Relay's weapon damage bonus, in percent (step 16). */
+export const FIRE_CONTROL_DAMAGE_PCT = 20;
 
 export const MODULES: Record<ModuleId, ModuleDef> = {
   miner_mk1: {
@@ -115,6 +118,23 @@ export const MODULES: Record<ModuleId, ModuleDef> = {
     statBadge: `+${COMPOSITE_ARMOR_HP} armor`,
     desc: `Layered ceramic and alloy plating: +${COMPOSITE_ARMOR_HP} armor HP. Uses no capacitor, but armor does not regenerate; the station repairs it for MARKS.`,
     icon: 'module_armor_plate',
+  },
+  // Step 16: an offense side-grade for a utility slot. Raider waves cost HP for as
+  // long as they last, so more damage shortens them; but the slot then holds no
+  // hold space, booster or armor. One only.
+  fire_control: {
+    id: 'fire_control',
+    name: 'Fire Control Relay',
+    category: 'module',
+    group: 'Fire control',
+    tier: 1,
+    volume: 0,
+    basePrice: 1100,
+    slot: 'utility',
+    stats: {damagePct: FIRE_CONTROL_DAMAGE_PCT},
+    statBadge: `+${FIRE_CONTROL_DAMAGE_PCT}% weapon damage`,
+    desc: `Targeting relay that times each shot to the hull's weak points: +${FIRE_CONTROL_DAMAGE_PCT}% damage from the fitted weapon. Takes a utility slot from the hold, booster or armor.`,
+    icon: 'module_sensor',
   },
   light_cannon: {
     id: 'light_cannon',

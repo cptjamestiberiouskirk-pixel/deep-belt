@@ -432,6 +432,62 @@ for (const c of WARP_ESCAPES) {
   });
 }
 
+// --- Fighting a raider wave: sell ore to bring one, then lock each raider from
+// the Overview and fire until both are dead. Gunnery III. Records the fight's
+// length, the HP it cost and the lowest Cap. Step 16 adds the Fire Control Relay.
+const WAVES: Array<{name: string; weapon: string; cc: number; relay: boolean}> = [
+  {name: 'Light Cannon', weapon: 'light_cannon', cc: 0, relay: false},
+  {name: 'Light Cannon + Fire Control Relay', weapon: 'light_cannon', cc: 0, relay: true},
+  {name: 'Light Cannon, Charge Control V', weapon: 'light_cannon', cc: 5, relay: false},
+  {name: 'Light Cannon + Fire Control Relay, Charge Control V', weapon: 'light_cannon', cc: 5, relay: true},
+  {name: 'Lance Driver', weapon: 'lance_driver', cc: 0, relay: false},
+  {name: 'Lance Driver + Fire Control Relay', weapon: 'lance_driver', cc: 0, relay: true},
+];
+for (const c of WAVES) {
+  test(`raiders: fight, ${c.name}`, async ({page}) => {
+    test.setTimeout(240_000);
+    const fitted = ['miner_mk1', c.relay ? 'fire_control' : null, null, c.weapon];
+    await openWithSave(page, {...BASE, ...skills({mining: 2, gunnery: 3, chargeControl: c.cc}), ...fitting(fitted), cargoFerrite: 600});
+    await enterGame(page);
+    await page.keyboard.press('1');
+    await settle(page);
+    await page.keyboard.press('Enter');
+    await expect.poll(async () => (await readSave(page))!.cargoFerrite).toBe(0);
+    await page.keyboard.press('Escape');
+    await undock(page);
+    const alive = () => page.evaluate(() => ((window as any).__DEEP_BELT_PROBE__.raiders() as unknown[]).length);
+    await expect.poll(alive, {timeout: 20_000}).toBe(2);
+    const p0 = await player(page);
+    const start = Date.now();
+    let minCap = Infinity;
+    let p = p0;
+    while (Date.now() - start < 180_000 && (await alive()) > 0 && p.hull > 0) {
+      if (!/Raider[\s\S]*Locked|Locked[\s\S]*Raider/.test(await targetPanel(page))) {
+        const row = page.getByText(/^Raider \d+$/).first();
+        if (!(await row.isVisible())) await page.getByText('Ships', {exact: true}).click();
+        if (await row.isVisible()) {
+          await row.click();
+          await page.keyboard.press('l');
+          await expect.poll(() => targetPanel(page), {timeout: 20_000}).toMatch(/Locked/).catch(() => {});
+        }
+      }
+      // Fire is a toggle: press it only while the weapon is off.
+      if (!(await player(page)).cannonActive) await page.keyboard.press('2');
+      await page.waitForTimeout(250);
+      p = await player(page);
+      minCap = Math.min(minCap, p.capacitor);
+    }
+    record({
+      probe: 'raiders',
+      case: `fight, ${c.name}`,
+      raidersLeft: await alive(),
+      fightSec: Math.round((Date.now() - start) / 1000),
+      hpLost: Math.round(p0.shield + p0.armor + p0.hull - (p.shield + p.armor + p.hull)),
+      minCap: Math.round(minCap),
+    });
+  });
+}
+
 // --- Notice from a sale: sell a full Ferrier hold of Ferrite, read Notice, then
 // undock and see whether a raider wave comes within 20 s.
 for (const lp of [0, 5]) {

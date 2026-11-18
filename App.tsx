@@ -5428,6 +5428,8 @@ export default function App() {
   const holdBonus = (fitted: Slots = fittingRef.current.fitted) => fittedTotal(fitted, 'cargoM3');
   // Armor the fitted modules add (Composite Armor, step 12).
   const armorBonus = (fitted: Slots = fittingRef.current.fitted) => fittedTotal(fitted, 'armorHp');
+  // Weapon damage multiplier from fitted modules (Fire Control Relay, step 16): 1.2 with one.
+  const damageModuleMult = (fitted: Slots = fittingRef.current.fitted) => 1 + fittedTotal(fitted, 'damagePct') / 100;
 
   const [skillsFocusIndex, setSkillsFocusIndex] = useState(0);
   const skillsFocusIndexRef = useRef(0);
@@ -19517,7 +19519,7 @@ export default function App() {
               // Instant hit: base 30 kinetic damage + gunnery bonus + Skirmisher perk (+25%)
               const gunneryLvl = skillsRef.current.gunnery || 0;
               const hullMult = activeHullRef.current === 'skirmisher' ? 1.25 : 1.0;
-              const effectiveDamage = Math.round((weapon.damage ?? 30) * (1 + 0.10 * gunneryLvl) * hullMult);
+              const effectiveDamage = Math.round((weapon.damage ?? 30) * (1 + 0.10 * gunneryLvl) * hullMult * damageModuleMult());
 
               const prowX = p.x + Math.cos(p.heading) * 28;
               const prowY = p.y + Math.sin(p.heading) * 28;
@@ -31563,7 +31565,7 @@ export default function App() {
                               </div>
 
                               {/* Stat 7: Cannon */}
-                              <div style={statRowStyle}>
+                              <div style={statRowStyle} data-testid="ship-stat-cannon">
                                 <span style={statLabelStyle}>Cannon</span>
                                 <span style={statValueStyle}>
                                   {(() => {
@@ -31572,7 +31574,7 @@ export default function App() {
                                     const hullMult = activeHull === 'skirmisher' ? 1.25 : 1.0;
                                     const weapon = (fittedWith(fitting.fitted, 'damage') ?? MODULES.light_cannon).stats;
                                     const baseDmg = weapon.damage ?? 30;
-                                    const totalDmg = Math.round(baseDmg * (1 + 0.1 * gunneryLevel) * hullMult);
+                                    const totalDmg = Math.round(baseDmg * (1 + 0.1 * gunneryLevel) * hullMult * damageModuleMult(fitting.fitted));
                                     const bonus = totalDmg - baseDmg;
                                     return (
                                       <span>

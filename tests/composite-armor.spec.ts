@@ -22,7 +22,7 @@ test('catalog: Composite Armor is a utility module for 900 MARKS that adds armor
   });
   expect(MODULES.composite_armor.maxOwned).toBeUndefined(); // one only
   expect(MODULES.composite_armor.requires).toBeUndefined();
-  expect(MARKET_MODULE_IDS).toEqual(['miner_mk2', 'expanded_hold', 'bulk_hold', 'shield_booster', 'composite_armor', 'light_cannon', 'lance_driver']);
+  expect(MARKET_MODULE_IDS).toEqual(['miner_mk2', 'expanded_hold', 'bulk_hold', 'shield_booster', 'composite_armor', 'fire_control', 'light_cannon', 'lance_driver']);
   expect(fittedTotal(['miner_mk1', 'composite_armor', 'shield_booster', 'light_cannon'], 'armorHp')).toBe(COMPOSITE_ARMOR_HP);
 });
 

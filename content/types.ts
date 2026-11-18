@@ -13,6 +13,7 @@ export type StatId =
   | 'shieldHpPerSec' // shield restored per second while active
   | 'armorHp' // armor HP added (never regenerates; the station repairs it for MARKS)
   | 'damage' // damage per shot
+  | 'damagePct' // percent added to the fitted weapon's damage
   | 'rangeKm' // optimal range
   | 'capPerCycle' // capacitor used per cycle
   | 'speedPct'; // max speed and thrust, as a percent change (-20 is 20% slower)
