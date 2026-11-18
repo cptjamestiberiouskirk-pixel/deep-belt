@@ -51,10 +51,10 @@ test('market: selling one stack pays for it and empties it', async ({page}) => {
   await expect(page.getByText('Sell cargo')).toBeVisible();
   await settle(page);
   await page.keyboard.press('Enter');
-  await expect.poll(async () => (await readSave(page))!.cargoFerrite).toBe(0);
+  await expect.poll(async () => (await readSave(page))!.inventory?.ferrite).toBe(0);
   const after = (await readSave(page))!;
   expect(after.marks).toBe(before.marks + 250 * 12);
-  expect(after.cargoAurite).toBe(60);
+  expect(after.inventory.aurite).toBe(60);
   expectClean(problems);
 });
 
@@ -63,10 +63,10 @@ test('market: sell all empties every ore stack', async ({page}) => {
   const before = (await readSave(page))!;
   await page.keyboard.press('1');
   await page.keyboard.press('s');
-  await expect.poll(async () => (await readSave(page))!.cargoFerrite).toBe(0);
+  await expect.poll(async () => (await readSave(page))!.inventory?.ferrite).toBe(0);
   const after = (await readSave(page))!;
-  expect(after.cargoAurite).toBe(0);
-  expect(after.cargoChromite).toBe(0);
+  expect(after.inventory.aurite).toBe(0);
+  expect(after.inventory.chromite).toBe(0);
   expect(after.marks).toBeGreaterThan(before.marks);
   expectClean(problems);
 });
@@ -116,7 +116,7 @@ test('refinery: 50 ore becomes 25 refined for a fee', async ({page}) => {
     .poll(async () => (await readSave(page))!.inventory.tritanium, {timeout: 20_000})
     .toBe(before.inventory.tritanium + 25);
   const after = (await readSave(page))!;
-  expect(after.cargoFerrite).toBe(before.cargoFerrite - 50);
+  expect(after.inventory.ferrite).toBe(before.inventory.ferrite - 50);
   expect(after.marks).toBeLessThan(before.marks);
   expectClean(problems);
 });
@@ -149,7 +149,7 @@ test('agent: a contract can be accepted and turned in', async ({page}) => {
   await expect.poll(async () => (await readSave(page))!.missionIndex, {timeout: 20_000}).toBe(1);
   const after = (await readSave(page))!;
   expect(after.marks).toBe(before.marks + 1000);
-  expect(after.cargoFerrite).toBe(50);
+  expect(after.inventory.ferrite).toBe(50);
   expectClean(problems);
 });
 

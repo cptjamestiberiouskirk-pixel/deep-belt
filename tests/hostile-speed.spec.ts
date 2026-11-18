@@ -16,7 +16,7 @@ test('raiders fly at 80% of a plain Ferrier, slower than an empty one', async ({
   await page.keyboard.press('1');
   await settle(page);
   await page.keyboard.press('Enter');
-  await expect.poll(async () => (await readSave(page))!.cargoFerrite).toBe(0);
+  await expect.poll(async () => (await readSave(page))!.inventory?.ferrite).toBe(0);
   await page.keyboard.press('Escape');
   await undock(page);
   await expect(page.getByText(/Raider wave inbound/).first()).toBeVisible({timeout: 20_000});

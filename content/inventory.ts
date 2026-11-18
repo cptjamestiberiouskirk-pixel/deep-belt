@@ -2,7 +2,8 @@
 // (design/content-tree.md 4.3 and 4.4, step 4). Items move into it one group at
 // a time: the lenses (step 4), the three drones (step 19), the colony goods
 // (step 20), the Rift goods (step 21), the Vael ores (step 22), then the
-// manufactured components (step 23), then the refined bars (step 24). A moved
+// manufactured components (step 23), the refined bars (step 24), then the raw
+// ores and scrap (step 25). Only the Station Core keeps its old key. A moved
 // item's old `cargoXxx` save key is no longer written.
 //
 // Loading follows 4.4: an item present in `inventory` wins, even at 0; its old
@@ -30,9 +31,12 @@ export const COMPONENT_IDS = ['hullPlate', 'thrusterCoil', 'sensorCore', 'lattic
 /** Refined bars: what the station refinery makes from the base ores. */
 export const REFINED_BAR_IDS = ['tritanium', 'auriteConc', 'chromiteBar', 'pyroxite'] as const;
 
+/** Raw ores as mined, and the Module Scrap that wrecks drop. */
+export const RAW_ORE_IDS = ['ferrite', 'rare', 'aurite', 'chromite', 'pyrox', 'scrap'] as const;
+
 /** Items saved in `inventory`, with the old save key each one replaces. */
 export const INVENTORY_ITEMS: Record<string, string> = Object.fromEntries(
-  [...LENS_IDS, ...DRONE_IDS, ...COLONY_GOOD_IDS, ...RIFT_GOOD_IDS, ...VAEL_ORE_IDS, ...COMPONENT_IDS, ...REFINED_BAR_IDS].map((id) => [id, `cargo${id[0].toUpperCase()}${id.slice(1)}`]),
+  [...LENS_IDS, ...DRONE_IDS, ...COLONY_GOOD_IDS, ...RIFT_GOOD_IDS, ...VAEL_ORE_IDS, ...COMPONENT_IDS, ...REFINED_BAR_IDS, ...RAW_ORE_IDS].map((id) => [id, `cargo${id[0].toUpperCase()}${id.slice(1)}`]),
 );
 
 const count = (x: unknown): number | null => (typeof x === 'number' && Number.isFinite(x) && x >= 0 ? Math.floor(x) : null);

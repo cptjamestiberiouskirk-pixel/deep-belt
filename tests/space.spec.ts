@@ -19,7 +19,7 @@ test('combat: a pirate can be locked, destroyed and its wreck salvaged', async (
 
   const afterKill = (await readSave(page))!.marks;
   await page.keyboard.press('e');
-  await expect.poll(async () => (await readSave(page))!.cargoScrap, {timeout: 90_000}).toBeGreaterThan(0);
+  await expect.poll(async () => (await readSave(page))!.inventory?.scrap, {timeout: 90_000}).toBeGreaterThan(0);
   expect((await readSave(page))!.marks).toBeGreaterThan(afterKill);
   expectClean(problems);
 });
@@ -69,7 +69,7 @@ test('destruction: the ship is towed home, cargo is lost, insurance is charged',
   await expect(page.getByText(/Vessel destroyed/)).toBeVisible();
   expect(await whereAmI(page)).toBe('Harrow Station Alpha');
   const save = (await readSave(page))!;
-  expect(save.cargoFerrite).toBe(0);
+  expect(save.inventory.ferrite).toBe(0);
   expect(save.marks).toBe(4900);
   expect(save.isDocked).toBe(true);
   expectClean(problems);
@@ -182,7 +182,7 @@ test('developer cheat keys do nothing in the released build', async ({page}) => 
   expect(await whereAmI(page)).toBe('Harrow Station Alpha');
   const save = (await readSave(page))!;
   expect(save.marks).toBe(1234);
-  expect(save.cargoFerrite).toBe(0);
+  expect(save.inventory.ferrite).toBe(0);
   await expect(page.getByText(/DEV CHEAT/)).toHaveCount(0);
   expectClean(problems);
 });
@@ -195,7 +195,7 @@ test('mining: a tuned laser never overheats; a mistuned one locks out and the hi
   await page.keyboard.press('l');
   await expect.poll(() => targetPanel(page), {timeout: 30_000}).toMatch(/Locked/);
   await tuneLaser(page);
-  const before = (await readSave(page))!.cargoFerrite ?? 0;
+  const before = (await readSave(page))!.inventory.ferrite;
   await page.keyboard.press('1');
   // A matched laser used to reach 100% heat after about 20 s (two cycles).
   const states: string[] = [];
@@ -204,7 +204,7 @@ test('mining: a tuned laser never overheats; a mistuned one locks out and the hi
     await page.waitForTimeout(1000);
   }
   expect(states.filter((s) => /OVERHEAT/.test(s)), `Mine button over 32 s: ${states.join(' | ')}`).toEqual([]);
-  await expect.poll(async () => ((await readSave(page))!.cargoFerrite ?? 0) - before, {timeout: 15_000}).toBeGreaterThanOrEqual(100);
+  await expect.poll(async () => ((await readSave(page))!.inventory?.ferrite ?? 0) - before, {timeout: 15_000}).toBeGreaterThanOrEqual(100);
 
   // Dev key 6 sets the heat to 95%; one step off the rock's frequency tips it over.
   await page.keyboard.press('6');

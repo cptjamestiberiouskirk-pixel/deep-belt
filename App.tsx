@@ -7688,13 +7688,15 @@ export default function App() {
         marksRef.current = data.marks;
         setGameState((prev) => ({...prev, score: data.marks}));
       }
-      if (typeof data.cargoFerrite === 'number') {
-        setCargoFerrite(data.cargoFerrite);
-        cargoFerriteRef.current = data.cargoFerrite;
+      const loadedFerrite = readItem(data, 'ferrite');
+      if (loadedFerrite !== null) {
+        setCargoFerrite(loadedFerrite);
+        cargoFerriteRef.current = loadedFerrite;
       }
-      if (typeof data.cargoRare === 'number') {
-        setCargoRare(data.cargoRare);
-        cargoRareRef.current = data.cargoRare;
+      const loadedRare = readItem(data, 'rare');
+      if (loadedRare !== null) {
+        setCargoRare(loadedRare);
+        cargoRareRef.current = loadedRare;
       }
       if (typeof data.cargoMax === 'number') {
         setCargoMax(data.cargoMax);
@@ -7759,25 +7761,29 @@ export default function App() {
         setCurrentSystem(data.currentSystem);
         currentSystemRef.current = data.currentSystem;
       }
-      if (typeof data.cargoAurite === 'number') {
-        setCargoAurite(data.cargoAurite);
-        cargoAuriteRef.current = data.cargoAurite;
+      const loadedAurite = readItem(data, 'aurite');
+      if (loadedAurite !== null) {
+        setCargoAurite(loadedAurite);
+        cargoAuriteRef.current = loadedAurite;
       }
-      if (typeof data.cargoChromite === 'number') {
-        setCargoChromite(data.cargoChromite);
-        cargoChromiteRef.current = data.cargoChromite;
+      const loadedChromite = readItem(data, 'chromite');
+      if (loadedChromite !== null) {
+        setCargoChromite(loadedChromite);
+        cargoChromiteRef.current = loadedChromite;
       }
-      if (typeof data.cargoPyrox === 'number') {
-        setCargoPyrox(data.cargoPyrox);
-        cargoPyroxRef.current = data.cargoPyrox;
+      const loadedPyrox = readItem(data, 'pyrox');
+      if (loadedPyrox !== null) {
+        setCargoPyrox(loadedPyrox);
+        cargoPyroxRef.current = loadedPyrox;
       }
       if (typeof data.ashDriftVisited === 'boolean') {
         setAshDriftVisited(data.ashDriftVisited);
         ashDriftVisitedRef.current = data.ashDriftVisited;
       }
-      if (typeof data.cargoScrap === 'number') {
-        setCargoScrap(data.cargoScrap);
-        cargoScrapRef.current = data.cargoScrap;
+      const loadedScrap = readItem(data, 'scrap');
+      if (loadedScrap !== null) {
+        setCargoScrap(loadedScrap);
+        cargoScrapRef.current = loadedScrap;
       }
       const loadedTritanium = readItem(data, 'tritanium');
       if (loadedTritanium !== null) {
@@ -7874,7 +7880,7 @@ export default function App() {
         setCargoPackedRadflux(loadedPackedRadflux);
         cargoPackedRadfluxRef.current = loadedPackedRadflux;
       }
-      // Refined bars, components and Vael ores (above), lenses, drones, colony goods and Rift goods are saved in `inventory` (content/inventory.ts): it wins,
+      // Every hold item but the Station Core is saved in `inventory` (content/inventory.ts): it wins,
       // even at 0, and an item's old cargoXxx key is read only when inventory lacks it.
       const loadedSilicate = readItem(data, 'silicateLens');
       if (loadedSilicate !== null) {
@@ -8295,13 +8301,7 @@ export default function App() {
       const data = {
         currentSystem,
         marks,
-        cargoFerrite,
-        cargoRare,
-        cargoAurite,
-        cargoChromite,
-        cargoPyrox,
-        cargoScrap,
-        // The hold, one item group at a time (content/inventory.ts): lenses, drones, colony goods, Rift goods, Vael ores, components, refined bars.
+        // The hold, one item group at a time (content/inventory.ts): lenses, drones, colony goods, Rift goods, Vael ores, components, refined bars, raw ores and scrap.
         inventory: {
           silicateLens: cargoSilicateLensRef.current,
           metallicLens: cargoMetallicLensRef.current,
@@ -8338,6 +8338,12 @@ export default function App() {
           auriteConc: cargoAuriteConc,
           chromiteBar: cargoChromiteBar,
           pyroxite: cargoPyroxite,
+          ferrite: cargoFerrite,
+          rare: cargoRare,
+          aurite: cargoAurite,
+          chromite: cargoChromite,
+          pyrox: cargoPyrox,
+          scrap: cargoScrap,
         },
         riftRun: riftRunRef.current,
         riftStats: riftStatsRef.current,

@@ -310,7 +310,7 @@ for (const c of [{name: 'empty hold', tritanium: 0}, {name: 'full hold (600 Trit
     await page.keyboard.press('1');
     await settle(page);
     await page.keyboard.press('Enter');
-    await expect.poll(async () => (await readSave(page))!.cargoFerrite).toBe(0);
+    await expect.poll(async () => (await readSave(page))!.inventory?.ferrite).toBe(0);
     await page.keyboard.press('Escape');
     await undock(page);
     await expect(page.getByText(/Raider wave inbound/).first()).toBeVisible({timeout: 20_000});
@@ -381,7 +381,7 @@ for (const c of WARP_ESCAPES) {
     await page.keyboard.press('1');
     await settle(page);
     await page.keyboard.press('Enter');
-    await expect.poll(async () => (await readSave(page))!.cargoFerrite).toBe(0);
+    await expect.poll(async () => (await readSave(page))!.inventory?.ferrite).toBe(0);
     await page.keyboard.press('Escape');
     await undock(page);
     await expect(page.getByText(/Raider wave inbound/).first()).toBeVisible({timeout: 20_000});
@@ -452,7 +452,7 @@ for (const c of WAVES) {
     await page.keyboard.press('1');
     await settle(page);
     await page.keyboard.press('Enter');
-    await expect.poll(async () => (await readSave(page))!.cargoFerrite).toBe(0);
+    await expect.poll(async () => (await readSave(page))!.inventory?.ferrite).toBe(0);
     await page.keyboard.press('Escape');
     await undock(page);
     const alive = () => page.evaluate(() => ((window as any).__DEEP_BELT_PROBE__.raiders() as unknown[]).length);
@@ -569,7 +569,7 @@ for (const lp of [0, 5]) {
     await page.keyboard.press('1');
     await settle(page);
     await page.keyboard.press('Enter');
-    await expect.poll(async () => (await readSave(page))!.cargoFerrite).toBe(0);
+    await expect.poll(async () => (await readSave(page))!.inventory?.ferrite).toBe(0);
     const noticeAfterSale = Math.round((await player(page)).notice);
     await page.keyboard.press('Escape');
     await undock(page);

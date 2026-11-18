@@ -54,7 +54,7 @@ test('agent: finishing the last two contracts grants the gate permit', async ({p
   const save = (await readSave(page))!;
   expect(save.missionIndex).toBe(3);
   expect(save.marks).toBe(10_000 + 1500 + 2000);
-  expect(save.cargoFerrite).toBe(20);
+  expect(save.inventory.ferrite).toBe(20);
   await expect(page.getByText('ALL HARROW CONTRACTS COMPLETE')).toBeVisible();
   expectClean(problems);
 });
@@ -71,7 +71,7 @@ test('drones: an extraction drone deploys and mines on its own', async ({page}) 
     await expect(page.getByText('Bandwidth: 1 / 2')).toBeVisible({timeout: 2000});
   }).toPass({timeout: 20_000});
   await page.keyboard.press('Escape');
-  await expect.poll(async () => (await readSave(page))!.cargoFerrite, {timeout: 60_000}).toBeGreaterThan(0);
+  await expect.poll(async () => (await readSave(page))!.inventory?.ferrite, {timeout: 60_000}).toBeGreaterThan(0);
   // The drone is still out: the bay shows it, and the save counts it as in the
   // hold so that closing the game while it works does not lose it.
   await page.keyboard.press('d');

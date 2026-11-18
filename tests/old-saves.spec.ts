@@ -48,8 +48,8 @@ for (const name of FIXTURES) {
     await expect.poll(rewritten, {timeout: 30_000}).toBe(true);
     const save = (await readSave(page))!;
     expect(save.marks).toBe(old.marks);
-    expect(save.cargoFerrite).toBe(old.cargoFerrite);
-    expect(save.cargoFerrite).toBeGreaterThan(0);
+    expect(save.inventory.ferrite).toBe(old.cargoFerrite);
+    expect(save.inventory.ferrite).toBeGreaterThan(0);
     expect(save.tutorialDone).toBe(true);
     // The starting fit, whichever way the old build saved it.
     expect(save.fitting.fitted).toEqual(['miner_mk1', null, null, 'light_cannon']);
@@ -64,7 +64,7 @@ for (const name of FIXTURES) {
     await expect(page.getByText(/Sell all/).first()).toBeVisible();
     await settle(page);
     await page.keyboard.press('s');
-    await expect.poll(async () => (await readSave(page))!.cargoFerrite).toBe(0);
+    await expect.poll(async () => (await readSave(page))!.inventory?.ferrite).toBe(0);
     expect((await readSave(page))!.marks).toBeGreaterThan(old.marks);
     await page.keyboard.press('Escape');
     await undock(page);

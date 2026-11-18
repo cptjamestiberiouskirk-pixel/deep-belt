@@ -173,7 +173,7 @@ test('notice: dumping ore on the market brings a raider wave, and docking sheds 
   await page.keyboard.press('1');
   await settle(page);
   await page.keyboard.press('Enter');
-  await expect.poll(async () => (await readSave(page))!.cargoFerrite).toBe(0);
+  await expect.poll(async () => (await readSave(page))!.inventory?.ferrite).toBe(0);
   await page.keyboard.press('Escape');
   await undock(page);
   await expect(page.getByText(/Raider wave inbound/).first()).toBeVisible({timeout: 20_000});
@@ -223,7 +223,7 @@ test('outpost: modules install, the vault stores cargo, and both survive a reloa
   await settle(page);
   await page.keyboard.press('Enter');
   await expect(page.getByText('Deposited 100 Ferrite Ore').first()).toBeVisible();
-  await expect.poll(async () => (await readSave(page))!.cargoFerrite).toBe(0);
+  await expect.poll(async () => (await readSave(page))!.inventory?.ferrite).toBe(0);
   save = (await readSave(page))!;
   expect(Object.values(save.outpost.storage)).toEqual([100]);
 
@@ -238,7 +238,7 @@ test('outpost: modules install, the vault stores cargo, and both survive a reloa
   await settle(page);
   await page.keyboard.press('Backspace');
   await expect(page.getByText('Withdrew 100 Ferrite Ore').first()).toBeVisible();
-  await expect.poll(async () => (await readSave(page))!.cargoFerrite).toBe(100);
+  await expect.poll(async () => (await readSave(page))!.inventory?.ferrite).toBe(100);
   expectClean(problems);
 });
 
@@ -277,7 +277,7 @@ test('outpost: the refinery annex refines free of charge and the fab bay builds 
   await page.keyboard.press('Enter');
   await expect.poll(async () => (await readSave(page))!.inventory.tritanium, {timeout: 20_000}).toBe(start.inventory.tritanium + 25);
   let save = (await readSave(page))!;
-  expect(save.cargoFerrite).toBe(0);
+  expect(save.inventory.ferrite).toBe(0);
   expect(save.marks, 'the outpost refinery charged a fee').toBe(1000);
 
   await page.keyboard.press('Escape');
@@ -470,7 +470,7 @@ test('capstone: Chart the Drift is accepted and turned in for its reward', async
   await expect.poll(async () => (await readSave(page))!.chartTheDriftStatus).toBe('completed');
   const save = (await readSave(page))!;
   expect(save.marks).toBe(1000 + 3750);
-  expect(save.cargoPyrox).toBe(0);
+  expect(save.inventory.pyrox).toBe(0);
   expect(save.capBatteryCount).toBe(1);
   expectClean(problems);
 });
@@ -481,7 +481,7 @@ test('Ash Drift: the permit opens it and its pyrox can be mined', async ({page})
   await expect(page.getByText('Ash Drift. Lowsec. Dig fast.').first()).toBeVisible();
   await expect.poll(async () => (await readSave(page))!.ashDriftVisited).toBe(true);
   await selectTarget(page, /Pyrox/);
-  await mineUntil(page, async () => (await readSave(page))!.cargoPyrox > 0, 80_000);
+  await mineUntil(page, async () => (await readSave(page))!.inventory?.pyrox > 0, 80_000);
   expectClean(problems);
 });
 
@@ -518,7 +518,7 @@ test('drones: a defense drone destroys a pirate and a salvage drone loots the wr
   await expect(page.getByText('Hostile neutralized by defense drone.').first()).toBeVisible({timeout: 150_000});
   await expect.poll(async () => (await readSave(page))!.marks).toBeGreaterThanOrEqual(before.marks + 250);
   expect((await readSave(page))!.missionStatus, 'the drone kill did not count for Pest Control').toBe('ready_to_turn_in');
-  await expect.poll(async () => (await readSave(page))!.cargoScrap, {timeout: 60_000}).toBeGreaterThan(before.cargoScrap);
+  await expect.poll(async () => (await readSave(page))!.inventory?.scrap, {timeout: 60_000}).toBeGreaterThan(before.inventory.scrap);
 
   // Warping recalls every drone into the hold.
   await flyTo(page, 'Harrow Station Alpha');

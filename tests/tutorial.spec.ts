@@ -25,7 +25,7 @@ test('a new pilot can finish the whole training loop', async ({page}) => {
   // Step 4: tune the laser to the rock, then mine at least 50 ferrite.
   await tuneLaser(page);
   await mineUntil(page, async () => (await coachStep(page)) === 5);
-  expect((await readSave(page))!.cargoFerrite).toBeGreaterThanOrEqual(50);
+  expect((await readSave(page))!.inventory?.ferrite).toBeGreaterThanOrEqual(50);
 
   // Step 5: warp home.
   await warpTo(page, 'Harrow Station Alpha');
@@ -42,7 +42,7 @@ test('a new pilot can finish the whole training loop', async ({page}) => {
   await page.keyboard.press('s');
   await expect.poll(async () => (await readSave(page))!.marks, {timeout: 20_000}).toBeGreaterThanOrEqual(100);
   const save = (await readSave(page))!;
-  expect(save.cargoFerrite).toBe(0);
+  expect(save.inventory.ferrite).toBe(0);
   expect(save.tutorialDone).toBe(true);
   expect(save.tutorialBonusClaimed).toBe(true);
   expectClean(problems);

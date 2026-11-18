@@ -75,7 +75,7 @@ async function sellFerrite(page: Page) {
   // Wait out the officer's line, or Enter skips it instead of selling.
   await settle(page);
   await page.keyboard.press('Enter');
-  await expect.poll(async () => (await readSave(page))!.cargoFerrite).toBe(0);
+  await expect.poll(async () => (await readSave(page))!.inventory?.ferrite).toBe(0);
   return page.evaluate(() => Math.round((window as any).__DEEP_BELT_PROBE__.player().notice as number));
 }
 

@@ -69,7 +69,7 @@ test('market: Sell All (S) of 600 Ferrite draws Notice 100, as Enter on the row 
   await enterGame(page);
   await openMarket(page);
   await page.keyboard.press('s');
-  await expect.poll(async () => (await readSave(page))!.cargoFerrite).toBe(0);
+  await expect.poll(async () => (await readSave(page))!.inventory?.ferrite).toBe(0);
   expect(await notice(page)).toBe(100);
   expectClean(problems);
 });
@@ -82,7 +82,7 @@ test('market: Sell All of 100 Ferrite and 50 Tritanium, 200 Ferrite in all, draw
   await page.keyboard.press('s');
   await expect.poll(async () => {
     const save = (await readSave(page))!;
-    return save.cargoFerrite + save.inventory?.tritanium;
+    return save.inventory?.ferrite + save.inventory?.tritanium;
   }).toBe(0);
   expect(await notice(page)).toBe(0);
   expectClean(problems);

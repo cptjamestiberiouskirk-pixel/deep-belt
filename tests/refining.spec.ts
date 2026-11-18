@@ -73,7 +73,7 @@ async function refineFerrite(page: Page): Promise<string> {
   const text = await line.innerText();
   await settle(page);
   await page.keyboard.press('Enter');
-  await expect.poll(async () => (await readSave(page))!.cargoFerrite, {timeout: 15_000}).toBe(0);
+  await expect.poll(async () => (await readSave(page))!.inventory?.ferrite, {timeout: 15_000}).toBe(0);
   return text;
 }
 
