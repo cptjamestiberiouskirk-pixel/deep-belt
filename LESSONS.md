@@ -13,6 +13,13 @@ Format, checked by `node dev/lessons.mjs --check`. A field's text may go on over
 - Status: open | promoted to PLAYBOOK "<section>" | closed: <why the rule no longer holds>
 ```
 
+## 2026-11-18: A moved item's before-count was read from the seeded save, which has no inventory
+- What went wrong: step 23 pointed station.spec.ts's fabricator test at `before.inventory[k]`, and it failed with "Cannot read properties of undefined (reading 'hullPlate')". `before` was read right after the Fabricator opened, while localStorage still held the seeded save, which has only old cargoXxx keys. The same edit in lategame.spec.ts passed only because its `before` is read later.
+- Why: `openWithSave` writes the seed as given, and the game writes its own save, the first with `inventory`, only at its first autosave. A test that compares two saves is comparing a seed with a game save when its first read comes before that autosave.
+- Rule going forward: when a test reads a moved item from a save it seeded with old keys, it first polls the save until `inventory` is defined, then reads; an item-move step greps the tests for bracket reads (`save[k]`, `'cargoXxx'` strings) as well as `.cargoXxx` reads.
+- Evidence: the step 23 targeted run, "1 failed" station.spec.ts:172, and 3 of 3 passes after the poll was added.
+- Status: open
+
 ## 2026-11-18: A suite failure's error was lost because the output was cut to its tail
 - What went wrong: the full suite before 8a69fe4 reported "1 failed" (space.spec.ts:190, mining overheat), but the run's output had been piped through `tail -15`, which kept the list of test names and the summary and cut the error. The test then passed 3 of 3 alone and 8 of 8 on 4 workers, and the rerun emptied test-results/, so the failure's cause could not be read.
 - Why: Playwright's line reporter prints each failure's error before the summary, so a short tail keeps the counts and drops the error. A rerun to tell a flake from a failure also clears test-results/, where the first run's error context was.
