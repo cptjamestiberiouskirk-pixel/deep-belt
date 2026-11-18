@@ -13,6 +13,13 @@ Format, checked by `node dev/lessons.mjs --check`. A field's text may go on over
 - Status: open | promoted to PLAYBOOK "<section>" | closed: <why the rule no longer holds>
 ```
 
+## 2026-11-18: A suite failure's error was lost because the output was cut to its tail
+- What went wrong: the full suite before 8a69fe4 reported "1 failed" (space.spec.ts:190, mining overheat), but the run's output had been piped through `tail -15`, which kept the list of test names and the summary and cut the error. The test then passed 3 of 3 alone and 8 of 8 on 4 workers, and the rerun emptied test-results/, so the failure's cause could not be read.
+- Why: Playwright's line reporter prints each failure's error before the summary, so a short tail keeps the counts and drops the error. A rerun to tell a flake from a failure also clears test-results/, where the first run's error context was.
+- Rule going forward: a full suite run writes its whole output to a file outside test-results/ (the scratchpad) and prints only the summary from it; on a failure, read that file's error before any rerun.
+- Evidence: the suite output file for that run, which ends at test 246 with "1 failed" and no error lines; the three and eight passing reruns.
+- Status: open
+
 ## 2026-11-18: A new skill broke a test that pins every skill id
 - What went wrong: step 17 added the Signal Analysis skill and its own tests passed, but the full suite failed 2 tests in tests/charge-control.spec.ts, whose `ZERO` object lists every skill at level 0 and is compared with `toEqual`.
 - Why: a grep for an existing skill id (`boosterEfficiency`) had listed charge-control.spec.ts among the files that name every skill, and only tests/skills.spec.ts was updated from that list. Each new skill or module must also go into the tests that pin the whole catalog (`ZERO` here, `MARKET_MODULE_IDS` lists for modules).
