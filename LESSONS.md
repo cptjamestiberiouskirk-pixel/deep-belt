@@ -13,6 +13,13 @@ Format, checked by `node dev/lessons.mjs --check`. A field's text may go on over
 - Status: open | promoted to PLAYBOOK "<section>" | closed: <why the rule no longer holds>
 ```
 
+## 2026-11-18: A new skill broke a test that pins every skill id
+- What went wrong: step 17 added the Signal Analysis skill and its own tests passed, but the full suite failed 2 tests in tests/charge-control.spec.ts, whose `ZERO` object lists every skill at level 0 and is compared with `toEqual`.
+- Why: a grep for an existing skill id (`boosterEfficiency`) had listed charge-control.spec.ts among the files that name every skill, and only tests/skills.spec.ts was updated from that list. Each new skill or module must also go into the tests that pin the whole catalog (`ZERO` here, `MARKET_MODULE_IDS` lists for modules).
+- Rule going forward: before the first test run of a new skill or module, grep the tests for the newest existing id of that kind (for skills the last `SKILLS` entry, for modules the last `MARKET_MODULE_IDS` entry) and update every hit that lists the whole catalog, naming each in the commit message.
+- Evidence: step 17 suite run, "2 failed" in charge-control.spec.ts lines 16 and 42, Received `"signalAnalysis": 0`; passed after `signalAnalysis: 0` was added to `ZERO`.
+- Status: open
+
 ## 2026-11-17: A CI watch found no run because it was given a short commit hash
 - What went wrong: after pushing step 16 (31fd11c), the background CI watch printed "run " with no id, then `gh run watch` failed with HTTP 404 on `/actions/runs/`. No CI result was read until the watch was rerun.
 - Why: `gh run list --commit` matches the full 40-character SHA only. With gh 2.104.0, `--commit 31fd11c` returned no runs while `--commit $(git rev-parse 31fd11c)` returned run 44234092958. The script also went on to `gh run watch` with the empty id instead of stopping.
