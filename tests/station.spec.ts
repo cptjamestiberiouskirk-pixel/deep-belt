@@ -105,14 +105,16 @@ test('market: buying costs marks', async ({page}) => {
 
 test('refinery: 50 ore becomes 25 refined for a fee', async ({page}) => {
   const problems = await docked(page);
+  // Wait for the game's own save, which has `inventory`, before taking the count to compare.
+  await expect.poll(async () => (await readSave(page))!.inventory, {timeout: 15_000}).toBeDefined();
   const before = (await readSave(page))!;
   await page.keyboard.press('r');
   await expect(page.getByText('ORE REFINING FACILITY')).toBeVisible();
   await settle(page);
   await page.keyboard.press('Enter');
   await expect
-    .poll(async () => (await readSave(page))!.cargoTritanium, {timeout: 20_000})
-    .toBe(before.cargoTritanium + 25);
+    .poll(async () => (await readSave(page))!.inventory.tritanium, {timeout: 20_000})
+    .toBe(before.inventory.tritanium + 25);
   const after = (await readSave(page))!;
   expect(after.cargoFerrite).toBe(before.cargoFerrite - 50);
   expect(after.marks).toBeLessThan(before.marks);

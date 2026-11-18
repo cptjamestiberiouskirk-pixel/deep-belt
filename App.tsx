@@ -7779,21 +7779,25 @@ export default function App() {
         setCargoScrap(data.cargoScrap);
         cargoScrapRef.current = data.cargoScrap;
       }
-      if (typeof data.cargoTritanium === 'number') {
-        setCargoTritanium(data.cargoTritanium);
-        cargoTritaniumRef.current = data.cargoTritanium;
+      const loadedTritanium = readItem(data, 'tritanium');
+      if (loadedTritanium !== null) {
+        setCargoTritanium(loadedTritanium);
+        cargoTritaniumRef.current = loadedTritanium;
       }
-      if (typeof data.cargoAuriteConc === 'number') {
-        setCargoAuriteConc(data.cargoAuriteConc);
-        cargoAuriteConcRef.current = data.cargoAuriteConc;
+      const loadedAuriteConc = readItem(data, 'auriteConc');
+      if (loadedAuriteConc !== null) {
+        setCargoAuriteConc(loadedAuriteConc);
+        cargoAuriteConcRef.current = loadedAuriteConc;
       }
-      if (typeof data.cargoChromiteBar === 'number') {
-        setCargoChromiteBar(data.cargoChromiteBar);
-        cargoChromiteBarRef.current = data.cargoChromiteBar;
+      const loadedChromiteBar = readItem(data, 'chromiteBar');
+      if (loadedChromiteBar !== null) {
+        setCargoChromiteBar(loadedChromiteBar);
+        cargoChromiteBarRef.current = loadedChromiteBar;
       }
-      if (typeof data.cargoPyroxite === 'number') {
-        setCargoPyroxite(data.cargoPyroxite);
-        cargoPyroxiteRef.current = data.cargoPyroxite;
+      const loadedPyroxite = readItem(data, 'pyroxite');
+      if (loadedPyroxite !== null) {
+        setCargoPyroxite(loadedPyroxite);
+        cargoPyroxiteRef.current = loadedPyroxite;
       }
       const loadedHullPlate = readItem(data, 'hullPlate');
       if (loadedHullPlate !== null) {
@@ -7870,7 +7874,7 @@ export default function App() {
         setCargoPackedRadflux(loadedPackedRadflux);
         cargoPackedRadfluxRef.current = loadedPackedRadflux;
       }
-      // Components and Vael ores (above), lenses, drones, colony goods and Rift goods are saved in `inventory` (content/inventory.ts): it wins,
+      // Refined bars, components and Vael ores (above), lenses, drones, colony goods and Rift goods are saved in `inventory` (content/inventory.ts): it wins,
       // even at 0, and an item's old cargoXxx key is read only when inventory lacks it.
       const loadedSilicate = readItem(data, 'silicateLens');
       if (loadedSilicate !== null) {
@@ -8297,11 +8301,7 @@ export default function App() {
         cargoChromite,
         cargoPyrox,
         cargoScrap,
-        cargoTritanium,
-        cargoAuriteConc,
-        cargoChromiteBar,
-        cargoPyroxite,
-        // The hold, one item group at a time (content/inventory.ts): lenses, drones, colony goods, Rift goods, Vael ores, components.
+        // The hold, one item group at a time (content/inventory.ts): lenses, drones, colony goods, Rift goods, Vael ores, components, refined bars.
         inventory: {
           silicateLens: cargoSilicateLensRef.current,
           metallicLens: cargoMetallicLensRef.current,
@@ -8334,6 +8334,10 @@ export default function App() {
           quantumCore: cargoQuantumCoreRef.current,
           integritySeal: cargoIntegritySealRef.current,
           thermalGrid: cargoThermalGridRef.current,
+          tritanium: cargoTritanium,
+          auriteConc: cargoAuriteConc,
+          chromiteBar: cargoChromiteBar,
+          pyroxite: cargoPyroxite,
         },
         riftRun: riftRunRef.current,
         riftStats: riftStatsRef.current,

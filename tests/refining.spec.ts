@@ -82,7 +82,7 @@ test('refinery: at Refining V, 50 Ferrite makes 30 Tritanium, and the Refinery s
   await openWithSave(page, {...BASE, ...SKILLS_AT(2, 5), cargoFerrite: 50, cargoTritanium: 0});
   await enterGame(page);
   expect(await refineFerrite(page)).toMatch(/^50 Ore -> 30 Refined in 3\.0s/);
-  await expect.poll(async () => (await readSave(page))!.cargoTritanium, {timeout: 15_000}).toBe(30);
+  await expect.poll(async () => (await readSave(page))!.inventory?.tritanium, {timeout: 15_000}).toBe(30);
   expectClean(problems);
 });
 
@@ -93,6 +93,6 @@ test('refinery: a save from before Refining loads it at 0, and 50 Ferrite makes 
   await enterGame(page);
   await expect.poll(async () => (await readSave(page))!.skills.refining).toBe(0);
   expect(await refineFerrite(page)).toMatch(/^50 Ore -> 25 Refined in 3\.0s/);
-  await expect.poll(async () => (await readSave(page))!.cargoTritanium, {timeout: 15_000}).toBe(25);
+  await expect.poll(async () => (await readSave(page))!.inventory?.tritanium, {timeout: 15_000}).toBe(25);
   expectClean(problems);
 });

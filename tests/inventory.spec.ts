@@ -2,8 +2,8 @@ import {expect, test, type Page} from '@playwright/test';
 import {enterGame, expectClean, expectTitle, openWithSave, readSave, RICH, watch} from './helpers';
 import {readItem} from '../content/inventory';
 
-// Steps 4 and 19 to 23 of design/content-tree.md: the lenses, the three drones,
-// the colony goods, the Rift goods, the Vael ores and the components move from their cargoXxx save keys into the `inventory` map, by the rules in 4.4.
+// Steps 4 and 19 to 24 of design/content-tree.md: the lenses, the three drones,
+// the colony goods, the Rift goods, the Vael ores, the components and the refined bars move from their cargoXxx save keys into the `inventory` map, by the rules in 4.4.
 
 const BASE = {...RICH, milestoneIndustrialistClaimed: true};
 
@@ -21,6 +21,8 @@ test('inventory model: inventory wins even at 0, and an old key is read only for
   expect(readItem({inventory: {riftSync: 1}, cargoPackedNimbus: 3}, 'packedNimbus')).toBe(3);
   expect(readItem({inventory: {prismite: 0}, cargoPrismite: 9}, 'prismite')).toBe(0);
   expect(readItem({inventory: {prismite: 2}, cargoQuantumCore: 1}, 'quantumCore')).toBe(1);
+  expect(readItem({inventory: {hullPlate: 0}, cargoTritanium: 30}, 'tritanium')).toBe(30);
+  expect(readItem({cargoFerrite: 40}, 'ferrite')).toBeNull();
 });
 
 const lensesInSave = async (page: Page) => {
@@ -32,7 +34,7 @@ test('save: lenses under their old keys load into inventory and survive a reload
   const problems = watch(page);
   await openWithSave(page, {...BASE, cargoSilicateLens: 2, cargoExoticLens: 1});
   await enterGame(page);
-  const expected = {inventory: {silicateLens: 2, metallicLens: 0, exoticLens: 1, extractDrone: 0, defenseDrone: 0, salvageDrone: 0, commandHub: 0, polymer: 0, chemical: 0, polymerComposite: 0, riftSync: 0, pristinePrismite: 0, pristineNimbus: 0, pristineRadflux: 0, prismite: 0, nimbus: 0, radflux: 0, packedPrismite: 0, packedNimbus: 0, packedRadflux: 0, hullPlate: 0, thrusterCoil: 0, sensorCore: 0, latticeAlloy: 0, conductiveMesh: 0, thermalAlloy: 0, quantumCore: 0, integritySeal: 0, thermalGrid: 0}, oldKeys: []};
+  const expected = {inventory: {silicateLens: 2, metallicLens: 0, exoticLens: 1, extractDrone: 0, defenseDrone: 0, salvageDrone: 0, commandHub: 0, polymer: 0, chemical: 0, polymerComposite: 0, riftSync: 0, pristinePrismite: 0, pristineNimbus: 0, pristineRadflux: 0, prismite: 0, nimbus: 0, radflux: 0, packedPrismite: 0, packedNimbus: 0, packedRadflux: 0, hullPlate: 0, thrusterCoil: 0, sensorCore: 0, latticeAlloy: 0, conductiveMesh: 0, thermalAlloy: 0, quantumCore: 0, integritySeal: 0, thermalGrid: 0, tritanium: 0, auriteConc: 0, chromiteBar: 0, pyroxite: 0}, oldKeys: []};
   await expect.poll(() => lensesInSave(page), {timeout: 15_000}).toEqual(expected);
 
   await page.reload();
@@ -49,7 +51,7 @@ test('save: a lens at 0 in inventory stays 0 whatever its old key says', async (
   const problems = watch(page);
   await openWithSave(page, {...BASE, inventory: {silicateLens: 0}, cargoSilicateLens: 3});
   await enterGame(page);
-  await expect.poll(async () => (await lensesInSave(page))?.inventory, {timeout: 15_000}).toEqual({silicateLens: 0, metallicLens: 0, exoticLens: 0, extractDrone: 0, defenseDrone: 0, salvageDrone: 0, commandHub: 0, polymer: 0, chemical: 0, polymerComposite: 0, riftSync: 0, pristinePrismite: 0, pristineNimbus: 0, pristineRadflux: 0, prismite: 0, nimbus: 0, radflux: 0, packedPrismite: 0, packedNimbus: 0, packedRadflux: 0, hullPlate: 0, thrusterCoil: 0, sensorCore: 0, latticeAlloy: 0, conductiveMesh: 0, thermalAlloy: 0, quantumCore: 0, integritySeal: 0, thermalGrid: 0});
+  await expect.poll(async () => (await lensesInSave(page))?.inventory, {timeout: 15_000}).toEqual({silicateLens: 0, metallicLens: 0, exoticLens: 0, extractDrone: 0, defenseDrone: 0, salvageDrone: 0, commandHub: 0, polymer: 0, chemical: 0, polymerComposite: 0, riftSync: 0, pristinePrismite: 0, pristineNimbus: 0, pristineRadflux: 0, prismite: 0, nimbus: 0, radflux: 0, packedPrismite: 0, packedNimbus: 0, packedRadflux: 0, hullPlate: 0, thrusterCoil: 0, sensorCore: 0, latticeAlloy: 0, conductiveMesh: 0, thermalAlloy: 0, quantumCore: 0, integritySeal: 0, thermalGrid: 0, tritanium: 0, auriteConc: 0, chromiteBar: 0, pyroxite: 0});
   expectClean(problems);
 });
 
@@ -266,5 +268,53 @@ test('save: a component at 0 in inventory stays 0 whatever its old key says', as
   await openWithSave(page, {...BASE, inventory: {sensorCore: 0}, cargoSensorCore: 4});
   await enterGame(page);
   await expect.poll(() => componentsInSave(page), {timeout: 15_000}).toEqual({parts: [0, 0, 0, 0, 0, 0, 0, 0, 0], oldKeys: []});
+  expectClean(problems);
+});
+
+const barsInSave = async (page: Page) => {
+  const save = await readSave(page);
+  const inv = save?.inventory ?? {};
+  return save && {bars: [inv.tritanium, inv.auriteConc, inv.chromiteBar, inv.pyroxite], oldKeys: Object.keys(save).filter((k) => /^cargo(Tritanium|AuriteConc|ChromiteBar|Pyroxite)$/.test(k))};
+};
+
+test('save: refined bars under their old keys load into inventory and survive a reload', async ({page}) => {
+  const problems = watch(page);
+  await openWithSave(page, {...BASE, cargoTritanium: 10, cargoPyroxite: 4});
+  await enterGame(page);
+  const expected = {bars: [10, 0, 0, 4], oldKeys: []};
+  await expect.poll(() => barsInSave(page), {timeout: 15_000}).toEqual(expected);
+
+  await page.reload();
+  await expectTitle(page);
+  await enterGame(page);
+  await page.waitForTimeout(6000); // past one autosave
+  expect(await barsInSave(page)).toEqual(expected);
+  // The hold counts them: 14 bars at 1 m³ each.
+  await expect(page.getByText(/^14\/\d+m³$/)).toBeVisible();
+  expectClean(problems);
+});
+
+test('save: a save whose inventory holds the groups up to the components, as from step 23, keeps its refined bars', async ({page}) => {
+  const problems = watch(page);
+  await openWithSave(page, {
+    ...BASE,
+    inventory: {
+      silicateLens: 0, metallicLens: 0, exoticLens: 0, extractDrone: 0, defenseDrone: 0, salvageDrone: 0, commandHub: 0, polymer: 0, chemical: 0, polymerComposite: 0,
+      riftSync: 0, pristinePrismite: 0, pristineNimbus: 0, pristineRadflux: 0, prismite: 0, nimbus: 0, radflux: 0, packedPrismite: 0, packedNimbus: 0, packedRadflux: 0,
+      hullPlate: 0, thrusterCoil: 0, sensorCore: 0, latticeAlloy: 0, conductiveMesh: 0, thermalAlloy: 0, quantumCore: 0, integritySeal: 0, thermalGrid: 0,
+    },
+    cargoChromiteBar: 7,
+  });
+  await enterGame(page);
+  await expect.poll(() => barsInSave(page), {timeout: 15_000}).toEqual({bars: [0, 0, 7, 0], oldKeys: []});
+  await expect(page.getByText(/^7\/\d+m³$/)).toBeVisible();
+  expectClean(problems);
+});
+
+test('save: a refined bar at 0 in inventory stays 0 whatever its old key says', async ({page}) => {
+  const problems = watch(page);
+  await openWithSave(page, {...BASE, inventory: {auriteConc: 0}, cargoAuriteConc: 6});
+  await enterGame(page);
+  await expect.poll(() => barsInSave(page), {timeout: 15_000}).toEqual({bars: [0, 0, 0, 0], oldKeys: []});
   expectClean(problems);
 });

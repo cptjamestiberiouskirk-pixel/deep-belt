@@ -267,13 +267,15 @@ test('outpost: the refinery annex refines free of charge and the fab bay builds 
     cargoAuriteConc: 40,
     cargoPyroxite: 40,
   });
+  // Wait for the game's own save, which has `inventory`, before taking the count to compare.
+  await expect.poll(async () => (await readSave(page))!.inventory, {timeout: 15_000}).toBeDefined();
   const start = (await readSave(page))!;
   await settle(page);
   await page.keyboard.press('r');
   await expect(page.getByText('ORE REFINING FACILITY')).toBeVisible();
   await settle(page);
   await page.keyboard.press('Enter');
-  await expect.poll(async () => (await readSave(page))!.cargoTritanium, {timeout: 20_000}).toBe(start.cargoTritanium + 25);
+  await expect.poll(async () => (await readSave(page))!.inventory.tritanium, {timeout: 20_000}).toBe(start.inventory.tritanium + 25);
   let save = (await readSave(page))!;
   expect(save.cargoFerrite).toBe(0);
   expect(save.marks, 'the outpost refinery charged a fee').toBe(1000);

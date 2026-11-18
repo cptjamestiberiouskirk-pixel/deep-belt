@@ -39,7 +39,7 @@ async function sellTritaniumRow(page: Page) {
   // The Tritanium row is the seventh: Ferrite, Aurite, Chromite, Pyrox, rare ore, scrap, Tritanium.
   for (let i = 0; i < 6; i++) await page.keyboard.press('ArrowDown');
   await page.keyboard.press('Enter');
-  await expect.poll(async () => (await readSave(page))!.cargoTritanium).toBe(0);
+  await expect.poll(async () => (await readSave(page))!.inventory?.tritanium).toBe(0);
 }
 
 test('market: selling 300 Tritanium draws Notice 100 and brings a raider wave', async ({page}) => {
@@ -82,7 +82,7 @@ test('market: Sell All of 100 Ferrite and 50 Tritanium, 200 Ferrite in all, draw
   await page.keyboard.press('s');
   await expect.poll(async () => {
     const save = (await readSave(page))!;
-    return save.cargoFerrite + save.cargoTritanium;
+    return save.cargoFerrite + save.inventory?.tritanium;
   }).toBe(0);
   expect(await notice(page)).toBe(0);
   expectClean(problems);
