@@ -118,7 +118,7 @@ import {MARKET_MODULE_IDS, MODULES, minerFor, missingSkill, type ModuleId} from 
 import type {SlotType} from './content/types';
 import {LENSES, LENS_IDS, lensBonusLabel} from './content/lenses';
 import {readItem} from './content/inventory';
-import {BASE_REFINE_OUTPUT, BOOSTER_EFFICIENCY_CUT, boosterCapAt, CARGO_TRIM_CUT, CHARGE_CONTROL_CUT, effectiveLoad, FERRITE_PER_TRITANIUM, freeFerriteAt, LASER_TUNING_CUT, LOW_PROFILE_FREE_FERRITE, LOW_PROFILE_MINING_CUT, minerCycleAt, miningNoticePerSec, noticeFerrite, prerequisiteText, REFINING_BONUS_PER_LEVEL, refineOutputAt, saleNotice, SKILL_CATEGORY_ORDER, skillLevels, SKILLS, unmetPrerequisites, weaponCycleAt} from './content/skills';
+import {BASE_REFINE_OUTPUT, BOOSTER_EFFICIENCY_CUT, boosterCapAt, CARGO_TRIM_CUT, CHARGE_CONTROL_CUT, effectiveLoad, FERRITE_PER_TRITANIUM, freeFerriteAt, LASER_TUNING_CUT, LOW_PROFILE_FREE_FERRITE, LOW_PROFILE_MINING_CUT, minerCycleAt, miningNoticePerSec, noticeFerrite, prerequisiteText, REFINING_BONUS_PER_LEVEL, refineOutputAt, saleNotice, SCAN_BANDS, SCAN_SWEEP_RAD_PER_SEC, scanBandAt, scanWindowSec, SIGNAL_ANALYSIS_WIDEN, SKILL_CATEGORY_ORDER, skillLevels, SKILLS, unmetPrerequisites, weaponCycleAt} from './content/skills';
 import {formatSpeed, FULL_HOLD_THRUST_CUT, flightLimits, PIXELS_PER_KM, topSpeed} from './content/flight';
 import type {ModuleDef} from './content/types';
 import {
@@ -150,10 +150,13 @@ const CoreProbeSweepModal = React.memo(({
   onSuccess,
   onFailure,
   onClose,
+  signalAnalysisLevel,
 }: {
   onSuccess: () => void;
   onFailure: () => void;
   onClose: () => void;
+  /** Signal Analysis widens each target band (step 17). */
+  signalAnalysisLevel: number;
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [activeRing, setActiveRing] = useState(0); // 0, 1, 2, or 3 (complete)
@@ -166,15 +169,23 @@ const CoreProbeSweepModal = React.memo(({
   const sweepAngleRef = useRef(0);
   const isCompletedRef = useRef(false);
 
-  // Deterministic target timing bands (no random rolls)
-  // Ring 0: Inner (radius 48px), 45° to 98° (0.78 to 1.71 rad, ~53° arc)
-  // Ring 1: Middle (radius 86px), 155° to 210° (2.70 to 3.66 rad, ~55° arc)
-  // Ring 2: Outer (radius 124px), 270° to 325° (4.71 to 5.67 rad, ~55° arc)
-  const RINGS_CONFIG = [
-    { radius: 48, start: 0.78, end: 1.71, label: 'RING 1 · INNER' },
-    { radius: 86, start: 2.70, end: 3.66, label: 'RING 2 · MID' },
-    { radius: 124, start: 4.71, end: 5.67, label: 'RING 3 · OUTER' },
-  ];
+  // Deterministic target timing bands (no random rolls), from SCAN_BANDS in
+  // content/skills.ts, widened about their middles by Signal Analysis:
+  // Ring 0: Inner (radius 48px), 0.78 to 1.71 rad untrained (~53° arc)
+  // Ring 1: Middle (radius 86px), 2.70 to 3.66 rad untrained (~55° arc)
+  // Ring 2: Outer (radius 124px), 4.71 to 5.67 rad untrained (~55° arc)
+  const RINGS_CONFIG = useMemo(() => [
+    { radius: 48, ...scanBandAt(SCAN_BANDS[0], signalAnalysisLevel), label: 'RING 1 · INNER' },
+    { radius: 86, ...scanBandAt(SCAN_BANDS[1], signalAnalysisLevel), label: 'RING 2 · MID' },
+    { radius: 124, ...scanBandAt(SCAN_BANDS[2], signalAnalysisLevel), label: 'RING 3 · OUTER' },
+  ], [signalAnalysisLevel]);
+
+  // Read-only hook for tests (tests/signal-analysis.spec.ts): the sweep's angle
+  // and the bands it is checked against, so a press can be placed by angle.
+  useEffect(() => {
+    (window as any).__DEEP_BELT_SCAN__ = {angle: () => sweepAngleRef.current, bands: () => RINGS_CONFIG.map(({start, end}) => ({start, end}))};
+    return () => { delete (window as any).__DEEP_BELT_SCAN__; };
+  }, [RINGS_CONFIG]);
 
   const triggerPulse = useCallback(() => {
     if (isCompletedRef.current) return;
@@ -217,7 +228,7 @@ const CoreProbeSweepModal = React.memo(({
         }
       }, 450);
     }
-  }, [onSuccess, onFailure]);
+  }, [onSuccess, onFailure, RINGS_CONFIG]);
 
   // Keyboard navigation & pulse listener
   useEffect(() => {
@@ -248,7 +259,7 @@ const CoreProbeSweepModal = React.memo(({
       lastTime = time;
 
       // Deterministic rotation speed 2.6 rad/s
-      sweepAngleRef.current = (sweepAngleRef.current + 2.6 * dt) % (Math.PI * 2);
+      sweepAngleRef.current = (sweepAngleRef.current + SCAN_SWEEP_RAD_PER_SEC * dt) % (Math.PI * 2);
 
       const canvas = canvasRef.current;
       if (canvas) {
@@ -401,7 +412,7 @@ const CoreProbeSweepModal = React.memo(({
 
     raf = requestAnimationFrame(render);
     return () => cancelAnimationFrame(raf);
-  }, [ringResults]);
+  }, [ringResults, RINGS_CONFIG]);
 
   return (
     <div
@@ -1519,6 +1530,14 @@ export const SKILL_DEFINITIONS: SkillDefinition[] = [
     description: `+${REFINING_BONUS_PER_LEVEL} refined goods from every ${50} ore refined, per level`,
     getBonusText: (level: number) =>
       `50 ore -> ${refineOutputAt(level)} refined (+${Math.round((100 * (refineOutputAt(level) - BASE_REFINE_OUTPUT)) / BASE_REFINE_OUTPUT)}%)`,
+  },
+  {
+    id: 'signalAnalysis',
+    name: 'Signal Analysis',
+    category: SKILLS.signalAnalysis.category,
+    description: `+${Math.round(SIGNAL_ANALYSIS_WIDEN * 100)}% wider target bands in the probe scan sweep, per level`,
+    getBonusText: (level: number) =>
+      `+${Math.round(SIGNAL_ANALYSIS_WIDEN * 100 * level)}% scan bands (${scanWindowSec(SCAN_BANDS[0], level).toFixed(2)}s to hit ring 1)`,
   },
 ];
 
@@ -38960,6 +38979,7 @@ export default function App() {
           onSuccess={handleScanSuccess}
           onFailure={handleScanFailure}
           onClose={() => setIsScanMinigameOpen(false)}
+          signalAnalysisLevel={skills.signalAnalysis || 0}
         />
       )}
 

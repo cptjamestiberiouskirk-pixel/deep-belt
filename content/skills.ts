@@ -4,7 +4,7 @@
 //
 // The bonus each level gives stays in App.tsx's SKILL_DEFINITIONS for now.
 
-export type SkillId = 'mining' | 'laserTuning' | 'lowProfile' | 'gunnery' | 'chargeControl' | 'shieldOp' | 'boosterEfficiency' | 'navigation' | 'cargoTrim' | 'refining';
+export type SkillId = 'mining' | 'laserTuning' | 'lowProfile' | 'gunnery' | 'chargeControl' | 'shieldOp' | 'boosterEfficiency' | 'navigation' | 'cargoTrim' | 'refining' | 'signalAnalysis';
 export type SkillCategory = 'Extraction' | 'Gunnery' | 'Defense' | 'Navigation' | 'Industry' | 'Science';
 
 export interface SkillDef {
@@ -42,6 +42,10 @@ export const SKILLS: Record<SkillId, SkillDef> = {
   // Step 15, the first Industry skill: more refined goods from each 50 ore. Rank 2,
   // after Mining II. It came after step 14 made refined sales draw Notice.
   refining: {id: 'refining', name: 'Refining', category: 'Industry', rank: 2, prerequisites: [{skill: 'mining', level: 2}]},
+  // Step 17, the first Science skill: wider target bands in the probe scan sweep,
+  // where a scan needs 2 hits of 3 inside bands about 0.36 s wide and a failed scan
+  // locks the scanner for 60 s. Rank 1, no prerequisites.
+  signalAnalysis: {id: 'signalAnalysis', name: 'Signal Analysis', category: 'Science', rank: 1, prerequisites: []},
 };
 
 export const SKILL_IDS = Object.keys(SKILLS) as SkillId[];
@@ -119,6 +123,30 @@ export const REFINING_BONUS_PER_LEVEL = 1;
 /** Refined goods from one 50-ore batch at a Refining level: 25 untrained, 30 at level V. */
 export function refineOutputAt(refiningLevel: number): number {
   return BASE_REFINE_OUTPUT + REFINING_BONUS_PER_LEVEL * refiningLevel;
+}
+
+/** The probe scan sweep's speed in radians a second (one turn in about 2.4 s). */
+export const SCAN_SWEEP_RAD_PER_SEC = 2.6;
+/** The scan sweep's three target bands untrained, in radians from the start of the sweep. */
+export const SCAN_BANDS: ReadonlyArray<{start: number; end: number}> = [
+  {start: 0.78, end: 1.71},
+  {start: 2.7, end: 3.66},
+  {start: 4.71, end: 5.67},
+];
+/** Signal Analysis: each level widens every scan band by this share of its arc, about its middle. */
+export const SIGNAL_ANALYSIS_WIDEN = 0.1;
+
+/** A scan band at a Signal Analysis level: as wide again by half at level V, about the same middle. */
+export function scanBandAt(band: {start: number; end: number}, signalAnalysisLevel: number): {start: number; end: number} {
+  // Each edge moves out by half the added width, so untrained the band is exactly as listed.
+  const grow = ((band.end - band.start) / 2) * SIGNAL_ANALYSIS_WIDEN * signalAnalysisLevel;
+  return {start: band.start - grow, end: band.end + grow};
+}
+
+/** Seconds the sweep spends inside a band: ring 1's is 0.36 s untrained and 0.54 s at level V. */
+export function scanWindowSec(band: {start: number; end: number}, signalAnalysisLevel: number): number {
+  const b = scanBandAt(band, signalAnalysisLevel);
+  return Math.round(((b.end - b.start) / SCAN_SWEEP_RAD_PER_SEC) * 100) / 100;
 }
 
 /** Cargo Trim: each level cuts the hold's load effect on handling by this share. */

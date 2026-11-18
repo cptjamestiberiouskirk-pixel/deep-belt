@@ -26,7 +26,7 @@ const player = (page: Page) => page.evaluate(() => (window as any).__DEEP_BELT_P
 const pirate = (page: Page) => page.evaluate(() => (window as any).__DEEP_BELT_PROBE__.pirate() as Pirate);
 
 const BASE = {...RICH, milestoneIndustrialistClaimed: true};
-const skills = (s: Record<string, number>) => ({skills: {mining: 0, laserTuning: 0, lowProfile: 0, gunnery: 0, chargeControl: 0, shieldOp: 0, boosterEfficiency: 0, navigation: 0, cargoTrim: 0, refining: 0, ...s}});
+const skills = (s: Record<string, number>) => ({skills: {mining: 0, laserTuning: 0, lowProfile: 0, gunnery: 0, chargeControl: 0, shieldOp: 0, boosterEfficiency: 0, navigation: 0, cargoTrim: 0, refining: 0, signalAnalysis: 0, ...s}});
 const fitting = (fitted: Array<string | null>) => ({fitting: {hangar: {}, fitted, loadouts: {}}});
 const PLAIN = ['miner_mk1', null, null, 'light_cannon'];
 const BULK = ['miner_mk1', 'bulk_hold', null, 'light_cannon'];
@@ -483,6 +483,10 @@ for (const c of WAVES) {
       raidersLeft: await alive(),
       fightSec: Math.round((Date.now() - start) / 1000),
       hpLost: Math.round(p0.shield + p0.armor + p0.hull - (p.shield + p.armor + p.hull)),
+      // Armor and hull don't regenerate: the station repairs them for 3 and 4 MARKS an HP.
+      armorLost: Math.round(p0.armor - p.armor),
+      hullLost: Math.round(p0.hull - p.hull),
+      repairMarks: Math.round((p0.armor - p.armor) * 3 + (p0.hull - p.hull) * 4),
       minCap: Math.round(minCap),
     });
   });

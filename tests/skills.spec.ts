@@ -40,13 +40,14 @@ test('skills: the Skills screen has a header per category, and training time and
   await expect(page.getByText('SKILLS MATRIX')).toBeVisible();
 
   const headers = page.locator('[data-testid^="skill-category-"]');
-  await expect(headers).toHaveCount(5);
+  await expect(headers).toHaveCount(6);
   expect(await headers.evaluateAll((els) => els.map((e) => e.getAttribute('data-testid')))).toEqual([
     'skill-category-Extraction',
     'skill-category-Gunnery',
     'skill-category-Defense',
     'skill-category-Navigation',
     'skill-category-Industry',
+    'skill-category-Science',
   ]);
   await expect(page.getByTestId('skill-category-Extraction')).toContainText('MINING');
   await expect(page.getByTestId('skill-category-Defense')).toContainText('SHIELD OPERATION');
