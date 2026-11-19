@@ -59,3 +59,33 @@ test('tips: a tip still showing when the pilot quits does not show on the title 
   expect(await page.getByText('FITTING DECK:').count()).toBe(0);
   expectClean(problems);
 });
+
+// Docked, a toast's text stops at two lines and ends in "...". Each terminal tip has to fit,
+// or the end of it is lost (the Operations Desk tip used to lose the Gate Access Permit).
+const TIPS = [
+  {key: '2', tip: 'FITTING DECK:'},
+  {key: '3', tip: 'SKILLS TERMINAL:'},
+  {key: '4', tip: 'OPERATIONS DESK (OSK VARRAN):'},
+];
+for (const size of [{width: 800, height: 600}, {width: 1280, height: 800}]) {
+  test(`tips: at ${size.width}x${size.height} each terminal tip shows in full`, async ({page}) => {
+    await page.setViewportSize(size);
+    const problems = watch(page);
+    await openWithSave(page, {...RICH, milestoneIndustrialistClaimed: true});
+    await enterGame(page);
+    for (const t of TIPS) {
+      await settle(page);
+      await page.keyboard.press(t.key);
+      await expect(page.getByText(t.tip).first()).toBeVisible();
+      const box = await page.evaluate((text) => {
+        const el = (Array.from(document.querySelectorAll('body *')) as HTMLElement[]).find((e) =>
+          Array.from(e.childNodes).some((n) => n.nodeType === 3 && (n.textContent ?? '').includes(text)),
+        )!;
+        return {scroll: el.scrollHeight, client: el.clientHeight};
+      }, t.tip);
+      expect(box.scroll, `the ${t.tip} tip is cut off`).toBeLessThanOrEqual(box.client + 1);
+      await page.keyboard.press('Escape');
+    }
+    expectClean(problems);
+  });
+}

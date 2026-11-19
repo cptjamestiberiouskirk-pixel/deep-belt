@@ -9700,7 +9700,7 @@ export default function App() {
         triggerFeatureTip({
           id: 'tip_skills',
           title: 'SKILLS TERMINAL',
-          detail: 'Queue up to 3 pilot neural skills to train in real-time while you fly. Some need another skill trained first.',
+          detail: 'Queue up to 3 skills; they train while you fly. Some need another skill first.',
         });
       } else if (tab === 'AGENT' && !seenTipsRef.current.agent) {
         const updatedTips = {...seenTipsRef.current, agent: true};
@@ -9709,7 +9709,7 @@ export default function App() {
         triggerFeatureTip({
           id: 'tip_agent',
           title: 'OPERATIONS DESK (OSK VARRAN)',
-          detail: 'Accept logistics contracts in sequence to earn MARKS rewards and the Gate Access Permit.',
+          detail: 'Run contracts in order for MARKS and the Gate Access Permit.',
         });
       }
   };
