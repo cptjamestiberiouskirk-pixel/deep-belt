@@ -6075,6 +6075,18 @@ export default function App() {
 
   // System - Tutorial Replay Handler
   const handleReplayTutorial = useCallback(() => {
+    // Replaying docks the ship at Harrow; inside the Rift that would leave the run live
+    // in the save beside a docked ship, and the next load would collapse it.
+    if (currentSystemRef.current === 'Rift') {
+      gameAudio.playErrorBuzz();
+      setToastNotice({
+        id: `toast_rift_replay_block_${Date.now()}`,
+        title: 'Replay Blocked',
+        detail: 'The tutorial can be replayed once you leave the Rift.',
+        type: 'danger',
+      });
+      return;
+    }
     setTutorialDone(false);
     tutorialDoneRef.current = false;
     setTutorialStep(0);

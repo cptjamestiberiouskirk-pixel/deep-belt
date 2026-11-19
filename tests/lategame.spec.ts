@@ -576,6 +576,21 @@ test('rift: a data container is hacked and its reward banked in the run manifest
   expectClean(problems);
 });
 
+test('rift: Replay tutorial is blocked inside the Rift, so the run is not left live beside a docked ship', async ({page}) => {
+  test.setTimeout(120_000);
+  const problems = await enterRift(page);
+  await page.keyboard.press('h');
+  await page.keyboard.press('t');
+  await expect(page.getByText('Replay Blocked').first()).toBeVisible();
+  // Replaying used to dock at Harrow and keep the run, so the next load said "Rift Collapsed".
+  await page.waitForTimeout(1500);
+  const save = (await readSave(page))!;
+  expect(save.currentSystem).toBe('Rift');
+  expect(save.riftRun?.stage).toBe(1);
+  expect(save.tutorialDone).toBe(true);
+  expectClean(problems);
+});
+
 test('rift: defense drones destroy a sentinel that attacks the ship, and the kill is banked in the run', async ({page}) => {
   test.setTimeout(300_000);
   const problems = await launch(page, {...FIGHTER, cargoRiftSync: 1, cargoDefenseDrone: 2});
