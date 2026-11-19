@@ -192,7 +192,12 @@ Make the edit the task below describes, only in the files it names.
         $status.ended = (Receive-Job $watch | Select-Object -Last 1)
     }
     Remove-Job $watch -Force
-    Write-Host "`e[?1049l`e[?25h" # leave the alternate screen and show the cursor after a forced stop
+    # A forced stop skips the session's own terminal cleanup. Undo what its full-screen UI turns on,
+    # or the terminal keeps sending mouse-move and focus reports that the shell reads as typed text:
+    # mouse tracking (1000/1002/1003) and its encodings (1005/1006/1015), focus reports (1004),
+    # bracketed paste (2004), the kitty keyboard flags and modifyOtherKeys, the alternate screen,
+    # then show the cursor and reset colors.
+    Write-Host -NoNewline "`e[?1000l`e[?1002l`e[?1003l`e[?1005l`e[?1006l`e[?1015l`e[?1004l`e[?2004l`e[<u`e[>4;0m`e[?1049l`e[?25h`e[0m"
 } catch {
     $status.error = $_.Exception.Message
     if ($status.ended -in 'not-started', 'running') { $status.ended = 'error' }

@@ -13,6 +13,13 @@ Format, checked by `node dev/lessons.mjs --check`. A field's text may go on over
 - Status: open | promoted to PLAYBOOK "<section>" | closed: <why the rule no longer holds>
 ```
 
+## 2026-11-19: A force-stopped Claude session left its terminal tab sending mouse reports
+- What went wrong: after the first Code Mode run, the user saw "random characters scrolling" in the tab: text like `[555;31;39M` on every mouse move and `[I` on focus, typed into pwsh, which then printed `ParserError: Missing type name after '['`.
+- Why: Claude's full-screen UI turns on mouse tracking and focus reports and turns them off when it exits. dev/code-mode.ps1 ends it with Stop-Process -Force, so that cleanup never ran, and the launcher reset only the alternate screen and the cursor.
+- Rule going forward: a script that force-stops a full-screen terminal program then turns off every mode such a program can turn on (mouse tracking 1000/1002/1003 and encodings 1005/1006/1015, focus 1004, bracketed paste 2004, kitty keyboard flags, modifyOtherKeys, alternate screen) and shows the cursor.
+- Evidence: the "code-mode check" tab's screen, read with read_terminal, full of `[555;x;yM` reports and the ParserError.
+- Status: open
+
 ## 2026-11-19: A Code Mode baseline ran nothing because its chained command matched no allow rule
 - What went wrong: the first `-NoCodeMode` baseline of the check job sent `node dev/lessons.mjs ... & npx tsc -p . & npm run lint` as one Bash call. The launcher's allow list holds one rule per command, so in dontAsk mode the call was denied, and the run ended `done` in 19 s with nothing run, which made it useless as a baseline.
 - Why: the job text asked for the three commands "in parallel in one REPL snippet". With no REPL tool, the session got the same parallelism by chaining them in one shell line, and allow rules match a whole command line.
