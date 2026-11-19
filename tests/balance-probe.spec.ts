@@ -646,3 +646,70 @@ for (const c of PACES) {
     record({probe: 'mining pace', case: c.name, yields: yields.length, ore, sec: Math.round(sec * 10) / 10, orePerMin: Math.round((ore / sec) * 60), sizes: [...new Set(yields.map(([, d]) => d))]});
   });
 }
+
+// --- Selling trips: with a full Ferrier hold (600 m³) at a belt, seconds to warp to a
+// station, dock, sell everything, undock and warp back, gate jumps included. Mining time
+// per load comes from the cycle (MK1 50 per 10 s, MK2 75 per 8 s); this adds the trip.
+// Low Profile V, so 600 Ferrite sells without a raider wave.
+const TRIPS: Array<{name: string; belt: string; station: string; vael?: boolean; haul?: boolean; ore: string; qty: number}> = [
+  {name: 'Belt One to Harrow Station, Ferrite', belt: 'Belt One', station: 'Harrow Station Alpha', ore: 'Ferrite', qty: 600},
+  {name: 'Cinder Rift to Harrow Station, Prismite', belt: 'Cinder Rift', station: 'Harrow Station Alpha', ore: 'Prismite', qty: 75},
+  {name: 'Vael Belt to Vael Station, Aurite', belt: 'Vael Belt', station: 'Vael Station', vael: true, ore: 'Aurite', qty: 600},
+  {name: 'Vael Belt to Harrow Station by the gates, Aurite', belt: 'Vael Belt', station: 'Harrow Station Alpha', vael: true, haul: true, ore: 'Aurite', qty: 600},
+];
+async function jump(page: Page, to: string) {
+  await expect(async () => {
+    await page.keyboard.press('j');
+    await expect(page.getByText(`${to} System ·`)).toBeVisible({timeout: 5000});
+  }).toPass({timeout: 60_000});
+}
+for (const c of TRIPS) {
+  test(`selling trip: ${c.name}`, async ({page}) => {
+    test.setTimeout(420_000);
+    const key = c.ore.toLowerCase();
+    await openWithSave(page, {...BASE, ...skills({lowProfile: 5}), ...fitting(PLAIN), missionIndex: 3, missionStatus: 'completed', hasGatePermit: true, [`cargo${c.ore}`]: c.qty});
+    await enterGame(page);
+    await undock(page);
+    if (c.vael) {
+      await flyTo(page, 'Harrow Outer Jump Gate');
+      await jump(page, 'Vael');
+    }
+    await flyTo(page, c.belt);
+    const marks0 = (await readSave(page))!.marks;
+    const t0 = Date.now();
+    if (c.haul) {
+      await flyTo(page, 'Gate (Harrow)');
+      await jump(page, 'Harrow');
+    }
+    await flyTo(page, c.station);
+    const tArrive = Date.now();
+    await expect(async () => {
+      await page.keyboard.press('f');
+      await expect(page.getByText('Docked · safe')).toBeVisible({timeout: 2000});
+    }).toPass({timeout: 30_000});
+    await settle(page);
+    await page.keyboard.press('1');
+    await settle(page);
+    await page.keyboard.press('s');
+    await expect.poll(async () => (await readSave(page))!.inventory?.[key], {timeout: 20_000}).toBe(0);
+    const marks1 = (await readSave(page))!.marks;
+    await undock(page);
+    const tUndock = Date.now();
+    if (c.haul) {
+      await flyTo(page, 'Harrow Outer Jump Gate');
+      await jump(page, 'Vael');
+    }
+    await flyTo(page, c.belt);
+    const tBack = Date.now();
+    record({
+      probe: 'selling trip',
+      case: c.name,
+      sold: `${c.qty} ${c.ore}`,
+      marks: marks1 - marks0,
+      toStationSec: Math.round((tArrive - t0) / 100) / 10,
+      dockSellUndockSec: Math.round((tUndock - tArrive) / 100) / 10,
+      backSec: Math.round((tBack - tUndock) / 100) / 10,
+      tripSec: Math.round((tBack - t0) / 100) / 10,
+    });
+  });
+}
