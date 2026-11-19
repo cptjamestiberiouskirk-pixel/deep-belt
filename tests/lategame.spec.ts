@@ -486,7 +486,7 @@ test('Ash Drift: the permit opens it and its pyrox can be mined', async ({page})
 });
 
 /** Opens the drone bay and deploys the drone on the given row (0 extraction, 1 defense, 2 salvage). */
-async function deployDrone(page: Page, row: 1 | 2, name: string) {
+async function deployDrone(page: Page, row: 0 | 1 | 2, name: string) {
   await pressUntil(page, 'd', async () => {
     await expect(page.getByText('DRONE CONTROL BAY')).toBeVisible({timeout: 2000});
   });
@@ -526,6 +526,31 @@ test('drones: a defense drone destroys a pirate and a salvage drone loots the wr
   const save = (await readSave(page))!;
   expect(save.inventory.defenseDrone).toBe(1);
   expect(save.inventory.salvageDrone).toBe(1);
+  expectClean(problems);
+});
+
+test('drones: a drone lost to a shattered rock is saved as lost at once', async ({page}) => {
+  test.setTimeout(120_000);
+  const problems = await launch(page, {cargoExtractDrone: 1});
+  await flyTo(page, 'Belt One');
+  await selectTarget(page, /Asteroid/);
+  await page.keyboard.press('l');
+  await expect.poll(() => targetPanel(page), {timeout: 30_000}).toMatch(/Locked/);
+  // Frequencies run 1 to 3; a laser off the rock's frequency makes the drone strain it until it shatters.
+  const freq = async () => (await page.innerText('body')).match(/FREQ\s+(\d)\s*\/\s*(\d)/)!.slice(1).map(Number);
+  const off = (await freq())[1] === 1 ? 3 : 1;
+  // One press at a time, each read after it shows: a read right after a press can still see the old value.
+  for (let i = 0; i < 3 && (await freq())[0] !== off; i++) {
+    const was = (await freq())[0];
+    await page.keyboard.press(']');
+    await expect.poll(async () => (await freq())[0]).not.toBe(was);
+  }
+  expect((await freq())[0]).toBe(off);
+  await deployDrone(page, 0, 'Extraction Drone');
+  await expect.poll(async () => (await readSave(page))!.inventory.extractDrone).toBe(1);
+  await expect(page.getByText('Asteroid shattered -- drones lost').first()).toBeVisible({timeout: 40_000});
+  // Read once, not polled: the game also saves every 5 s, which would hide a loss saved late.
+  expect((await readSave(page))!.inventory.extractDrone, 'the lost drone is still in the save').toBe(0);
   expectClean(problems);
 });
 

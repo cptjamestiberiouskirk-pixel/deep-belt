@@ -5310,7 +5310,9 @@ export default function App() {
   const [dronesFocusIndex, setDronesFocusIndex] = useState(0);
   const dronesFocusIndexRef = useRef(0);
   dronesFocusIndexRef.current = dronesFocusIndex;
-  const [, setDronesTick] = useState(0);
+  // Bumped whenever the deployed drones change; the autosave watches it, so a drone lost
+  // to a shattered rock is saved at once.
+  const [dronesTick, setDronesTick] = useState(0);
 
   const [shipShield, setShipShield] = useState(100);
   const [shipArmor, setShipArmor] = useState(100);
@@ -8434,7 +8436,7 @@ export default function App() {
       };
       localStorage.setItem(SAVE_SESSION_STORAGE_KEY, JSON.stringify(data));
     } catch (e) {}
-  }, [isDocked, currentSystem, marks, cargoFerrite, cargoRare, cargoAurite, cargoChromite, cargoPyrox, cargoScrap, cargoTritanium, cargoAuriteConc, cargoChromiteBar, cargoPyroxite, cargoHullPlate, cargoThrusterCoil, cargoSensorCore, cargoLatticeAlloy, cargoConductiveMesh, cargoThermalAlloy, cargoQuantumCore, cargoIntegritySeal, cargoThermalGrid, cargoPrismite, cargoNimbus, cargoRadflux, cargoPackedPrismite, cargoPackedNimbus, cargoPackedRadflux, cargoSilicateLens, cargoMetallicLens, cargoExoticLens, cargoExtractDrone, cargoDefenseDrone, cargoSalvageDrone, cargoCommandHub, cargoPolymer, cargoChemical, cargoPolymerComposite, cargoRiftSync, cargoPristinePrismite, cargoPristineNimbus, cargoPristineRadflux, riftRun, riftStats, gantryRefit, colonies, colonySaveCount, cargoStationCore, outpostDeployed, outpostModules, outpostStorage, dockedStationId, cargoMax, fitting, hullLayouts, skills, trainingQueue, missionIndex, missionStatus, missionPirateKills, hasGatePermit, beltRunActive, activeHaulContractId, tutorialDone, tutorialStep, tutorialBonusClaimed, milestoneIndustrialistClaimed, ashDriftVisited, hasProbeLauncher, firstCacheOpened, capBatteryInstalled, capBatteryCount, agentStanding, chartTheDriftStatus, ownedHulls, activeHull, activeFabricate, schematicLevels, activeResearch, dataCache, shipCapacitor, scanCooldownSec, laserFreq, fittedLens, lensCharges]);
+  }, [isDocked, currentSystem, marks, cargoFerrite, cargoRare, cargoAurite, cargoChromite, cargoPyrox, cargoScrap, cargoTritanium, cargoAuriteConc, cargoChromiteBar, cargoPyroxite, cargoHullPlate, cargoThrusterCoil, cargoSensorCore, cargoLatticeAlloy, cargoConductiveMesh, cargoThermalAlloy, cargoQuantumCore, cargoIntegritySeal, cargoThermalGrid, cargoPrismite, cargoNimbus, cargoRadflux, cargoPackedPrismite, cargoPackedNimbus, cargoPackedRadflux, cargoSilicateLens, cargoMetallicLens, cargoExoticLens, cargoExtractDrone, cargoDefenseDrone, cargoSalvageDrone, cargoCommandHub, cargoPolymer, cargoChemical, cargoPolymerComposite, cargoRiftSync, cargoPristinePrismite, cargoPristineNimbus, cargoPristineRadflux, riftRun, riftStats, gantryRefit, colonies, colonySaveCount, cargoStationCore, outpostDeployed, outpostModules, outpostStorage, dockedStationId, cargoMax, fitting, hullLayouts, skills, trainingQueue, missionIndex, missionStatus, missionPirateKills, hasGatePermit, beltRunActive, activeHaulContractId, tutorialDone, tutorialStep, tutorialBonusClaimed, milestoneIndustrialistClaimed, ashDriftVisited, hasProbeLauncher, firstCacheOpened, capBatteryInstalled, capBatteryCount, agentStanding, chartTheDriftStatus, ownedHulls, activeHull, activeFabricate, schematicLevels, activeResearch, dataCache, shipCapacitor, scanCooldownSec, laserFreq, fittedLens, lensCharges, dronesTick]);
 
   // Master Industrialist milestone threshold trigger (>= 1,000 MARKS)
   useEffect(() => {
