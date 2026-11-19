@@ -13,10 +13,12 @@ Use it only for these jobs, and only when every limit below holds:
 
 | Job | What it does | Changes files |
 |---|---|---|
-| `check` | Lessons lookup, `npx tsc -p .` and `npm run lint` in parallel; reports only failures and the lessons that apply | no |
+| `check` | The launcher runs the lessons lookup, `npx tsc -p .` and `npm run lint`; the session reads their output and reports only failures and the lessons that apply | no |
 | `sweep` | App.tsx save effects: refs and state read but missing from their deps; saver keys versus loader keys | no |
 | `audit` | `content/*.ts` ids defined but unused or used but missing; manifest assets missing or unused | no |
-| `edit` | A mechanical edit across files, described in a task file, then type-check and lint | yes |
+| `edit` | A mechanical edit across files, described in a task file; the launcher runs type-check and lint afterwards. It can't edit package.json, the lockfile, tsconfig.json, .oxlintrc.json, .npmrc, dev/, .claude/, .github/ or node_modules/ | yes |
+
+No job has Bash or PowerShell. Every job gets REPL, Read, Grep, Glob and writes to its own run folder; `edit` also edits files outside the denied list. Commands come only from the launcher, so text in a file the session reads can't add flags to them (security review 2026-11-19: prefix rules such as `Bash(npm run lint:*)` also approve `--node-options`, and `Bash(git log:*)` approves `--output`).
 
 Limits:
 - No browser, no Playwright run, no server, no commit or push. Those stay here.
@@ -39,6 +41,8 @@ The run's lessons check doesn't replace this session's: the `check` job prints t
    `for i in $(seq 1 450); do [ -f .code-mode-runs/<RunId>/status.json ] && break; sleep 3; done; cat .code-mode-runs/<RunId>/status.json`
 4. When it returns, read `status.json` and `report.md` from `.code-mode-runs/<RunId>/`, then close the tab with `stop_terminal_tab {tab_id, close: true}`. The app refuses to close or reuse a tab the user typed in (the consent screen counts): leave that one to the user.
 
+`-DryRun` does everything except start the session (job file, allow and deny lists, the launcher's own commands, `status.json` with `ended: dry-run`) and costs no Claude usage: use it after any change to the launcher.
+
 `-NoCodeMode` runs the same job with Code Mode off. Use it only to measure: a pair of runs, one with and one without, gives the time and token difference for that job.
 
 ## Reading the result
@@ -49,6 +53,8 @@ The run's lessons check doesn't replace this session's: the `check` job prints t
 - `toolCalls`, `tokens` (`input`, `output`, `cacheRead`, `cacheCreate`) and `sessionSeconds` (first prompt to last reply): what the run cost, from its transcript. `seconds` is the launcher's wall time, which includes startup and any wait at the consent screen.
 - `claudeExitCode` is -1 after a normal run: the launcher ends the session once `done` appears.
 - `envRemoved`: the desktop variables the launcher cleared for the child.
+- `checks`: each command the launcher ran, with its exit code and output file. For `edit`, these are the type-check and lint of what the session changed: the job passes only when both are 0.
+- `allowed` and `denied`: the permission rules the session ran with.
 
 The report is the child's claims, not proof: before acting on a finding, check it in the file it names. For `edit`, read the whole `git diff` and run `git ls-files --eol` on each changed file before any test run or commit.
 
