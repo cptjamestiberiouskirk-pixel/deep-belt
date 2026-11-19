@@ -13,6 +13,20 @@ Format, checked by `node dev/lessons.mjs --check`. A field's text may go on over
 - Status: open | promoted to PLAYBOOK "<section>" | closed: <why the rule no longer holds>
 ```
 
+## 2026-11-19: A Code Mode baseline ran nothing because its chained command matched no allow rule
+- What went wrong: the first `-NoCodeMode` baseline of the check job sent `node dev/lessons.mjs ... & npx tsc -p . & npm run lint` as one Bash call. The launcher's allow list holds one rule per command, so in dontAsk mode the call was denied, and the run ended `done` in 19 s with nothing run, which made it useless as a baseline.
+- Why: the job text asked for the three commands "in parallel in one REPL snippet". With no REPL tool, the session got the same parallelism by chaining them in one shell line, and allow rules match a whole command line.
+- Rule going forward: job text for a launcher run says one command per Bash call, with no `&`, `&&`, `;` or pipes; a run's numbers count only when its report lists an exit code for every command the job names.
+- Evidence: .code-mode-runs/ab-base-1/report.md, "the Bash tool call was denied before execution"; status.json `toolCalls` Bash 1.
+- Status: open
+
+## 2026-11-19: A shell append turned .gitignore from CRLF to mixed line endings
+- What went wrong: adding `.code-mode-runs/` with `printf '.code-mode-runs/\n' >> .gitignore` left the file `w/mixed`: its lines end in CRLF and the new one in LF. `git ls-files --eol` caught it before any commit, and a node rewrite put CRLF back.
+- Why: a shell append writes the line ending the command spells out, not the file's own. The PLAYBOOK step was read as being about `sed -i` and App.tsx, so a one-line append to another file looked outside it.
+- Rule going forward: any scripted change to a tracked file, an append included, writes the file's own line ending; check `git ls-files --eol` on every file a script touched, not only App.tsx.
+- Evidence: `git ls-files --eol .gitignore` printing `w/mixed`, then `w/crlf` after the rewrite, while the Code Mode launcher was added.
+- Status: promoted to PLAYBOOK "Editing files with a script"
+
 ## 2026-11-19: A press-until-it-reads check stopped on the readout's old value
 - What went wrong: the new drone-shatter test stepped the laser frequency with `pressUntil(page, ']', check)`, where the check read the FREQ readout right after each press. It passed with the laser back on the rock's frequency, so the rock never shattered, and three mutant runs failed on a missing toast instead of on the save check they were meant to exercise.
 - Why: the read can land before React redraws, so it sees the value from before the press. On a value that cycles (1, 2, 3, 1), the press from 1 to 2 was read as 1, the target, and the loop stopped one step past it.

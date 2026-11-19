@@ -63,7 +63,7 @@ From: 2026-11-15 "Tab never reached a pirate 44 km away under full load"
 
 ## Editing files with a script
 
-From: 2026-11-15 "A sed edit turned App.tsx from CRLF to LF"
+From: 2026-11-15 "A sed edit turned App.tsx from CRLF to LF"; 2026-11-19 "A shell append turned .gitignore from CRLF to mixed line endings"
 
 1. A scripted edit splits lines on an optional CR before LF and writes back with the line ending the file had. Git Bash `sed -i` does not: it writes LF, so App.tsx is edited with the Edit tool or such a script.
 2. Before a test run or commit, `git ls-files --eol <file>` shows the ending the file had before the edit (App.tsx: `w/crlf`), never `w/mixed`.
