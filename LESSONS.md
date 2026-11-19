@@ -13,6 +13,13 @@ Format, checked by `node dev/lessons.mjs --check`. A field's text may go on over
 - Status: open | promoted to PLAYBOOK "<section>" | closed: <why the rule no longer holds>
 ```
 
+## 2026-11-19: A press-until-it-reads check stopped on the readout's old value
+- What went wrong: the new drone-shatter test stepped the laser frequency with `pressUntil(page, ']', check)`, where the check read the FREQ readout right after each press. It passed with the laser back on the rock's frequency, so the rock never shattered, and three mutant runs failed on a missing toast instead of on the save check they were meant to exercise.
+- Why: the read can land before React redraws, so it sees the value from before the press. On a value that cycles (1, 2, 3, 1), the press from 1 to 2 was read as 1, the target, and the loop stopped one step past it.
+- Rule going forward: a loop that presses a key until a readout shows a value waits, after each press, for the readout to change from its value before the press (`expect.poll(...).not.toBe(was)`), then reads; a mutant run counts only when it fails at the assertion the fix is about, so read the failing line before counting it.
+- Evidence: tests/lategame.spec.ts, "a drone lost to a shattered rock is saved as lost at once"; error-context showing `FREQ 2 / 2` at the failure; a logged run stepping 2, 3, 1, 2 one press at a time.
+- Status: open
+
 ## 2026-11-18: A clean lint was read as a failure because grep -v filtered every line
 - What went wrong: during step 26, `npm run lint 2>&1 | grep -v "^npm notice" | tail -3` under `set -o pipefail` stopped an `&&` chain with exit 1 twice, once after a real lint error was fixed. Lint itself exited 0; the chain skipped the test run and left its output path unset.
 - Why: `grep -v` exits 1 when it prints nothing, and a clean lint prints only `npm notice` lines, which it removes. Under pipefail that 1 becomes the pipeline's exit code.
