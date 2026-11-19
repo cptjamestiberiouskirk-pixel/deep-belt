@@ -42752,7 +42752,7 @@ export default function App() {
                       Polymer Composite (Advanced Fabricator) refits Gantry Command hold (+500 m³ cargo, +30 hull).
                     </div>
                     <div style={{color: '#2EC4B6', fontWeight: 600}}>
-                      Mine [1]: Laser heat 0-&gt;100 in 20s on, cools 15/s off; 100 = 4s lockout.
+                      Mine [1]: Laser heat climbs only while mistuned (0-&gt;100 in about 12-15s); tuned, it cools as it cuts. Off, it cools 15/s; 100 = 4s lockout.
                     </div>
                     <div style={{color: '#FFB547', fontWeight: 600}}>
                       Heavier cargo = slower turns and stops. Sell [S] or Jettison [X] to lighten.
@@ -42992,7 +42992,7 @@ export default function App() {
 
               <div>
                 <span className="font-bold text-[#2EC4B6] font-fredoka block text-sm">3. MINING LASER (KEY 1)</span>
-                Once locked and within 2.0 km range, activate Module 1. Costs 12 Cap at the start of each 10-second cycle. If Cap &lt; 12, a new cycle will not start. Active cycles complete normally. Laser heat 0-&gt;100 in 20s on, cools 15/s off; 100 = 4s lockout.
+                Once locked and within {MINING_RANGE_KM.toFixed(1)} km range, activate Module 1. Costs 12 Cap at the start of each 10-second cycle. If Cap &lt; 12, a new cycle will not start. Active cycles complete normally. Laser heat climbs only while the laser is mistuned to the rock (0-&gt;100 in about 12-15s); tuned, it cools as it cuts. Off, it cools 15/s; 100 = 4s lockout.
               </div>
 
               <div>

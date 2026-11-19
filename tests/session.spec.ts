@@ -1,4 +1,5 @@
 import {expect, test} from '@playwright/test';
+import {MINING_RANGE_KM} from '../constants';
 import {enterGame, expectClean, openFresh, openWithSave, readSave, RICH, undock, watch, expectTitle} from './helpers';
 
 test('title screen loads clean with no save', async ({page}) => {
@@ -93,6 +94,33 @@ test('help and the game menu open and close', async ({page}) => {
   await page.getByRole('button', {name: /^Quit/}).click();
   await expectTitle(page);
   await expect(page.getByText(/Resume saved session/)).toBeVisible();
+  expectClean(problems);
+});
+
+// The help texts once said the laser heats 0->100 in 20 s whenever it is on and that the
+// mining range is 2.0 km. Since laser tuning, only a mistuned laser heats (6.5/s or 8/s) and
+// a tuned one cools; the range is MINING_RANGE_KM. Both panels must say what the game does.
+test('help and handbook state the mining range and laser heat the game uses', async ({page}) => {
+  const problems = watch(page);
+  await openWithSave(page, RICH);
+  await enterGame(page);
+
+  await page.keyboard.press('h');
+  const help = page.getByText(/^\s*Mine \[1\]: Laser heat/);
+  await expect(help).toBeVisible();
+  await expect(help).toContainText('climbs only while mistuned');
+  await expect(help).toContainText('tuned, it cools as it cuts');
+  await expect(help).not.toContainText('in 20s');
+  await page.keyboard.press('Escape');
+  await expect(page.getByText('Controls & Help')).toBeHidden();
+
+  await page.getByTestId('menu-button').click();
+  await page.getByRole('button', {name: /^Handbook/}).click();
+  const handbook = page.getByText(/Once locked and within/);
+  await expect(handbook).toBeVisible();
+  await expect(handbook).toContainText(`within ${MINING_RANGE_KM.toFixed(1)} km range`);
+  await expect(handbook).toContainText('tuned, it cools as it cuts');
+  await expect(handbook).not.toContainText('in 20s');
   expectClean(problems);
 });
 
