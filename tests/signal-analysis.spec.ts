@@ -106,7 +106,7 @@ for (const c of [{level: 0, found: false}, {level: 5, found: true}]) {
     await sweepAt(page, PAST_UNTRAINED);
     // The modal checks presses against the bands the level gives.
     if (c.found) {
-      await expect(page.getByText('Data Cache located (30 km). Check Warp [M].').first()).toBeVisible();
+      await expect(page.getByText('Data Cache located. Warp [M].').first()).toBeVisible();
       await expect.poll(async () => Boolean((await readSave(page))!.dataCache)).toBe(true);
     } else {
       await expect(page.getByText('Signal lost').first()).toBeVisible();

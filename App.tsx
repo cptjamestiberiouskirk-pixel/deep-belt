@@ -97,7 +97,11 @@ import {
 import {MARKET_MODULE_IDS, MODULES, minerFor, missingSkill, type ModuleId} from './content/modules';
 import type {SlotType} from './content/types';
 import {LENSES, LENS_IDS, lensBonusLabel} from './content/lenses';
-import {readItem} from './content/inventory';
+import {INVENTORY_ITEMS, readItem} from './content/inventory';
+import {CargoHoldPanel} from './utils/CargoHoldPanel';
+import {MARKET_CARGO_DESCRIPTIONS} from './content/market';
+import {MarketPanel} from './utils/MarketPanel';
+import {createWarpVisuals, drawWarpFlow} from './utils/warp-visuals';
 import {ARMOR_LAYERING_PCT, BASE_REFINE_OUTPUT, BOOSTER_EFFICIENCY_CUT, boosterCapAt, CARGO_TRIM_CUT, CHARGE_CONTROL_CUT, effectiveLoad, FERRITE_PER_TRITANIUM, freeFerriteAt, LASER_TUNING_CUT, LOW_PROFILE_FREE_FERRITE, LOW_PROFILE_MINING_CUT, maxArmorAt, minerCycleAt, miningNoticePerSec, noticeFerrite, prerequisiteText, REFINING_BONUS_PER_LEVEL, refineOutputAt, saleNotice, SCAN_BANDS, SCAN_SWEEP_RAD_PER_SEC, scanBandAt, scanWindowSec, SIGNAL_ANALYSIS_WIDEN, SKILL_CATEGORY_ORDER, skillLevels, SKILLS, unmetPrerequisites, weaponCycleAt} from './content/skills';
 import {formatSpeed, FULL_HOLD_THRUST_CUT, flightLimits, PIXELS_PER_KM, topSpeed} from './content/flight';
 import type {ModuleDef} from './content/types';
@@ -1634,7 +1638,7 @@ export const COACH_STEPS_DATA: CoachStepData[] = [
     title: 'Warp to Belt One',
     lines: [
       '① Click Belt One in the Overview or press [Tab] to select it.',
-      '② Click Warp or press [M] — you arrive in 3 s.',
+      '② Click Warp or press [M], then press Enter to jump.',
     ],
   },
   {
@@ -3538,106 +3542,12 @@ export default function App() {
   const laserActiveAstIdRef = useRef<string | null>(null);
   const lastDebrisSpawnTimeRef = useRef<number>(0);
 
-  // Warp FX state machine & pre-rendered offscreen canvas sprites
-  interface WarpStreak {
-    angle: number;
-    dist: number;
-    speed: number;
-    length: number;
-    alpha: number;
-  }
-
-  interface WarpFxState {
-    phase: 'idle' | 'align' | 'entry' | 'cruise' | 'exit';
-    t: number;
-    intensity: number;
-    targetHeading: number;
-    streakPool: WarpStreak[];
-    exitStartTime: number;
-    entryStartTime: number;
-    spoolDuration: number;
-    zoom: number;
-    flashAlpha: number;
-    shipStretch: number;
-    bloomAlpha: number;
-    shimmerRadius: number;
-    shimmerAlpha: number;
-  }
-
-  const warpFxRef = useRef<WarpFxState>({
-    phase: 'idle',
-    t: 0,
-    intensity: 0,
-    targetHeading: 0,
-    streakPool: [],
-    exitStartTime: 0,
-    entryStartTime: 0,
-    spoolDuration: 3.0,
-    zoom: 1.0,
-    flashAlpha: 0,
-    shipStretch: 1.0,
-    bloomAlpha: 0,
-    shimmerRadius: 30,
-    shimmerAlpha: 0,
-  });
-
-  const warpStreakCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const warpVignetteCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const warpBloomCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const warpFxRef = useRef(createWarpVisuals());
   const warpEngineFlareCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const hazardVignetteCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
-    // 1. warpStreakCanvas: 128x4 horizontal gradient sprite (white center -> #9BE7FF -> transparent at edges)
-    const streakCanvas = document.createElement('canvas');
-    streakCanvas.width = 128;
-    streakCanvas.height = 4;
-    const sCtx = streakCanvas.getContext('2d');
-    if (sCtx) {
-      const grad = sCtx.createLinearGradient(0, 0, 128, 0);
-      grad.addColorStop(0, 'rgba(155, 231, 255, 0)');
-      grad.addColorStop(0.25, 'rgba(155, 231, 255, 0.85)');
-      grad.addColorStop(0.5, '#FFFFFF');
-      grad.addColorStop(0.75, 'rgba(155, 231, 255, 0.85)');
-      grad.addColorStop(1, 'rgba(155, 231, 255, 0)');
-      sCtx.fillStyle = grad;
-      sCtx.fillRect(0, 0, 128, 4);
-    }
-    warpStreakCanvasRef.current = streakCanvas;
-
-    // 2. warpVignetteCanvas: Screen-sized offscreen canvas with soft edge gradient (rgba(150, 210, 255, 0.25) at borders -> transparent in center)
-    const vignetteCanvas = document.createElement('canvas');
-    vignetteCanvas.width = 1280;
-    vignetteCanvas.height = 800;
-    const vCtx = vignetteCanvas.getContext('2d');
-    if (vCtx) {
-      const grad = vCtx.createRadialGradient(640, 400, 240, 640, 400, 750);
-      grad.addColorStop(0, 'rgba(150, 210, 255, 0)');
-      grad.addColorStop(0.4, 'rgba(150, 210, 255, 0.05)');
-      grad.addColorStop(0.7, 'rgba(150, 210, 255, 0.14)');
-      grad.addColorStop(1, 'rgba(150, 210, 255, 0.25)');
-      vCtx.fillStyle = grad;
-      vCtx.fillRect(0, 0, 1280, 800);
-    }
-    warpVignetteCanvasRef.current = vignetteCanvas;
-
-    // 3. warpBloomCanvas: 160x160 radial glow flash sprite (white core -> #9BE7FF -> transparent)
-    const bloomCanvas = document.createElement('canvas');
-    bloomCanvas.width = 160;
-    bloomCanvas.height = 160;
-    const bCtx = bloomCanvas.getContext('2d');
-    if (bCtx) {
-      const grad = bCtx.createRadialGradient(80, 80, 0, 80, 80, 80);
-      grad.addColorStop(0, '#FFFFFF');
-      grad.addColorStop(0.25, 'rgba(255, 255, 255, 0.95)');
-      grad.addColorStop(0.55, 'rgba(155, 231, 255, 0.7)');
-      grad.addColorStop(1, 'rgba(155, 231, 255, 0)');
-      bCtx.fillStyle = grad;
-      bCtx.fillRect(0, 0, 160, 160);
-    }
-    warpBloomCanvasRef.current = bloomCanvas;
-
-    // 4. warpEngineFlareCanvas: 64x64 radial flare sprite
+    // Soft engine glow during alignment
     const flareCanvas = document.createElement('canvas');
     flareCanvas.width = 64;
     flareCanvas.height = 64;
@@ -3653,7 +3563,7 @@ export default function App() {
     }
     warpEngineFlareCanvasRef.current = flareCanvas;
 
-    // 5. hazardVignetteCanvas: Screen-sized offscreen canvas with red edge gradient for rift hazard warning
+    // hazardVignetteCanvas: Screen-sized offscreen canvas with red edge gradient for rift hazard warning
     const hazardCanvas = document.createElement('canvas');
     hazardCanvas.width = 1280;
     hazardCanvas.height = 800;
@@ -3669,9 +3579,6 @@ export default function App() {
     hazardVignetteCanvasRef.current = hazardCanvas;
 
     return () => {
-      warpStreakCanvasRef.current = null;
-      warpVignetteCanvasRef.current = null;
-      warpBloomCanvasRef.current = null;
       warpEngineFlareCanvasRef.current = null;
       hazardVignetteCanvasRef.current = null;
     };
@@ -5286,6 +5193,11 @@ export default function App() {
   const wrecksRef = useRef<WreckEntity[]>([]);
   const canistersRef = useRef<CargoCanisterEntity[]>([]);
 
+  const [isCargoHoldOpen, setIsCargoHoldOpen] = useState(false);
+  useEffect(() => {
+    if (isDocked) setIsCargoHoldOpen(false);
+  }, [isDocked]);
+
   // Cargo Jettison System State
   const [isJettisonModalOpen, setIsJettisonModalOpen] = useState(false);
   const isJettisonModalOpenRef = useRef(false);
@@ -5623,6 +5535,10 @@ export default function App() {
   const isWarpMenuOpenRef = useRef(false);
   isWarpMenuOpenRef.current = isWarpMenuOpen;
   const [warpMenuIndex, setWarpMenuIndex] = useState(0);
+  const selectedWarpRowRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (isWarpMenuOpen) selectedWarpRowRef.current?.scrollIntoView({block: 'nearest'});
+  }, [isWarpMenuOpen, warpMenuIndex]);
 
   // Docked Corridor Officer Walking Position (X in canvas units, authoritative in ref)
   const officerCorridorXRef = useRef(640);
@@ -5993,14 +5909,7 @@ export default function App() {
     setShowDronesModal(false);
     showDronesModalRef.current = false;
     gameAudio.stopAllWarpSounds();
-    warpFxRef.current.phase = 'idle';
-    warpFxRef.current.streakPool = [];
-    warpFxRef.current.intensity = 0;
-    warpFxRef.current.zoom = 1.0;
-    warpFxRef.current.shipStretch = 1.0;
-    warpFxRef.current.flashAlpha = 0;
-    warpFxRef.current.bloomAlpha = 0;
-    warpFxRef.current.shimmerAlpha = 0;
+    warpFxRef.current = createWarpVisuals();
     abortActiveRefine();
     abortActiveFabricate();
     dismissFeatureTip();
@@ -8609,14 +8518,7 @@ export default function App() {
   const startRun = useCallback(
     (level: number, score: number) => {
       gameAudio.stopAllWarpSounds();
-      warpFxRef.current.phase = 'idle';
-      warpFxRef.current.streakPool = [];
-      warpFxRef.current.intensity = 0;
-      warpFxRef.current.zoom = 1.0;
-      warpFxRef.current.shipStretch = 1.0;
-      warpFxRef.current.flashAlpha = 0;
-      warpFxRef.current.bloomAlpha = 0;
-      warpFxRef.current.shimmerAlpha = 0;
+      warpFxRef.current = createWarpVisuals();
       levelStartScoreRef.current = score;
       prevLevelRef.current = level;
       runWonRef.current = false;
@@ -8711,14 +8613,7 @@ export default function App() {
     tutorialRockIdRef.current = null;
     miningFirstYieldDoneRef.current = false;
     gameAudio.stopAllWarpSounds();
-    warpFxRef.current.phase = 'idle';
-    warpFxRef.current.streakPool = [];
-    warpFxRef.current.intensity = 0;
-    warpFxRef.current.zoom = 1.0;
-    warpFxRef.current.shipStretch = 1.0;
-    warpFxRef.current.flashAlpha = 0;
-    warpFxRef.current.bloomAlpha = 0;
-    warpFxRef.current.shimmerAlpha = 0;
+    warpFxRef.current = createWarpVisuals();
     abortActiveRefine();
     abortActiveFabricate();
     abortActiveResearch();
@@ -9290,19 +9185,7 @@ export default function App() {
     p.waypoint = null;
     setWaypoint(null);
 
-    // Warp FX & SFX Initialization
-    warpFxRef.current.phase = 'align';
-    warpFxRef.current.t = 0;
-    warpFxRef.current.intensity = 0;
-    warpFxRef.current.spoolDuration = effectiveWarpSpoolTime;
-    warpFxRef.current.targetHeading = Math.atan2(poi.y - p.y, poi.x - p.x);
-    warpFxRef.current.streakPool = [];
-    warpFxRef.current.zoom = 1.0;
-    warpFxRef.current.shipStretch = 1.0;
-    warpFxRef.current.flashAlpha = 0;
-    warpFxRef.current.bloomAlpha = 0;
-    warpFxRef.current.shimmerAlpha = 0;
-
+    warpFxRef.current = createWarpVisuals();
     gameAudio.startWarpAlignSound(effectiveWarpSpoolTime);
     addFloatingText(`ENGAGING WARP TO ${poi.name.toUpperCase()}...`, p.x, p.y - 40, '#00f0ff');
   };
@@ -11485,14 +11368,7 @@ export default function App() {
     setShowDronesModal(false);
     showDronesModalRef.current = false;
     gameAudio.stopAllWarpSounds();
-    warpFxRef.current.phase = 'idle';
-    warpFxRef.current.streakPool = [];
-    warpFxRef.current.intensity = 0;
-    warpFxRef.current.zoom = 1.0;
-    warpFxRef.current.shipStretch = 1.0;
-    warpFxRef.current.flashAlpha = 0;
-    warpFxRef.current.bloomAlpha = 0;
-    warpFxRef.current.shimmerAlpha = 0;
+    warpFxRef.current = createWarpVisuals();
     const p = playerRef.current;
     // Screen shake: 3px magnitude for 150ms on player ship destruction
     shakeEndTimeRef.current = performance.now() + 150;
@@ -14588,14 +14464,16 @@ export default function App() {
     };
     setDataCache(newCache);
     dataCacheRef.current = newCache;
+    setSelectedTargetId(newCache.id);
+    setOverviewFilter('Nav');
     soundManager.playMilestoneChime();
     setToastNotice({
       id: `toast_scan_success_${Date.now()}`,
-      title: 'Data Cache located (30 km). Check Warp [M].',
-      detail: 'Core probe resonance achieved. Data Cache bookmark active at 30 km.',
+      title: 'Data Cache located. Warp [M].',
+      detail: 'Cache selected. Press [M], then Enter to warp.',
       type: 'success',
     });
-    addFloatingText('DATA CACHE LOCATED (30 km)', playerRef.current.x, playerRef.current.y - 45, '#2EC4B6');
+    addFloatingText('DATA CACHE LOCATED', playerRef.current.x, playerRef.current.y - 45, '#2EC4B6');
   }, [setToastNotice]);
 
   const handleScanFailure = useCallback(() => {
@@ -15554,6 +15432,10 @@ export default function App() {
         }
         if (isWarpMenuOpen) {
           setIsWarpMenuOpen(false);
+          return;
+        }
+        if (isCargoHoldOpen) {
+          setIsCargoHoldOpen(false);
           return;
         }
         if (isDocked && stationTab === 'BUILD') {
@@ -17165,6 +17047,11 @@ export default function App() {
           }
           if (e.key === 'Enter') {
             e.preventDefault();
+            if (e.repeat) return;
+            if (isCommsDismissed && dockedStationIdRef.current !== 'outpost') {
+              setIsCommsDismissed(false);
+              return;
+            }
             if (typedDialogueLen < currentCorridorSpeechText.length) {
               finishTypewriterDialogue();
               return;
@@ -17662,6 +17549,8 @@ export default function App() {
     selectedTargetId,
     lockedTargetId,
     isDocked,
+    isCommsDismissed,
+    isCargoHoldOpen,
     stationTab,
     isWarpMenuOpen,
     warpMenuIndex,
@@ -18542,47 +18431,11 @@ export default function App() {
 
     // Update Warp FX state machine (canvas-driven, no setState)
     const warpFx = warpFxRef.current;
-    warpFx.t += dt;
-
-    if (warpFx.phase === 'exit') {
-      const exitElapsed = (performance.now() - warpFx.exitStartTime) / 1000;
-      if (exitElapsed < 0.5) {
-        // At drop moment: 0.3s bloom flash centered at ship (using the 160px sprite)
-        warpFx.bloomAlpha = exitElapsed < 0.3 ? Math.max(0, 1.0 - exitElapsed / 0.3) : 0;
-
-        // Streaks shrink down to 0 in 0.4s
-        const streakShrink = exitElapsed < 0.4 ? Math.max(0, 1.0 - exitElapsed / 0.4) : 0;
-        for (let sIdx = warpFx.streakPool.length - 1; sIdx >= 0; sIdx--) {
-          const st = warpFx.streakPool[sIdx];
-          st.dist += st.speed * dt * 0.4;
-          st.length = Math.max(0, st.length * streakShrink);
-        }
-
-        // Camera zoom returns smoothly to 1.0
-        const returnEase = Math.min(1.0, exitElapsed / 0.5);
-        const smoothReturn = returnEase * (2 - returnEase);
-        warpFx.zoom = 0.93 + 0.07 * smoothReturn;
-
-        // Ship stretch relaxes back to 1.0
-        warpFx.shipStretch = 1.15 - 0.15 * returnEase;
-
-        // Vignette fades down
-        warpFx.intensity = Math.max(0, 1.0 - exitElapsed / 0.5);
-
-        // Shimmer Ring: 0.5s expanding ring centered at ship (radius expands 30 -> 90 px, alpha fades 0.5 -> 0, stroke #9BE7FF)
-        const ringProg = Math.min(1.0, exitElapsed / 0.5);
-        warpFx.shimmerRadius = 30 + 60 * ringProg;
-        warpFx.shimmerAlpha = Math.max(0, 0.5 * (1.0 - ringProg));
-      } else {
-        warpFx.phase = 'idle';
-        warpFx.streakPool = [];
-        warpFx.zoom = 1.0;
-        warpFx.intensity = 0;
-        warpFx.flashAlpha = 0;
-        warpFx.bloomAlpha = 0;
-        warpFx.shimmerAlpha = 0;
-        warpFx.shipStretch = 1.0;
-      }
+    if (warpFx.exitAt) {
+      const remaining = Math.max(0, 1 - (performance.now() - warpFx.exitAt) / 420);
+      warpFx.intensity = warpFx.exitIntensity * remaining * remaining;
+      warpFx.distance += 450 * remaining * dt;
+      if (remaining === 0) warpFx.exitAt = 0;
     }
 
     // 1. Warp Drive Transition
@@ -18595,23 +18448,12 @@ export default function App() {
         const diff = normalizeAngleDiff(targetAngle - p.heading);
         p.heading += Math.sign(diff) * Math.min(Math.abs(diff), 4.0 * dt);
 
-        warpFx.phase = 'align';
-        warpFx.targetHeading = targetAngle;
-
         p.warpTimer -= dt;
         if (p.warpTimer <= 0) {
           p.warpState = 'WARPING';
           p.warpTimer = 8.0;
 
-          // Transition to ENTRY phase
-          warpFx.phase = 'entry';
-          warpFx.entryStartTime = performance.now();
-          warpFx.t = 0;
-          warpFx.intensity = 1.0;
-          warpFx.targetHeading = p.heading;
-          warpFx.flashAlpha = 0.6;
-          warpFx.shipStretch = 1.6;
-
+          warpFx.entryAt = performance.now();
           gameAudio.startWarpEntrySound();
           gameAudio.startWarpCruiseLoop();
         }
@@ -18623,55 +18465,6 @@ export default function App() {
         const dy = p.warpTarget.y - p.y;
         const dist = Math.hypot(dx, dy);
 
-        // ENTRY & CRUISE visual phase update
-        const entryElapsed = (performance.now() - warpFx.entryStartTime) / 1000;
-        if (entryElapsed < 0.3) {
-          warpFx.phase = 'entry';
-          // Full-screen white-blue flash: alpha 0.6 -> 0 in 0.25s
-          warpFx.flashAlpha = Math.max(0, 0.6 * (1.0 - entryElapsed / 0.25));
-          // Ship drawn stretched: 1.6x along travel heading, then relaxes down to 1.15x by 0.3s
-          const stretchRatio = Math.min(1.0, entryElapsed / 0.3);
-          warpFx.shipStretch = 1.6 - 0.45 * stretchRatio;
-        } else {
-          warpFx.phase = 'cruise';
-          warpFx.flashAlpha = 0;
-          warpFx.shipStretch = 1.15;
-        }
-
-        // Camera Zoom: Smoothly ease camera zoom from 1.0 down to 0.93 over 0.6s (zoom = 1.0 - 0.07 * ease)
-        const cruiseEase = Math.min(1.0, entryElapsed / 0.6);
-        const smoothCruiseEase = cruiseEase * (2 - cruiseEase);
-        warpFx.zoom = 1.0 - 0.07 * smoothCruiseEase;
-
-        // Vignette intensity ramp
-        warpFx.intensity = Math.min(1.0, Math.max(0.0, entryElapsed / 0.4));
-
-        // Star Streaks: Up to 120 star streaks radiating from screen center opposite travel heading (compositeOperation = 'lighter')
-        // Length 40-220 px, velocity 1400-2400 px/s
-        const oppHeading = p.heading + Math.PI;
-        while (warpFx.streakPool.length < 120) {
-          const spread = (Math.random() - 0.5) * Math.PI * 0.95;
-          const angle = oppHeading + spread;
-          const speed = 1400 + Math.random() * 1000;
-          const length = 40 + Math.random() * 180;
-          const distFromCenter = 10 + Math.random() * 450;
-          const alpha = 0.4 + Math.random() * 0.55;
-          warpFx.streakPool.push({ angle, dist: distFromCenter, speed, length, alpha });
-        }
-
-        for (let sIdx = warpFx.streakPool.length - 1; sIdx >= 0; sIdx--) {
-          const st = warpFx.streakPool[sIdx];
-          st.dist += st.speed * dt;
-          if (st.dist > 850) {
-            st.dist = Math.random() * 30;
-            const spread = (Math.random() - 0.5) * Math.PI * 0.95;
-            st.angle = oppHeading + spread;
-            st.speed = 1400 + Math.random() * 1000;
-            st.length = 40 + Math.random() * 180;
-            st.alpha = 0.4 + Math.random() * 0.55;
-          }
-        }
-
         // EXIT: last 0.5s of warp before drop, warp speed eases down to 35% in final 0.5s (0.5s * 1800 u/s = 900 u)
         const distToDrop = Math.max(0, dist - 180);
         let currentWarpSpeed = warpSpeed;
@@ -18681,33 +18474,24 @@ export default function App() {
         }
 
         if (dist > 180 && p.warpTimer > 0) {
+          const ramp = Math.min(1, (performance.now() - warpFx.entryAt) / 270);
+          const approach = 0.35 + 0.65 * Math.min(1, distToDrop / 900);
+          warpFx.intensity = ramp * ramp * (3 - 2 * ramp) * approach;
+          warpFx.heading = Math.atan2(dy, dx);
+          warpFx.distance += (420 + 1280 * warpFx.intensity) * dt;
+
           p.x += (dx / dist) * currentWarpSpeed * dt;
           p.y += (dy / dist) * currentWarpSpeed * dt;
           p.warpTimer -= dt;
 
-          // Legacy background warp dust
-          particlesRef.current.push({
-            x: p.x + (Math.random() - 0.5) * 80,
-            y: p.y + (Math.random() - 0.5) * 80,
-            vx: -(dx / dist) * 1200,
-            vy: -(dy / dist) * 1200,
-            life: 0.25,
-            maxLife: 0.25,
-            size: 3,
-            color: '#00f0ff',
-          });
         } else {
           // Drop moment!
           const reachedTarget = p.warpTarget;
           p.warpState = 'IDLE';
           p.warpTarget = null;
 
-          // Trigger EXIT visual phase & audio swoosh
-          warpFx.phase = 'exit';
-          warpFx.exitStartTime = performance.now();
-          warpFx.bloomAlpha = 1.0;
-          warpFx.shimmerAlpha = 0.5;
-          warpFx.shimmerRadius = 30;
+          warpFx.exitAt = performance.now();
+          warpFx.exitIntensity = warpFx.intensity;
           gameAudio.playWarpExitSound();
 
           if (reachedTarget) {
@@ -21173,6 +20957,8 @@ export default function App() {
       ctx.fillRect(0, 0, canvasWidth, canvasHeight);
     }
 
+    drawWarpFlow(ctx, canvasWidth, canvasHeight, warpFxRef.current);
+
     // Screen Shake: 3px magnitude for 150ms duration, applied once per frame at root world render translation
     let shakeX = 0;
     let shakeY = 0;
@@ -21184,7 +20970,7 @@ export default function App() {
     // World space entities (strictly centered on player ship in the viewport + screen shake offset + camera zoom)
     ctx.save();
     ctx.translate(canvasWidth / 2 + shakeX, canvasHeight / 2 + shakeY);
-    const warpZoom = warpFxRef.current.zoom || 1.0;
+    const warpZoom = 1 - 0.035 * warpFxRef.current.intensity;
     if (warpZoom !== 1.0) {
       ctx.scale(warpZoom, warpZoom);
     }
@@ -22750,10 +22536,6 @@ export default function App() {
     ctx.save();
     ctx.translate(p.x, p.y);
     ctx.rotate(p.heading);
-    const stretch = warpFxRef.current.shipStretch || 1.0;
-    if (stretch !== 1.0) {
-      ctx.scale(stretch, 1.0);
-    }
 
     const currentCargoVolume = getCurrentCargoVolume();
     const maxCargoVolume = Math.max(1, cargoMaxRef.current);
@@ -22795,11 +22577,11 @@ export default function App() {
       ctx.restore();
     }
 
-    // ALIGN: Engine glow sprite blitted at ship stern grows from 0.6x to 1.4x scale, alpha ramping 0.4 -> 1.0 (last 1.5s of spool/aligning)
+    // A soft stern glow builds during the last 1.5s of alignment.
     if (p.warpState === 'ALIGNING' && p.warpTimer <= 1.5 && warpEngineFlareCanvasRef.current) {
       const alignProgress = Math.min(1.0, Math.max(0.0, (1.5 - p.warpTimer) / 1.5));
-      const flareScale = (0.6 + 0.8 * alignProgress) * screenFactor;
-      const flareAlpha = 0.4 + 0.6 * alignProgress;
+      const flareScale = (0.48 + 0.32 * alignProgress) * screenFactor;
+      const flareAlpha = 0.12 + 0.26 * alignProgress;
       const flareSize = 64 * flareScale;
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
@@ -22922,34 +22704,6 @@ export default function App() {
       ctx.stroke();
     }
     ctx.restore();
-
-    // EXIT: 0.3s bloom flash centered at ship (using the 160px sprite)
-    if (warpFxRef.current.bloomAlpha > 0.01 && warpBloomCanvasRef.current) {
-      ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
-      ctx.globalAlpha = Math.min(1, Math.max(0, warpFxRef.current.bloomAlpha));
-      const bSize = 160 * screenFactor;
-      ctx.drawImage(
-        warpBloomCanvasRef.current,
-        p.x - bSize / 2,
-        p.y - bSize / 2,
-        bSize,
-        bSize,
-      );
-      ctx.restore();
-    }
-
-    // EXIT: 0.5s expanding ring centered at ship (radius expands 30 -> 90 px, alpha fades 0.5 -> 0, stroke #9BE7FF)
-    if (warpFxRef.current.shimmerAlpha > 0.01) {
-      ctx.save();
-      ctx.strokeStyle = '#9BE7FF';
-      ctx.lineWidth = 3 * screenFactor;
-      ctx.globalAlpha = Math.min(1, Math.max(0, warpFxRef.current.shimmerAlpha));
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, warpFxRef.current.shimmerRadius * screenFactor, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.restore();
-    }
 
     // 6. Pirate Frigates: 56px long light pirate on screen, 84px long Heavy Pirate on screen
     const isVaelPirate = isVael;
@@ -23653,40 +23407,6 @@ export default function App() {
 
     ctx.restore(); // Restore camera translation
 
-    // Star Streaks: Up to 120 star streaks radiating from screen center opposite travel heading (compositeOperation = 'lighter')
-    if (warpFxRef.current.streakPool.length > 0 && warpStreakCanvasRef.current) {
-      ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
-      for (const streak of warpFxRef.current.streakPool) {
-        if (streak.length <= 1) continue;
-        const sx = canvasWidth / 2 + Math.cos(streak.angle) * streak.dist;
-        const sy = canvasHeight / 2 + Math.sin(streak.angle) * streak.dist;
-        ctx.save();
-        ctx.translate(sx, sy);
-        ctx.rotate(streak.angle);
-        ctx.globalAlpha = Math.min(1, Math.max(0, streak.alpha));
-        ctx.drawImage(warpStreakCanvasRef.current, -streak.length / 2, -2, streak.length, 4);
-        ctx.restore();
-      }
-      ctx.restore();
-    }
-
-    // Vignette: Blit pre-rendered blue-white vignette at alpha = intensity * 0.8
-    if (warpFxRef.current.intensity > 0.01 && warpVignetteCanvasRef.current) {
-      ctx.save();
-      ctx.globalAlpha = Math.min(1, Math.max(0, warpFxRef.current.intensity * 0.8));
-      ctx.drawImage(warpVignetteCanvasRef.current, 0, 0, canvasWidth, canvasHeight);
-      ctx.restore();
-    }
-
-    // Full-screen white-blue flash during ENTRY: alpha 0.6 -> 0 in 0.25s
-    if (warpFxRef.current.flashAlpha > 0.01) {
-      ctx.save();
-      ctx.fillStyle = '#C8F0FF';
-      ctx.globalAlpha = Math.min(1, Math.max(0, warpFxRef.current.flashAlpha));
-      ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-      ctx.restore();
-    }
   };
 
   // Main Canvas Rendering Loop
@@ -24905,6 +24625,20 @@ export default function App() {
                     }}>
                     {totalCargo}/{maxCargo}m³
                   </span>
+                  {!isDocked && (
+                    <button
+                      type="button"
+                      aria-label="Cargo hold"
+                      aria-expanded={isCargoHoldOpen}
+                      aria-controls="space-cargo-hold"
+                      onClick={() => setIsCargoHoldOpen((open) => !open)}
+                      style={{
+                        color: '#F6EED8', background: '#252F47', border: '1px solid #33405F',
+                        borderRadius: 5, padding: '1px 5px', fontSize: 11, cursor: 'pointer',
+                      }}>
+                      Hold
+                    </button>
+                  )}
                   {!isDocked && <SpeedReadout getSpeed={getPlayerSpeed} />}
                   {loadFrac >= 0.75 && (
                     <span
@@ -26598,6 +26332,7 @@ export default function App() {
             isLocked: false,
           };
           const isPirate = effectiveTargetObj.type === 'Pirate';
+          const isAsteroid = effectiveTargetObj.type === 'Asteroid';
                     let pillText = 'Selected';
                     let pillBg = '#2EC4B6';
                     if (isPirate) {
@@ -26621,6 +26356,7 @@ export default function App() {
 
                     return (
                       <div
+                        data-testid="target-panel"
                         onClick={(e) => e.stopPropagation()}
                         onPointerDown={(e) => e.stopPropagation()}
                         style={{
@@ -26628,20 +26364,16 @@ export default function App() {
                           left: '16px',
                           top: !tutorialDone ? '432px' : '316px',
                           width: '260px',
-                          maxHeight: !tutorialDone ? '160px' : undefined,
-                          height: !tutorialDone
-                            ? (effectiveTargetObj.type === 'Asteroid'
-                                ? '160px'
-                                : effectiveTargetObj.type === 'Planet'
+                          maxHeight: isAsteroid ? '244px' : !tutorialDone ? '160px' : undefined,
+                          height: isAsteroid ? 'auto' : !tutorialDone
+                            ? (effectiveTargetObj.type === 'Planet'
                                   ? '160px'
                                   : (effectiveTargetObj.type === 'Station' && effectiveTargetObj.distKm <= 2.0)
                                     ? '160px'
                                     : effectiveTargetObj.type === 'Depot'
                                       ? '160px'
                                       : '140px')
-                            : (effectiveTargetObj.type === 'Asteroid'
-                                ? '196px'
-                                : effectiveTargetObj.type === 'Planet'
+                            : (effectiveTargetObj.type === 'Planet'
                                   ? '186px'
                                   : (effectiveTargetObj.type === 'Station' && effectiveTargetObj.distKm <= 2.0)
                                     ? '164px'
@@ -26724,9 +26456,9 @@ export default function App() {
                             gap: !tutorialDone ? '4px' : '8px',
                             boxSizing: 'border-box',
                             flex: 1,
-                            justifyContent: 'space-between',
+                            justifyContent: isAsteroid ? 'flex-start' : 'space-between',
                             minHeight: 0,
-                            overflow: 'hidden',
+                            overflowY: isAsteroid ? 'auto' : 'hidden',
                           }}>
                           {/* Target Header Row */}
                           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -27590,7 +27322,7 @@ export default function App() {
 
             if (!isRift && (overviewFilter === 'All' || overviewFilter === 'Nav') && dataCache && dataCache.system === currentSystem && !dataCache.isOpened) {
               const distKm = calcDistanceKm(p.x, p.y, dataCache.x, dataCache.y);
-              locationItems.push({
+              locationItems.unshift({
                 id: 'data_cache',
                 name: 'Data Cache',
                 type: 'CACHE' as any,
@@ -27598,7 +27330,6 @@ export default function App() {
                 isTutorial: false,
                 category: 'LOCATIONS' as const,
               });
-              locationItems.sort((a, b) => a.distKm - b.distKm);
             }
 
             // 2. HOSTILES (Filtered strictly to current system & current rift stage; NO Harrow/Vael pirates in Rift!)
@@ -28248,6 +27979,17 @@ export default function App() {
             );
           })()}
 
+          {!isDocked && isCargoHoldOpen && (
+            <CargoHoldPanel
+              used={getCurrentCargoVolume()}
+              capacity={cargoMax}
+              items={Object.keys(INVENTORY_ITEMS).map((id) => ({
+                id, name: INGREDIENT_NAMES[id] ?? id, quantity: getCargoItemQty(id),
+              })).filter(({quantity}) => quantity > 0).sort((a, b) => a.name.localeCompare(b.name))}
+              onClose={() => setIsCargoHoldOpen(false)}
+            />
+          )}
+
           {/* RIFT HOLD (MANIFEST) HUD CARD */}
           {!isDocked && currentSystem === 'Rift' && riftRun && (() => {
             const manifest = riftRun.manifest || { marks: 0, items: {} };
@@ -28434,37 +28176,45 @@ export default function App() {
                   />
                 ))}
 
-                {/* 1.5 OFFICER VANCE INTERACTIVE HIT-AREA (STATIONED NEAR AGENT BAY AT x=970) */}
-                <div
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (typedDialogueLen < currentCorridorSpeechText.length) {
-                      finishTypewriterDialogue();
-                      setIsCommsDismissed(false);
-                      return;
-                    }
-                    if (currentSystem === 'Vael') {
-                      setVaelDialogueIndex((prev) => (prev + 1) % VAEL_DOCK_OFFICER_LINES.length);
-                    } else if (stationTab === 'AGENT') {
-                      advanceOskDialogue();
-                    } else {
-                      advanceDialogue();
-                    }
-                    setIsCommsDismissed(false);
-                  }}
+                {dockedStationId !== 'outpost' && !isAnyPanelOpen && (
+                  <button
+                    type="button"
+                    aria-label={'Talk to ' + speakerName}
+                    aria-expanded={!isCommsDismissed}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (isCommsDismissed) {
+                        setIsCommsDismissed(false);
+                      } else {
+                        handleAdvanceDialogue();
+                      }
+                    }}
                     style={{
                       position: 'absolute',
-                      left: '935px',
-                      top: '468px',
-                      width: '70px',
-                      height: '220px',
+                      left: (CORRIDOR_NPC_X - 40) + "px",
+                      top: (CORRIDOR_FLOOR_Y - CORRIDOR_NPC_HEIGHT - 28) + "px",
+                      width: '80px',
+                      height: (CORRIDOR_NPC_HEIGHT + 28) + "px",
+                      display: 'flex',
+                      justifyContent: 'center',
+                      alignItems: 'flex-start',
                       cursor: 'pointer',
-                      zIndex: 35,
+                      zIndex: 36,
                       background: 'transparent',
-                      display: dockedStationId === 'outpost' ? 'none' : 'block',
-                    }}
-                  title="Talk to Officer Vance"
-                />
+                      border: 0,
+                      padding: 0,
+                    }}>
+                    {isCommsDismissed && (
+                      <span style={{
+                        background: '#FFFDF5', color: '#0A0E1A', border: '2px solid #0A0E1A',
+                        borderRadius: '8px', padding: '3px 8px', whiteSpace: 'nowrap',
+                        fontFamily: "'Inter', sans-serif", fontSize: '12px', fontWeight: 700,
+                      }}>
+                        Talk [Enter]
+                      </span>
+                    )}
+                  </button>
+                )}
 
                 {/* COMPACT TUTORIAL COACH CARD (LEFT COLUMN - DOCKED CORRIDOR & ALL TABS) */}
                 {!tutorialDone && (
@@ -28573,6 +28323,7 @@ export default function App() {
                             e.stopPropagation();
                             setIsCommsDismissed(true);
                           }}
+                          aria-label="Dismiss dialogue"
                           title="Dismiss dialogue"
                           style={{
                             background: 'none',
@@ -29312,7 +29063,7 @@ export default function App() {
                       onSell: sellPolymerComposite,
                       isManufactured: true,
                     },
-                  ];
+                  ] as const;
 
                   const purchasableModules = [
                     ...MARKET_MODULE_IDS.map((id) => {
@@ -29342,7 +29093,7 @@ export default function App() {
                   ];
 
                   return (
-                    <div
+                    <MarketPanel
                       onClick={(e) => e.stopPropagation()}
                       onPointerDown={(e) => e.stopPropagation()}
                       style={{
@@ -29556,6 +29307,9 @@ export default function App() {
                                     </div>
                                   )}
                                   <div
+                                    data-market-item={item.name}
+                                    data-market-description={MARKET_CARGO_DESCRIPTIONS[item.id]}
+                                    data-testid={"market-row-" + item.id}
                                     style={{
                                       height: '46px',
                                       minHeight: '46px',
@@ -29591,7 +29345,6 @@ export default function App() {
                                         <MarketItemIcon itemKey={item.id} iconSrc={item.icon} assetsRecord={assets} unkeyedUrls={keyedModuleDataUrls} />
                                       </div>
                                       <span
-                                        title={item.name}
                                         style={{
                                           fontFamily: "'Inter', sans-serif",
                                           fontWeight: 700,
@@ -29863,6 +29616,8 @@ export default function App() {
                                 return (
                                   <div
                                     key={mod.key}
+                                    data-market-item={mod.name}
+                                    data-market-description={mod.desc}
                                     data-testid={`market-card-${mod.key}`}
                                     style={{
                                       height: '114px',
@@ -30046,6 +29801,8 @@ export default function App() {
                                 return (
                                   <div
                                     key="station_core_deed"
+                                    data-market-item="Station Core Deed"
+                                    data-market-description={MARKET_CARGO_DESCRIPTIONS.stationCore}
                                     onClick={() => {
                                       updateMarketFocus(deedFocusIndex);
                                     }}
@@ -30211,12 +29968,12 @@ export default function App() {
                           {/* SECTION 2: BUY LENSES & DRONES */}
                           {(() => {
                             const p3Items = [
-                              { key: 'silicateLens' as const, name: 'Silicate Lens', price: silicateLensPrice, vol: 1, held: cargoSilicateLens, desc: 'Optical convex lens (1 m³)' },
-                              { key: 'metallicLens' as const, name: 'Metallic Lens', price: metallicLensPrice, vol: 1, held: cargoMetallicLens, desc: 'Coated metallic element (1 m³)' },
-                              { key: 'exoticLens' as const, name: 'Exotic Lens', price: exoticLensPrice, vol: 1, held: cargoExoticLens, desc: 'Prismatic crystal lens (1 m³)' },
-                              { key: 'extractDrone' as const, name: 'Extraction Drone', price: extractDronePrice, vol: 5, held: cargoExtractDrone, desc: 'Autonomous miner drone (5 m³)' },
-                              { key: 'defenseDrone' as const, name: 'Defense Drone', price: defenseDronePrice, vol: 5, held: cargoDefenseDrone, desc: 'Patrol defense drone (5 m³)' },
-                              { key: 'salvageDrone' as const, name: 'Salvage Drone', price: salvageDronePrice, vol: 5, held: cargoSalvageDrone, desc: 'Wreckage salvage drone (5 m³)' },
+                              { key: 'silicateLens' as const, name: 'Silicate Lens', price: silicateLensPrice, vol: 1, held: cargoSilicateLens },
+                              { key: 'metallicLens' as const, name: 'Metallic Lens', price: metallicLensPrice, vol: 1, held: cargoMetallicLens },
+                              { key: 'exoticLens' as const, name: 'Exotic Lens', price: exoticLensPrice, vol: 1, held: cargoExoticLens },
+                              { key: 'extractDrone' as const, name: 'Extraction Drone', price: extractDronePrice, vol: 5, held: cargoExtractDrone },
+                              { key: 'defenseDrone' as const, name: 'Defense Drone', price: defenseDronePrice, vol: 5, held: cargoDefenseDrone },
+                              { key: 'salvageDrone' as const, name: 'Salvage Drone', price: salvageDronePrice, vol: 5, held: cargoSalvageDrone },
                             ];
 
                             return (
@@ -30246,6 +30003,9 @@ export default function App() {
                                     return (
                                       <div
                                         key={cItem.key}
+                                        data-market-item={cItem.name}
+                                        data-testid={"market-card-" + cItem.key}
+                                        data-market-description={MARKET_CARGO_DESCRIPTIONS[cItem.key]}
                                         style={{
                                           height: '114px',
                                           borderRadius: '10px',
@@ -30369,7 +30129,7 @@ export default function App() {
                         <KeyChip label="Esc" size="sm" />
                         <span>back</span>
                       </div>
-                    </div>
+                    </MarketPanel>
                   );
                 })()}
 
@@ -37943,6 +37703,7 @@ export default function App() {
 
                 return (
                   <button
+                    data-testid="wreck-action"
                     onClick={handleWreckAction}
                     disabled={!hasUnlootedWreck}
                     title={hasUnlootedWreck ? (isWreckInRange ? "Open Wreck [E] — Salvage loot" : `Approach Wreck [E] — ${effectiveWreckDistKm.toFixed(1)} km`) : "No wreck in range"}
@@ -37952,14 +37713,14 @@ export default function App() {
                     }}
                     className={`cartoon-btn ${!hasUnlootedWreck ? '' : (isWreckInRange ? 'cartoon-btn-amber' : 'cartoon-btn-primary')}`}>
                     <div style={btnMainRowStyle}>
-                      <span>{hasUnlootedWreck ? (isWreckInRange ? 'Open Wreck' : 'Approach Wreck') : 'Wreck'}</span>
+                      <span>{hasUnlootedWreck ? (isWreckInRange ? 'Salvage' : 'Approach') : 'Wreck'}</span>
                       <KeyChip label="E" size="sm" />
                     </div>
                     <div style={btnSubLabelStyle}>
                       {hasUnlootedWreck
                         ? (p.autoWreckApproaching
                           ? 'approaching'
-                          : (isWreckInRange ? 'in range' : `${effectiveWreckDistKm.toFixed(1)} km`))
+                          : (isWreckInRange ? 'wreck in range' : `Wreck ${effectiveWreckDistKm.toFixed(1)} km`))
                         : 'No wreck in range'}
                     </div>
                   </button>
@@ -38195,7 +37956,7 @@ export default function App() {
             return { text: 'Subspace fissure · rift', color: '#FF5A5F' };
           }
           if (poi.id === 'data_cache' || poi.type === ('CACHE' as any)) {
-            return { text: 'Relic vault · 30 km', color: '#2EC4B6' };
+            return { text: 'Core probe signal · salvage cache', color: '#2EC4B6' };
           }
           if (poi.id === 'outpost') {
             return { text: 'Your Outpost · dock & sell', color: '#2EC4B6' };
@@ -38554,6 +38315,7 @@ export default function App() {
                     {computedLabels.map(({ poi, idx, mx, my, lx, ly, textAnchor, shortName, zColor, isNearest, isSelected }) => (
                       <g
                         key={`dot_${poi.id}`}
+                        data-testid={"warp-map-" + poi.id}
                         style={{ cursor: 'pointer' }}
                         onClick={(e) => {
                           e.stopPropagation();
@@ -38698,6 +38460,9 @@ export default function App() {
                 return (
                   <div
                     key={poi.id}
+                    ref={isSelected ? selectedWarpRowRef : undefined}
+                    data-testid={"warp-row-" + poi.id}
+                    data-selected={isSelected}
                     onClick={() => {
                       setWarpMenuIndex(idx);
                       setSelectedTargetId(poi.id);
@@ -38863,7 +38628,7 @@ export default function App() {
                 }}>
                 Enter
               </span>
-              <span>warp · costs 20 cap · 3 s</span>
+              <span>warp · costs 20 cap</span>
             </div>
           </div>
         );

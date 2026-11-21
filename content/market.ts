@@ -1,0 +1,47 @@
+import {LENSES, lensBonusLabel} from './lenses';
+import type {LensDef} from './types';
+
+const describeLens = (lens: LensDef) =>
+  `Mining lens. ${lens.desc} ${lensBonusLabel(lens)} for ${lens.charges} charges.`;
+
+export const MARKET_CARGO_DESCRIPTIONS = {
+  ferrite: 'Common ore mined in Belt One. Sell it or refine it into Tritanium.',
+  aurite: 'Raw ore used to make Aurite Concentrate at a refinery.',
+  chromite: 'Raw ore used to make Chromite Bars at a refinery.',
+  pyrox: 'Raw ore used to make Pyroxite at a refinery.',
+  rare: 'Valuable crystal mined from rare ore deposits. Sell it for MARKS.',
+  scrap: 'Parts salvaged from wrecks. Sell them or use them to fabricate Sensor Cores.',
+  tritanium: 'Refined Ferrite used to make Hull Plates, Lattice Alloy and Thermal Alloy.',
+  aurite_conc: 'Refined Aurite used in Thruster Coils, Sensor Cores and Conductive Mesh.',
+  chromite_bar: 'Refined Chromite used in Hull Plates, Sensor Cores and Lattice Alloy.',
+  pyroxite: 'Refined Pyrox used in Thruster Coils, Conductive Mesh and Thermal Alloy.',
+  hull_plate: 'Structural plate fabricated from Tritanium and Chromite Bars.',
+  thruster_coil: 'Propulsion component fabricated from Aurite Concentrate and Pyroxite.',
+  sensor_core: 'Sensor component fabricated from refined metals and salvaged Module Scrap.',
+  lattice_alloy: 'Fabricated alloy used to make Quantum Cores and Integrity Seals.',
+  conductive_mesh: 'Fabricated conductor used to make Quantum Cores and Thermal Grids.',
+  thermal_alloy: 'Heat-resistant alloy used to make Integrity Seals and Thermal Grids.',
+  quantum_core: 'Advanced component used to assemble hulls and fabricate Rift Synchronizers.',
+  integrity_seal: 'Advanced seal used in hull assembly and Gantry fabrication.',
+  thermal_grid: 'Advanced thermal component used in hull assembly and Gantry fabrication.',
+  prismite: 'Exotic crystal. Compress it into Packed Prismite to save cargo space.',
+  nimbus: 'Exotic gas. Compress it into Packed Nimbus to save cargo space.',
+  radflux: 'Exotic isotope. Compress it into Packed Radflux to save cargo space.',
+  packedPrismite: 'Compressed Prismite for hauling and advanced fabrication.',
+  packedNimbus: 'Compressed Nimbus Gas that takes less hold space than raw gas.',
+  packedRadflux: 'Compressed Radflux for hauling and advanced fabrication.',
+  pristinePrismite: 'High-grade Prismite recovered in the Rift. Trade it at the station market.',
+  pristineNimbus: 'High-grade Nimbus Gas recovered in the Rift. Trade it at the station market.',
+  pristineRadflux: 'High-grade Radflux recovered in the Rift. Trade it at the station market.',
+  silicateLens: describeLens(LENSES.silicateLens),
+  metallicLens: describeLens(LENSES.metallicLens),
+  exoticLens: describeLens(LENSES.exoticLens),
+  extractDrone: 'Autonomous miner. Deploy it on an asteroid to extract ore into your hold.',
+  defenseDrone: 'Escort drone. Deploy it to attack nearby hostiles.',
+  salvageDrone: 'Recovery drone. Deploy it to collect scrap and loot from wrecks.',
+  commandHub: 'Colony starter kit. Deploy it near a planet to establish a colony.',
+  polymer: 'Colony-produced resin used with Reactive Chemicals to make Polymer Composite.',
+  chemical: 'Colony-produced chemicals used with Polymer Resin to make Polymer Composite.',
+  polymerComposite: 'Fabricated composite used in advanced Gantry construction and refits.',
+  stationCore: 'Outpost deployment kit. Take it to Belt One Anchor and deploy it to found a station.',
+};

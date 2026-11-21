@@ -137,6 +137,7 @@ test('scanning: a bought probe launcher survives a reload and finds a data cache
   await expect(page.getByText('Docked · safe')).toBeVisible();
   expect((await readSave(page))!.hasProbeLauncher, 'the launcher was lost on reload').toBe(true);
   await undock(page);
+  await page.getByText('Ore', {exact: true}).click();
 
   // The sweep passes ring 1, 2 and 3 about 0.5 s, 1.2 s and 2.0 s after it opens.
   const sweep = page.getByText('Core Probe Sweep');
@@ -157,7 +158,14 @@ test('scanning: a bought probe launcher survives a reload and finds a data cache
 
   const before = (await readSave(page))!;
   // The cache is not a named place, so the top bar keeps showing the nearest belt.
-  await warpTo(page, 'Data Cache');
+  const cache = page.locator('.overview-row').filter({hasText: 'Data Cache'});
+  await expect(cache).toBeInViewport({ratio: 0.95});
+  await page.keyboard.press('m');
+  await expect(page.getByTestId('warp-map-data_cache')).toBeInViewport();
+  const destination = page.getByTestId('warp-row-data_cache');
+  await expect(destination).toHaveAttribute('data-selected', 'true');
+  await expect(destination).toBeInViewport({ratio: 0.95});
+  await page.keyboard.press('Enter');
   await expect(page.getByText('Dropped out of warp at Data Cache.').first()).toBeVisible({timeout: 60_000});
   await pressUntil(page, 'e', async () => {
     await expect.poll(async () => (await readSave(page))!.marks, {timeout: 3000}).toBe(before.marks + 600);
