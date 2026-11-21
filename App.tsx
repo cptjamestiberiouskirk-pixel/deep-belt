@@ -94,6 +94,7 @@ import {
   useAssets,
   useInput,
 } from './utils/helper';
+import {characterClip, coachClip, type DialogueClip, type DialogueChannel} from './content/dialogue-audio';
 import {MARKET_MODULE_IDS, MODULES, minerFor, missingSkill, type ModuleId} from './content/modules';
 import type {SlotType} from './content/types';
 import {LENSES, LENS_IDS, lensBonusLabel} from './content/lenses';
@@ -1688,6 +1689,30 @@ export function KeyChip({label, size = 'sm'}: {label: string; size?: 'sm' | 'md'
   );
 }
 
+function useSpokenLine(clip: DialogueClip | undefined, channel: DialogueChannel) {
+  useEffect(() => {
+    if (clip) gameAudio.sayDialogue(clip, channel);
+    return () => gameAudio.stopDialogue(channel);
+  }, [clip, channel]);
+}
+
+function MissionQuote({text, className, onPlay}: {text: string; className: string; onPlay?: () => void}) {
+  return (
+    <button type="button" className={className + ' text-left'} title="Play Osk’s dialogue"
+      aria-label={`Play Osk’s dialogue: ${text}`}
+      onKeyDown={event => {
+        if (event.key === 'Enter' || event.key === ' ') event.stopPropagation();
+      }}
+      onClick={() => {
+        onPlay?.();
+        const clip = characterClip(text);
+        if (clip) gameAudio.sayDialogue(clip, 'character');
+      }}>
+      <Volume2 size={13} aria-hidden="true" className="inline mr-1" />“{text}”
+    </button>
+  );
+}
+
 // Compact Cel Ink Tutorial Coach Card for left column
 const TutorialCoachCard = React.memo(({
   tutorialStep,
@@ -1699,6 +1724,7 @@ const TutorialCoachCard = React.memo(({
   playerRef,
   isDocked,
   stationTab = 'DOCK',
+  voiceEnabled,
   onSkip,
 }: {
   tutorialStep: number;
@@ -1710,10 +1736,12 @@ const TutorialCoachCard = React.memo(({
   playerRef: React.MutableRefObject<any>;
   isDocked: boolean;
   stationTab?: string;
+  voiceEnabled: boolean;
   onSkip: () => void;
 }) => {
   const isGutterMode = isDocked && stationTab !== 'DOCK';
 
+  let spokenClip = coachClip(tutorialStep);
   let title = COACH_STEPS_DATA[tutorialStep]?.title ?? 'Training';
   let lines: string[] = [];
 
@@ -1727,6 +1755,7 @@ const TutorialCoachCard = React.memo(({
     const targetRockId = lockedTargetId || selectedTargetId || playerRef.current.targetLockedId || playerRef.current.miningTargetId;
     const targetRock = targetRockId ? asteroidsRef.current.find((a) => a.id === targetRockId) : null;
     const isMismatched = Boolean(targetRock && targetRock.stabilityFreq !== laserFreq);
+    spokenClip = coachClip(tutorialStep, targetRock?.stabilityFreq, laserFreq);
     if (isMismatched) {
       title = 'Tune Laser Frequency';
       lines = [
@@ -1744,6 +1773,8 @@ const TutorialCoachCard = React.memo(({
   } else if (tutorialStep === 6) {
     lines = ['Open Market [1] and sell your Ferrite Ore.'];
   }
+
+  useSpokenLine(voiceEnabled ? spokenClip : undefined, 'coach');
 
   const renderInstructionLine = (text: string) => {
     const parts = text.split(/(\[[^\]]+\])/);
@@ -4138,6 +4169,7 @@ export default function App() {
   // Audio toggles and volume state
   const [musicVolume, setMusicVolume] = useState(() => gameAudio.getMusicVolume());
   const [sfxVolume, setSfxVolume] = useState(() => gameAudio.getSfxVolume());
+  const [voiceVolume, setVoiceVolume] = useState(() => gameAudio.getVoiceVolume());
   const [isMusicMuted, setIsMusicMuted] = useState(() => gameAudio.getMusicMuted());
   const [isSfxMuted, setIsSfxMuted] = useState(() => gameAudio.getSfxMuted());
   const [isGameMenuOpen, setIsGameMenuOpen] = useState(false);
@@ -4467,6 +4499,14 @@ export default function App() {
       return next;
     });
   }, []);
+
+  const announcedLock = useRef<string | null>(null);
+  useEffect(() => {
+    const previous = announcedLock.current;
+    announcedLock.current = lockedTargetId;
+    if (previous === lockedTargetId || isDockedRef.current || gameStateRef.current.status !== 'PLAYING') return;
+    gameAudio.speak(lockedTargetId ? 'targetLocked' : 'targetLockLost');
+  }, [lockedTargetId]);
 
   const [isOverviewOpen, setIsOverviewOpen] = useState(true);
   const [, setOverviewTick] = useState(0);
@@ -5507,10 +5547,16 @@ export default function App() {
     };
   }, []);
 
+  const holdWasFull = useRef(false);
   // Requirement 8: Automatically clear/hide "Cargo Full" toast whenever cargo hold drops below max
   useEffect(() => {
     const totalCargo = getCurrentCargoVolume();
-    if (totalCargo < cargoMax) {
+    const full = totalCargo >= cargoMax;
+    if (full && !holdWasFull.current && !isDockedRef.current && gameStateRef.current.status === 'PLAYING') {
+      gameAudio.speak('cargoHoldFull');
+    }
+    holdWasFull.current = full;
+    if (!full) {
       setToasts((prev) =>
         prev.filter(
           (t) =>
@@ -5530,6 +5576,14 @@ export default function App() {
   const [waypoint, setWaypoint] = useState<{x: number; y: number} | null>(null);
   const waypointRef = useRef<{x: number; y: number} | null>(null);
   waypointRef.current = waypoint;
+
+  const changeWaypoint = useCallback((next: {x: number; y: number} | null, reached = false) => {
+    const p = playerRef.current;
+    if (next && !p.waypoint) gameAudio.speak('autopilotEngaged');
+    if (!next && p.waypoint) gameAudio.speak(reached ? 'waypointReached' : 'autopilotDisengaged');
+    p.waypoint = next;
+    setWaypoint(next);
+  }, []);
 
   const [isWarpMenuOpen, setIsWarpMenuOpen] = useState(false);
   const isWarpMenuOpenRef = useRef(false);
@@ -5922,8 +5976,7 @@ export default function App() {
     p.miningLaserActive = false;
     p.miningTargetId = null;
     p.miningTimer = 0;
-    p.waypoint = null;
-    setWaypoint(null);
+    changeWaypoint(null);
     setModuleMiningActive(false);
     setActionCycleSecs((prev) => (prev.mine === 0 && prev.cannon === 0 ? prev : { mine: 0, cannon: 0 }));
     gameAudio.stopMiningLaserHum();
@@ -6381,6 +6434,7 @@ export default function App() {
 
   // RIFT RUN HANDLERS: ENTRY, PULSE, ADVANCE, EXTRACT, COLLAPSE
   const handleRiftCollapse = useCallback((_reason: string) => {
+    gameAudio.stopVoice();
     gameAudio.stopAllWarpSounds();
     gameAudio.playErrorBuzz();
     gameAudio.playCollapseRumbleSound();
@@ -8517,6 +8571,7 @@ export default function App() {
   // Lifecycle control
   const startRun = useCallback(
     (level: number, score: number) => {
+      gameAudio.stopVoice();
       gameAudio.stopAllWarpSounds();
       warpFxRef.current = createWarpVisuals();
       levelStartScoreRef.current = score;
@@ -8612,6 +8667,7 @@ export default function App() {
   const resetGame = useCallback(() => {
     tutorialRockIdRef.current = null;
     miningFirstYieldDoneRef.current = false;
+    gameAudio.stopVoice();
     gameAudio.stopAllWarpSounds();
     warpFxRef.current = createWarpVisuals();
     abortActiveRefine();
@@ -9034,8 +9090,7 @@ export default function App() {
     if (!targetId) return;
     p.approachTargetId = targetId;
     p.orbitTargetId = null;
-    p.waypoint = null;
-    setWaypoint(null);
+    changeWaypoint(null);
     gameAudio.playConfirmSelect();
     addFloatingText('THRUSTERS: APPROACH ENGAGED', p.x, p.y - 40, '#00f0ff');
   };
@@ -9048,8 +9103,7 @@ export default function App() {
     if (!targetId) return;
     p.orbitTargetId = targetId;
     p.approachTargetId = null;
-    p.waypoint = null;
-    setWaypoint(null);
+    changeWaypoint(null);
     gameAudio.playConfirmSelect();
     addFloatingText('ORBITAL TRAJECTORY LOCKED', p.x, p.y - 40, '#9353d3');
   };
@@ -9152,6 +9206,7 @@ export default function App() {
     }
 
     if (p.capacitor < 20) {
+      gameAudio.speak('insufficientCapacitor');
       gameAudio.playErrorBuzz();
       setToastNotice({
         id: `toast_cap_${Date.now()}`,
@@ -9182,8 +9237,7 @@ export default function App() {
     p.warpTimer = effectiveWarpSpoolTime;
     p.orbitTargetId = null;
     p.approachTargetId = null;
-    p.waypoint = null;
-    setWaypoint(null);
+    changeWaypoint(null);
 
     warpFxRef.current = createWarpVisuals();
     gameAudio.startWarpAlignSound(effectiveWarpSpoolTime);
@@ -9342,6 +9396,7 @@ export default function App() {
     });
 
     // Two-stage dock clamp SFX & pneumatic hiss/clunk plays alongside the iris-wipe
+    gameAudio.speak('dockingComplete');
     gameAudio.playDockClamp();
 
     startDockIrisTransition();
@@ -9421,6 +9476,8 @@ export default function App() {
     p.vx = 0;
     p.vy = 40;
     p.heading = Math.PI / 2;
+    gameAudio.speak('undocking');
+    gameAudio.playEffect('undock', {volume: 0.55});
     gameAudio.startHullHum();
 
     if (scanReadyAtRef.current > performance.now()) {
@@ -9950,6 +10007,7 @@ export default function App() {
     hasCrossed50Ref.current = false;
 
     // Synthesize jumpGate: deep rising thrum over ~1.5s, then sharp bright snap on arrival
+    gameAudio.speak('jumpGateActivated');
     gameAudio.playJumpGate();
 
     // Start flat-cel energetic jump flash wipe
@@ -9994,6 +10052,7 @@ export default function App() {
           detail: nextSystem === 'Vael' ? 'Vael Station hub, Vael Belt Aurite Ore, and heavy pirate detected.' : 'Returned to Harrow sector.',
           type: 'success',
         });
+        gameAudio.speak('jumpComplete');
         addFloatingText('SYSTEM TRANSIT COMPLETE', p.x, p.y - 45, '#00f0ff');
 
         if (nextSystem === 'Vael' && !seenTipsRef.current.gate) {
@@ -10110,6 +10169,7 @@ export default function App() {
         }, 200);
       }
 
+      gameAudio.speak('cargoHoldFull');
       setToastNotice({
         id: `toast_salvage_${Date.now()}`,
         title: 'Hold full - scrap left in wreck',
@@ -10132,6 +10192,7 @@ export default function App() {
       }
 
       wreck.isLooted = true;
+      gameAudio.playEffect('salvage', {volume: 0.43});
 
       const wreckLabel = isHeavy ? 'Heavy Wreck' : 'Light Wreck';
       const toastTitle = marksCredited > 0
@@ -10206,7 +10267,7 @@ export default function App() {
       } else {
         p.approachTargetId = wreck.id;
         p.orbitTargetId = null;
-        p.waypoint = null;
+        changeWaypoint(null);
         p.autoWreckApproaching = true;
         p.autoMineApproaching = false;
         gameAudio.playConfirmSelect();
@@ -10902,6 +10963,7 @@ export default function App() {
     let availableVolume = Math.max(0, cargoMaxRef.current - currentCargoWeight);
 
     if (availableVolume <= 0) {
+      gameAudio.speak('cargoHoldFull');
       setToastNotice({
         id: `toast_hold_full_${Date.now()}`,
         title: 'Hold full - leftover in canister',
@@ -11214,6 +11276,7 @@ export default function App() {
       });
       addFloatingText('CARGO SCOOPED', canister.x, canister.y - 30, '#8BD17C');
     } else {
+      gameAudio.speak('cargoHoldFull');
       setToastNotice({
         id: `toast_hold_full_${Date.now()}`,
         title: 'Hold full - leftover in canister',
@@ -11370,9 +11433,10 @@ export default function App() {
     gameAudio.stopAllWarpSounds();
     warpFxRef.current = createWarpVisuals();
     const p = playerRef.current;
+    gameAudio.stopVoice();
     // Screen shake: 3px magnitude for 150ms on player ship destruction
     shakeEndTimeRef.current = performance.now() + 150;
-    gameAudio.playExplosion();
+    gameAudio.playEffect('ship-destruction', {volume: 0.82});
     createExplosion(p.x, p.y, 180, '#00f0ff');
     for (let k = 0; k < 30; k++) {
       particlesRef.current.push({
@@ -11555,6 +11619,7 @@ export default function App() {
     if (next) {
       const boosterCap = boosterStats().capPerCycle ?? 25;
       if (p.capacitor < boosterCap) {
+        gameAudio.speak('insufficientCapacitor');
         gameAudio.playErrorBuzz();
         addFloatingText(`Not enough capacitor (${boosterCap} Cap)`, p.x, p.y - 40, '#f59e0b');
         return;
@@ -11564,7 +11629,7 @@ export default function App() {
       p.shieldBoosterTimer = 0;
       setModuleShieldActive(true);
       p.shieldBoosterActive = true;
-      gameAudio.playModuleActivate();
+      gameAudio.playEffect('shield-boost', {volume: 0.58});
       const boostRate = Math.round((boosterStats().shieldHpPerSec ?? 8) * (1 + 0.10 * (skillsRef.current.shieldOp || 0)));
       addFloatingText(`SHIELD BOOSTER ACTIVE (+${boostRate}/s)`, p.x, p.y - 40, '#00f0ff');
     } else {
@@ -11635,6 +11700,7 @@ export default function App() {
       }
 
       if (p.capacitor < (weaponStats().capPerCycle ?? 8)) {
+        gameAudio.speak('insufficientCapacitor');
         gameAudio.playErrorBuzz();
         addFloatingText(`Not enough capacitor (${weaponStats().capPerCycle ?? 8} Cap)`, p.x, p.y - 25, '#f59e0b');
         return;
@@ -11779,6 +11845,7 @@ export default function App() {
         detail: `Cargo hold lacks volume for ${ast.name} (${itemVol} m³ required). Dock at station to sell cargo.`,
         type: 'danger',
       });
+      gameAudio.speak('cargoHoldFull');
       addFloatingText('CARGO FULL! DOCK TO SELL', p.x, p.y - 25, '#ef4444');
       return;
     }
@@ -11802,6 +11869,7 @@ export default function App() {
 
     if (p.capacitor < 12) {
       gameAudio.playErrorBuzz();
+      gameAudio.speak('insufficientCapacitor');
       addFloatingText('Not enough capacitor (12 Cap)', p.x, p.y - 25, '#f59e0b');
       return;
     }
@@ -13647,6 +13715,7 @@ export default function App() {
           type: 'danger',
         });
       } else {
+        gameAudio.speak('cargoHoldFull');
         setToastNotice({
           id: `toast_cargo_full_${Date.now()}`,
           title: 'Cargo hold full',
@@ -14445,7 +14514,7 @@ export default function App() {
       addFloatingText(`COOLDOWN ${remSec}s`, playerRef.current.x, playerRef.current.y - 40, '#f59e0b');
       return;
     }
-    gameAudio.playConfirmSelect();
+    gameAudio.playEffect('scan-start', {volume: 0.50});
     setIsScanMinigameOpen(true);
   }, [isDocked]);
 
@@ -14466,7 +14535,7 @@ export default function App() {
     dataCacheRef.current = newCache;
     setSelectedTargetId(newCache.id);
     setOverviewFilter('Nav');
-    soundManager.playMilestoneChime();
+    gameAudio.playEffect('scan-found', {volume: 0.55});
     setToastNotice({
       id: `toast_scan_success_${Date.now()}`,
       title: 'Data Cache located. Warp [M].',
@@ -14539,7 +14608,7 @@ export default function App() {
     setLensCharges(initialCharges);
     lensChargesRef.current = initialCharges;
 
-    gameAudio.playPurchaseConfirmed();
+    gameAudio.playEffect('module-fit', {volume: 0.50});
     const lensName = INGREDIENT_NAMES[lensType] || 'Lens';
     setToastNotice({
       id: `toast_fit_lens_${Date.now()}`,
@@ -14566,6 +14635,7 @@ export default function App() {
       return;
     }
     setFitting(next);
+    if (!isFitted) gameAudio.playEffect('module-fit', {volume: 0.52});
     const stats = MODULES[moduleId].stats;
     if (stats.cargoM3 !== undefined || stats.armorHp !== undefined) {
       applyHullLayout();
@@ -17860,7 +17930,7 @@ export default function App() {
         const feeNote = task.fee > 0 ? ` (-${task.fee} MARKS fee)` : ' (0% fee)';
         const toastMsg = `Refined 50 ${rawShortName} -> ${refined} ${task.productName}${feeNote}`;
 
-        gameAudio.playPurchaseConfirmed();
+        gameAudio.playEffect('refine', {volume: 0.53});
         setToastNotice({
           id: `toast_refine_done_${Date.now()}`,
           title: toastMsg,
@@ -17945,7 +18015,7 @@ export default function App() {
           if (outputKey) {
             addCargoItemQty(outputKey, 1);
           }
-          soundManager.playPurchaseConfirmed();
+          gameAudio.playEffect('fabricate', {volume: 0.53});
           setToastNotice({
             id: `toast_fab_done_${Date.now()}`,
             title: 'Fabricated 1 ' + task.name,
@@ -18492,6 +18562,7 @@ export default function App() {
 
           warpFx.exitAt = performance.now();
           warpFx.exitIntensity = warpFx.intensity;
+          gameAudio.speak('warpComplete');
           gameAudio.playWarpExitSound();
 
           if (reachedTarget) {
@@ -18676,6 +18747,7 @@ export default function App() {
             gameAudio.playModuleActivate();
             addFloatingText('IN RANGE - MINING STARTED', p.x, p.y - 25, '#00f0ff');
           } else if (p.capacitor < 12) {
+            gameAudio.speak('insufficientCapacitor');
             addFloatingText('Not enough capacitor (12 Cap)', p.x, p.y - 25, '#f59e0b');
           }
         }
@@ -18734,8 +18806,7 @@ export default function App() {
         autoSteerAngle = Math.atan2(p.waypoint.y - p.y, p.waypoint.x - p.x);
         autoThrust = true;
       } else {
-        p.waypoint = null;
-        setWaypoint(null);
+        changeWaypoint(null, true);
         addFloatingText('WAYPOINT REACHED', p.x, p.y - 30, '#00f0ff');
       }
     } else if (p.approachTargetId) {
@@ -18804,8 +18875,7 @@ export default function App() {
     // Manual controls cancel active autopilot/approach/orbit
     if (manualTurn || manualThrust || manualBrake) {
       if (p.waypoint) {
-        p.waypoint = null;
-        setWaypoint(null);
+        changeWaypoint(null);
       }
       if (p.approachTargetId && !p.autoMineApproaching && !p.autoWreckApproaching) {
         p.approachTargetId = null;
@@ -18918,6 +18988,7 @@ export default function App() {
               detail: `Hold capacity (${cargoMaxRef.current} units) reached. Dock at station to sell ore.`,
               type: 'danger',
             });
+            gameAudio.speak('cargoHoldFull');
             addFloatingText('CARGO FULL! DOCK TO SELL', p.x, p.y - 25, '#ef4444');
           } else {
             p.miningTimer += dt;
@@ -19066,6 +19137,7 @@ export default function App() {
                     }
                   }
                 } else {
+                  gameAudio.speak('cargoHoldFull');
                   addFloatingText('CARGO FULL (HOLD VOLUME)', p.x, p.y - 25, '#FF5A5F');
                 }
               } else {
@@ -19195,6 +19267,7 @@ export default function App() {
                   detail: `Hold capacity (${cargoMaxRef.current} units) reached. Dock at station to sell cargo.`,
                   type: 'danger',
                 });
+                gameAudio.speak('cargoHoldFull');
                 addFloatingText('CARGO FULL! DOCK TO SELL', p.x, p.y - 25, '#ef4444');
               } else if (performance.now() < laserLockoutUntilRef.current) {
                 laserStopTimeRef.current = performance.now();
@@ -19211,6 +19284,7 @@ export default function App() {
                 setModuleMiningActive(false);
                 p.miningTimer = 0;
                 gameAudio.stopMiningLaserHum();
+                gameAudio.speak('insufficientCapacitor');
                 addFloatingText('Not enough capacitor (12 Cap)', p.x, p.y - 25, '#f59e0b');
               } else {
                 // Automatically repeat next cycle!
@@ -19250,6 +19324,7 @@ export default function App() {
 
       if (p.shieldBoosterTimer >= (booster.cycleSec ?? 3)) {
         if (p.capacitor < (booster.capPerCycle ?? 25)) {
+          gameAudio.speak('insufficientCapacitor');
           p.shieldBoosterActive = false;
           p.shieldBoosterTimer = 0;
           setModuleShieldActive(false);
@@ -19291,6 +19366,7 @@ export default function App() {
           const weaponCap = weapon.capPerCycle ?? 8;
           if (p.cannonTimer >= (weapon.cycleSec ?? 3)) {
             if (p.capacitor < weaponCap) {
+              gameAudio.speak('insufficientCapacitor');
               // Pause until enough capacitor (regen is 2.5/s)
               addFloatingText(`LOW CAPACITOR (${weaponCap} Cap needed)`, p.x, p.y - 25, '#f59e0b');
             } else {
@@ -24264,6 +24340,19 @@ export default function App() {
       gameAudio.updateMusic(isMusicPlaying, isDocked, currentSystem === 'Rift');
     }, [isMusicPlaying, isDocked, currentSystem]);
 
+    const dialogueEnabled = gameState.status === 'PLAYING' && voiceVolume > 0 && !isGameMenuOpen &&
+      !isHowToPlayOpen && !isControlsHelpOpen && !isHaulDeliveryModalOpen;
+    const corridorSpeechVisible = dockedStationId !== 'outpost' && !isCommsDismissed;
+    const characterSpeaking = dialogueEnabled && isDocked &&
+      (stationTab !== 'DOCK' || isOutpostBuildOpen || corridorSpeechVisible);
+    useSpokenLine(characterSpeaking ? characterClip(currentCorridorSpeechText) : undefined, 'character');
+
+    const stationAmbience = gameState.status === 'PLAYING' && isDocked && sfxVolume > 0 && !isSfxMuted;
+    useEffect(() => {
+      gameAudio.setStationAmbience(stationAmbience);
+      return () => gameAudio.setStationAmbience(false);
+    }, [stationAmbience]);
+
   return (
     <div className="fixed inset-0 overflow-hidden touch-none flex items-center justify-center bg-[#0A0E1A] text-[#F6EED8] font-inter select-none">
       <style>{`
@@ -25371,10 +25460,9 @@ export default function App() {
               const worldX = screenX - canvasWidth / 2 + p.x;
               const worldY = screenY - canvasHeight / 2 + p.y;
 
-              p.waypoint = {x: worldX, y: worldY};
+              changeWaypoint({x: worldX, y: worldY});
               p.approachTargetId = null;
               p.orbitTargetId = null;
-              setWaypoint({x: worldX, y: worldY});
               gameAudio.playConfirmSelect();
               addFloatingText('AUTOPILOT: WAYPOINT SET', worldX, worldY - 25, '#00f0ff');
             }}
@@ -25546,10 +25634,9 @@ export default function App() {
                 }
               } else {
                 // Left-click empty space = fly / autopilot to that point
-                p.waypoint = {x: worldX, y: worldY};
+                changeWaypoint({x: worldX, y: worldY});
                 p.approachTargetId = null;
                 p.orbitTargetId = null;
-                setWaypoint({x: worldX, y: worldY});
                 gameAudio.playConfirmSelect();
                 addFloatingText('AUTOPILOT: COURSE SET', worldX, worldY - 25, '#00f0ff');
               }
@@ -26315,6 +26402,7 @@ export default function App() {
                     asteroidsRef={asteroidsRef}
                     playerRef={playerRef}
                     isDocked={false}
+                    voiceEnabled={dialogueEnabled}
                     onSkip={handleSkipTutorial}
                   />
                 )}
@@ -28092,7 +28180,7 @@ export default function App() {
           {isDocked && (() => {
             const isAnyPanelOpen = stationTab !== 'DOCK' || isOutpostBuildOpen || isGameMenuOpen || isControlsHelpOpen || isHowToPlayOpen || isHaulDeliveryModalOpen;
 
-            const terminalSpeakerName = stationTab === 'AGENT'
+            const terminalSpeakerName = dockedStationId === 'outpost' ? 'Outpost Core AI' : stationTab === 'AGENT'
               ? 'Agent Osk'
               : (currentSystem === 'Vael' ? 'Officer Lin' : 'Officer Vance');
 
@@ -28228,6 +28316,7 @@ export default function App() {
                     playerRef={playerRef}
                     isDocked={true}
                     stationTab={stationTab}
+                    voiceEnabled={dialogueEnabled}
                     onSkip={handleSkipTutorial}
                   />
                 )}
@@ -36359,11 +36448,8 @@ export default function App() {
                                   <h3 className="text-sm sm:text-base font-bold text-[#F6EED8] mt-1 font-fredoka">
                                     {cur.title}
                                   </h3>
-                                  <p
-                                    onClick={finishTypewriterDialogue}
-                                    className="text-xs text-[#F6EED8] italic mt-0.5 bg-[#0F1424] p-1.5 rounded-lg border border-[#0A0E1A] cursor-pointer">
-                                    "{cur.briefing}"
-                                  </p>
+                                  <MissionQuote text={cur.briefing} onPlay={finishTypewriterDialogue}
+                                    className="text-xs text-[#F6EED8] italic mt-0.5 bg-[#0F1424] p-1.5 rounded-lg border border-[#0A0E1A] cursor-pointer" />
                                 </div>
 
                                 <div className="space-y-1.5 text-xs">
@@ -36467,9 +36553,8 @@ export default function App() {
                               </p>
                             </div>
                             <KeyChip label="GATE ACCESS PERMIT VERIFIED // SYSTEM GATE UNLOCKED" size="md" />
-                            <p className="text-xs text-[#AEB6CA] italic">
-                              "The system Gate is unlocked now. Safe travels, or whatever." — Osk Varran
-                            </p>
+                            <MissionQuote className="text-xs text-[#AEB6CA] italic"
+                              text="The system Gate is unlocked now. Safe travels, or whatever." />
                           </div>
                         )}
 
@@ -36505,9 +36590,8 @@ export default function App() {
                                   Unlocked at Standing +5
                                 </span>
                               </h3>
-                              <p className="text-xs text-[#F6EED8] italic mt-1 bg-[#0F1424] p-2 rounded-lg border-2 border-[#0A0E1A] leading-relaxed">
-                                "I need raw survey material from the uncharted fringe. Bring 150 Pyrox Ore from the Ash Drift. Try not to get atomized."
-                              </p>
+                              <MissionQuote className="text-xs text-[#F6EED8] italic mt-1 bg-[#0F1424] p-2 rounded-lg border-2 border-[#0A0E1A] leading-relaxed"
+                                text="I need raw survey material from the uncharted fringe. Bring 150 Pyrox Ore from the Ash Drift. Try not to get atomized." />
                             </div>
 
                             <div className="space-y-1.5 text-xs">
@@ -42703,6 +42787,27 @@ export default function App() {
                       className="w-full accent-[#FFB547] cursor-pointer h-2 bg-[#0F1424] rounded-lg border border-[#0A0E1A]"
                     />
                   </div>
+
+                  <label className="flex flex-col gap-1 mt-1">
+                    <span className="flex items-center justify-between text-xs font-bold font-fredoka">
+                      <span className="text-[#A0B9FF]">VOICE VOLUME</span>
+                      <span className="font-mono-val text-[#F6EED8] text-xs">{Math.round(voiceVolume * 100)}%</span>
+                    </span>
+                    <input
+                      aria-label="Voice volume"
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.01"
+                      value={voiceVolume}
+                      onChange={(event) => {
+                        const volume = Number(event.target.value);
+                        setVoiceVolume(volume);
+                        gameAudio.setVoiceVolume(volume);
+                      }}
+                      className="w-full accent-[#A0B9FF] cursor-pointer h-2 bg-[#0F1424] rounded-lg border border-[#0A0E1A]"
+                    />
+                  </label>
                 </div>
 
                 <button

@@ -7,6 +7,8 @@ import React, {
   type MutableRefObject,
   type RefObject,
 } from 'react';
+import type {DialogueChannel, DialogueClip} from '../content/dialogue-audio';
+import {SoundEffects, type EffectCue, type EffectOptions, type ShipLine} from './sound-effects';
 
 /**  --- Overlay component ---
  * A full-screen UI overlay component used to display game states
@@ -578,10 +580,14 @@ interface MiningLaserSession {
 }
 
 class GameAudio {
+  private readonly effects = new SoundEffects();
   private ctx: AudioContext | null = null;
   private master: GainNode | null = null;
   public sfxGain: GainNode | null = null;
   public musicGain: GainNode | null = null;
+  private voiceGain: GainNode | null = null;
+  private shipVoiceInput: BiquadFilterNode | null = null;
+  private voiceVolume = 0.72;
   private miningBus: GainNode | null = null;
 
   public get sfxGainNode(): GainNode | null {
@@ -634,6 +640,10 @@ class GameAudio {
         if (savedMusic !== null) {
           const val = parseFloat(savedMusic);
           if (!isNaN(val)) this.musicVolume = Math.max(0, Math.min(1, val));
+        }
+        const savedVoice = localStorage.getItem('deep_belt_voice_volume');
+        if (savedVoice !== null && Number.isFinite(Number(savedVoice))) {
+          this.voiceVolume = Math.max(0, Math.min(1, Number(savedVoice)));
         }
         const savedSfx =
           localStorage.getItem('sfxVolume') ??
@@ -688,6 +698,19 @@ class GameAudio {
     this.sfxGain.gain.setValueAtTime(effectiveSfx, this.ctx.currentTime);
     this.sfxGain.connect(this.master);
 
+    // A narrow radio band gives the ship computer its own tone.
+    this.voiceGain = this.ctx.createGain();
+    this.voiceGain.gain.value = this.voiceVolume * 0.85;
+    this.voiceGain.connect(this.master);
+    this.shipVoiceInput = this.ctx.createBiquadFilter();
+    this.shipVoiceInput.type = 'highpass';
+    this.shipVoiceInput.frequency.value = 160;
+    const voiceLowpass = this.ctx.createBiquadFilter();
+    voiceLowpass.type = 'lowpass';
+    voiceLowpass.frequency.value = 5200;
+    this.shipVoiceInput.connect(voiceLowpass);
+    voiceLowpass.connect(this.voiceGain);
+
     // Music master bus (default 60%)
     this.musicGain = this.ctx.createGain();
     const effectiveMusic = this.musicMuted ? 0 : this.musicVolume;
@@ -734,6 +757,54 @@ class GameAudio {
     if (!ctx || !this.sfxGain || this.sfxMuted) return null;
     if (ctx.state === 'suspended') void ctx.resume().catch(() => {});
     return {ctx, out: this.sfxGain, now: ctx.currentTime};
+  }
+
+  playEffect(cue: EffectCue, options?: EffectOptions) {
+    if (this.sfxMuted || this.sfxVolume === 0) return true;
+    const beat = this.begin();
+    return beat ? this.effects.play(beat.ctx, beat.out, cue, options) : false;
+  }
+
+  speak(line: ShipLine) {
+    if (this.voiceVolume === 0) return;
+    const ctx = this.ensure();
+    if (!ctx || !this.shipVoiceInput) return;
+    if (ctx.state === 'suspended') void ctx.resume().catch(() => {});
+    this.effects.speak(ctx, this.shipVoiceInput, line);
+  }
+
+  sayDialogue(clip: DialogueClip, channel: DialogueChannel) {
+    const ctx = this.ensure();
+    if (!ctx || !this.voiceGain || this.voiceVolume === 0) return;
+    if (ctx.state === 'suspended') void ctx.resume().catch(() => {});
+    this.effects.sayDialogue(ctx, this.voiceGain, clip, channel);
+  }
+
+  stopDialogue(channel: DialogueChannel) {
+    this.effects.stopDialogue(channel);
+  }
+
+  getVoiceVolume() {
+    return this.voiceVolume;
+  }
+
+  setVoiceVolume(volume: number) {
+    this.voiceVolume = Math.max(0, Math.min(1, volume));
+    try {
+      localStorage.setItem('deep_belt_voice_volume', String(this.voiceVolume));
+    } catch (_) {}
+    if (this.ctx && this.voiceGain) {
+      this.voiceGain.gain.setTargetAtTime(this.voiceVolume * 0.85, this.ctx.currentTime, 0.03);
+    }
+    if (this.voiceVolume === 0) this.effects.stopVoice();
+  }
+
+  setStationAmbience(active: boolean) {
+    if (active && !this.sfxMuted && this.sfxVolume > 0) {
+      this.playEffect('station-roomtone', {channel: 'station', loop: true, volume: 0.10});
+    } else {
+      this.effects.stop('station', 0.25);
+    }
   }
 
   // --- Volume & Mute Controls ---
@@ -1153,6 +1224,7 @@ class GameAudio {
    * 1. Lock Beep: High-precision crisp two-tone digital chirp (880 Hz to 1760 Hz, short 80ms decay).
    */
   playLockBeep() {
+    if (this.playEffect('lock-search', {volume: 0.32})) return;
     const b = this.begin();
     if (!b) return;
     const p = this.getNextPitch('lock_beep');
@@ -1193,6 +1265,7 @@ class GameAudio {
   }
 
   playTargetLockComplete() {
+    if (this.playEffect('lock-confirm', {volume: 0.35})) return;
     this.playLockBeep();
   }
 
@@ -1308,6 +1381,7 @@ class GameAudio {
 
   startWarpAlignSound(spoolDurationSec = 3.0) {
     this.stopAllWarpSounds();
+    if (this.playEffect('align', {channel: 'warp-align', duration: Math.max(0.5, spoolDurationSec), volume: 0.58})) return;
     const ctx = this.ensure();
     if (!ctx || this.sfxMuted) return;
     if (ctx.state === 'suspended') void ctx.resume().catch(() => {});
@@ -1357,6 +1431,9 @@ class GameAudio {
   }
 
   startWarpEntrySound() {
+    this.effects.stop('warp-align');
+    this.speak('warpEngaged');
+    if (this.playEffect('warp-entry', {channel: 'warp-entry', volume: 0.72})) return;
     const ctx = this.ensure();
     if (!ctx || this.sfxMuted) return;
     if (ctx.state === 'suspended') void ctx.resume().catch(() => {});
@@ -1408,6 +1485,7 @@ class GameAudio {
   }
 
   startWarpCruiseLoop() {
+    if (this.playEffect('warp-loop', {channel: 'warp-cruise', loop: true, volume: 0.27})) return;
     // Only one cruise loop can play at a time
     if (this.warpCruiseSession) {
       try {
@@ -1481,6 +1559,8 @@ class GameAudio {
   }
 
   playWarpExitSound() {
+    this.effects.stop('warp-entry', 0.12);
+    this.effects.stop('warp-cruise', 0.28);
     const ctx = this.ensure();
     if (!ctx) return;
     const now = ctx.currentTime;
@@ -1508,6 +1588,7 @@ class GameAudio {
     const out = this.getWarpOutput();
     if (!out) return;
 
+    if (this.playEffect('warp-exit', {volume: 0.72})) return;
     const dur = 0.7;
 
     // 0.7s exit swoosh: Noise through bandpass filter (sweeping 1600 -> 300 Hz) + Sine oscillator (sweeping 700 -> 180 Hz), gain 0.16
@@ -1550,7 +1631,14 @@ class GameAudio {
     }, (dur + 0.05) * 1000);
   }
 
+  stopVoice() {
+    this.effects.stopVoice();
+  }
+
   stopAllWarpSounds() {
+    this.effects.stop('warp-align');
+    this.effects.stop('warp-entry');
+    this.effects.stop('warp-cruise');
     if (this.warpCruiseSession) {
       try {
         this.warpCruiseSession.nodes.forEach((n) => {
@@ -1574,6 +1662,7 @@ class GameAudio {
    * 3. Dock Clamp: Heavy mechanical pneumatic latch / metallic click (low thud 90Hz -> 40Hz with sharp transient attack, 200ms).
    */
   playDockClamp() {
+    if (this.playEffect('dock-clamp', {volume: 0.72})) return;
     const b = this.begin();
     if (!b) return;
     const p = this.getNextPitch('dock_clamp');
@@ -1628,6 +1717,7 @@ class GameAudio {
    * 4. Gate Jump: Hyperspace cosmic surge (deep sub-bass resonance swelling with high-Q phase/filter sweep, 1.5s).
    */
   playGateJump() {
+    if (this.playEffect('jump-gate', {volume: 0.72})) return;
     const b = this.begin();
     if (!b) return;
     const p = this.getNextPitch('gate_jump');
@@ -1700,6 +1790,7 @@ class GameAudio {
    * 5. UI Click: Crisp high-frequency micro-click (short 20-30ms burst/blip).
    */
   playUiClick() {
+    if (this.playEffect('ui-tick', {volume: 0.27})) return;
     const b = this.begin();
     if (!b) return;
     const p = this.getNextPitch('ui_click');
@@ -1719,6 +1810,11 @@ class GameAudio {
 
   // --- CONTINUOUS MINING LASER SYNTH PIPELINE ---
   startMiningLaserHum() {
+    const isPlaying = this.effects.has('mining');
+    if (this.playEffect('laser-loop', {channel: 'mining', loop: true, volume: 0.24})) {
+      if (!isPlaying) this.playEffect('laser-start', {channel: 'mining-start', volume: 0.54});
+      return;
+    }
     const ctx = this.ensure();
     if (!ctx || this.sfxMuted) return;
     if (ctx.state === 'suspended') void ctx.resume().catch(() => {});
@@ -1891,6 +1987,7 @@ class GameAudio {
   }
 
   updateMiningLaserProgress(progress: number) {
+    this.effects.setVolume('mining', 0.24 + Math.max(0, Math.min(1, progress)) * 0.14);
     if (!this.miningSession || this.miningSession.isStopping || !this.ctx) return;
     const p = Math.max(0, Math.min(1.0, progress));
     const now = this.ctx.currentTime;
@@ -1900,6 +1997,8 @@ class GameAudio {
   }
 
   stopMiningLaserHum() {
+    this.effects.stop('mining-start');
+    this.effects.stop('mining', 0.24);
     if (!this.miningSession || !this.ctx) return;
     if (this.miningSession.isStopping) return;
 
@@ -1970,6 +2069,7 @@ class GameAudio {
   }
 
   playMiningCycleComplete() {
+    if (this.playEffect('ore-yield', {volume: 0.55})) return;
     const ctx = this.ensure();
     if (!ctx || this.sfxMuted) return;
     if (ctx.state === 'suspended') void ctx.resume().catch(() => {});
@@ -2127,6 +2227,7 @@ class GameAudio {
   }
 
   playLaserHeatWarn() {
+    if (this.playEffect('laser-overheat', {volume: 0.55})) return;
     const b = this.begin();
     if (!b) return;
     const p = this.getNextPitch('laser_heat_warn');
@@ -2171,6 +2272,7 @@ class GameAudio {
   }
 
   playMissionAccept() {
+    if (this.playEffect('mission-accept', {volume: 0.52})) return;
     const b = this.begin();
     if (!b) return;
     const p = this.getNextPitch('mission_accept');
@@ -2195,6 +2297,7 @@ class GameAudio {
   }
 
   playMissionComplete() {
+    if (this.playEffect('progression', {volume: 0.6})) return;
     const b = this.begin();
     if (!b) return;
     const p = this.getNextPitch('mission_complete');
@@ -2216,6 +2319,7 @@ class GameAudio {
   }
 
   playWreckOpen() {
+    if (this.playEffect('wreck-open', {volume: 0.6})) return;
     const b = this.begin();
     if (!b) return;
     const p = this.getNextPitch('wreck_open');
@@ -2253,6 +2357,7 @@ class GameAudio {
   }
 
   playMilestoneChime() {
+    if (this.playEffect('progression', {volume: 0.6})) return;
     const b = this.begin();
     if (!b) return;
     const {ctx, out} = b;
@@ -2307,6 +2412,7 @@ class GameAudio {
   }
 
   playSkillComplete() {
+    if (this.playEffect('progression', {volume: 0.55})) return;
     const b = this.begin();
     if (!b) return;
     const p = this.getNextPitch('skill_complete');
@@ -2347,6 +2453,7 @@ class GameAudio {
   }
 
   playOverviewSelect() {
+    if (this.playEffect('ui-tick', {volume: 0.25})) return;
     this.playUiClick();
   }
 
@@ -2373,6 +2480,7 @@ class GameAudio {
   }
 
   playInteriorDoor() {
+    if (this.playEffect('station-door', {volume: 0.52})) return;
     const b = this.begin();
     if (!b) return;
     const p = this.getNextPitch('interior_door');
@@ -2398,6 +2506,7 @@ class GameAudio {
   }
 
   playDialogueAdvance() {
+    if (this.playEffect('ui-tick', {volume: 0.24})) return;
     const b = this.begin();
     if (!b) return;
     const p = this.getNextPitch('dialogue_advance');
@@ -2409,6 +2518,7 @@ class GameAudio {
   }
 
   playPurchaseConfirmed() {
+    if (this.playEffect('ui-confirm', {volume: 0.45})) return;
     const b = this.begin();
     if (!b) return;
     const p = this.getNextPitch('purchase_confirmed');
@@ -2431,6 +2541,7 @@ class GameAudio {
 
   startHullHum() {
     if (this.isHullHumActive) return;
+    if (this.playEffect('engine-loop', {channel: 'engine', loop: true, volume: 0.12})) return;
     const b = this.begin();
     if (!b) return;
     this.isHullHumActive = true;
@@ -2453,6 +2564,7 @@ class GameAudio {
   }
 
   stopHullHum() {
+    this.effects.stop('engine', 0.28);
     if (!this.isHullHumActive || !this.hullHumGain || !this.ctx) return;
     const now = this.ctx.currentTime;
     this.hullHumGain.gain.cancelScheduledValues(now);
@@ -2472,6 +2584,7 @@ class GameAudio {
   }
 
   playCannonFire() {
+    if (this.playEffect('cannon', {volume: 0.68})) return;
     const b = this.begin();
     if (!b) return;
     const p = this.getNextPitch('cannon_fire');
@@ -2503,6 +2616,7 @@ class GameAudio {
   }
 
   playShieldHit() {
+    if (this.playEffect('shield-hit', {volume: 0.52})) return;
     const b = this.begin();
     if (!b) return;
     const p = this.getNextPitch('shield_hit');
@@ -2533,6 +2647,7 @@ class GameAudio {
   }
 
   playHullHit() {
+    if (this.playEffect('hull-hit', {volume: 0.65})) return;
     const b = this.begin();
     if (!b) return;
     const p = this.getNextPitch('hull_hit');
@@ -2563,6 +2678,7 @@ class GameAudio {
   }
 
   playExplosion() {
+    if (this.playEffect('enemy-explosion', {volume: 0.7})) return;
     const b = this.begin();
     if (!b) return;
     const p = this.getNextPitch('explosion');
@@ -2593,6 +2709,7 @@ class GameAudio {
   }
 
   playConfirmSelect() {
+    if (this.playEffect('ui-confirm', {volume: 0.43})) return;
     const b = this.begin();
     if (!b) return;
     const p = this.getNextPitch('confirm_select');
@@ -2610,6 +2727,7 @@ class GameAudio {
   }
 
   playErrorBuzz() {
+    if (this.playEffect('ui-warning', {volume: 0.43})) return;
     const b = this.begin();
     if (!b) return;
     const p = this.getNextPitch('error_buzz');
@@ -2628,6 +2746,7 @@ class GameAudio {
   }
 
   playArcadeLaser() {
+    if (this.playEffect('laser-weapon', {volume: 0.57})) return;
     const b = this.begin();
     if (!b) return;
     const p = this.getNextPitch('arcade_laser');
@@ -2705,6 +2824,7 @@ class GameAudio {
   }
 
   playChiptuneExplosion() {
+    if (this.playEffect('asteroid-fracture', {volume: 0.67})) return;
     const b = this.begin();
     if (!b) return;
     const p = this.getNextPitch('chip_explosion');
@@ -2747,6 +2867,7 @@ class GameAudio {
    * Heavy industrial clamp (lowpass filtered noise burst + punchy square/sine drop 120->40 Hz, duration 0.4s).
    */
   playHubDeploySound() {
+    if (this.playEffect('deploy-structure', {volume: 0.64})) return;
     const b = this.begin();
     if (!b) return;
     const p = 1.0 + (Math.random() * 0.1 - 0.05); // +/- 5% pitch
@@ -2797,6 +2918,7 @@ class GameAudio {
    * Crisp mechanical placement latch click (high-passed click + sine 800->300 Hz, duration 0.08s).
    */
   playStructurePlaceSound() {
+    if (this.playEffect('deploy-structure', {volume: 0.64})) return;
     const b = this.begin();
     if (!b) return;
     const p = 1.0 + (Math.random() * 0.1 - 0.05); // +/- 5% pitch
@@ -2846,6 +2968,7 @@ class GameAudio {
    * 1.2s ascending low-end thrust rumble (filtered white noise + sine pitch swell 60->160 Hz, duration 1.2s).
    */
   playRocketLaunchSound() {
+    if (this.playEffect('rockets', {volume: 0.7})) return;
     const b = this.begin();
     if (!b) return;
     const p = 1.0 + (Math.random() * 0.1 - 0.05); // +/- 5% pitch
@@ -2936,6 +3059,7 @@ class GameAudio {
    * Subspace tearing distortion (frequency modulation + distortion wave + lowpass sweep 1200->70 Hz).
    */
   playRiftOpenSound() {
+    if (this.playEffect('rift-open', {volume: 0.7})) return;
     const b = this.begin();
     if (!b) return;
     const p = this.getNextPitch('rift_open');
@@ -2978,6 +3102,7 @@ class GameAudio {
    * Pulsing dual-tone hazard alarm (100 Hz & 300 Hz).
    */
   playDecayAlarmSound() {
+    if (this.playEffect('rift-alarm', {volume: 0.46})) return;
     const b = this.begin();
     if (!b) return;
     const p = this.getNextPitch('decay_alarm');
@@ -3033,6 +3158,7 @@ class GameAudio {
    * Electronic telemetry upload stream completion chirp.
    */
   playHackDoneSound() {
+    if (this.playEffect('rift-hack', {volume: 0.54})) return;
     const b = this.begin();
     if (!b) return;
     const p = this.getNextPitch('hack_done');
@@ -3051,6 +3177,7 @@ class GameAudio {
    * Resonant crystalline mineral pickup chime (440 -> 880 Hz).
    */
   playPristineScoopSound() {
+    if (this.playEffect('salvage', {volume: 0.46})) return;
     const b = this.begin();
     if (!b) return;
     const p = this.getNextPitch('pristine_scoop');
@@ -3091,6 +3218,7 @@ class GameAudio {
    * Low-frequency seismic shockwave detonation (40 Hz thump).
    */
   playWardenPulseSound() {
+    if (this.playEffect('warden-pulse', {volume: 0.68})) return;
     const b = this.begin();
     if (!b) return;
     const p = this.getNextPitch('warden_pulse');
@@ -3126,6 +3254,7 @@ class GameAudio {
    * Subspace horizon collapse implosion rumble.
    */
   playCollapseRumbleSound() {
+    if (this.playEffect('rift-collapse', {volume: 0.75})) return;
     const b = this.begin();
     if (!b) return;
     const p = this.getNextPitch('collapse_rumble');

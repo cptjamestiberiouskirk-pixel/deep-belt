@@ -19,6 +19,22 @@ shipped game and are not listed here.
 
 ---
 
+## Generated game audio
+
+Deep Belt's game sound effects in `assets/audio/effects/` were generated with
+Mirelo on an active Creator plan on November 21, 2026. The game distributes
+these recordings as part of Deep Belt under the applicable
+[Mirelo terms](https://mirelo.ai/terms) and
+[commercial-use conditions](https://mirelo.ai/pricing).
+The 13 ship-computer and 53 character and tutorial recordings in `assets/audio/voice/` were generated with
+ElevenLabs on an active Creator plan on November 21, 2026, under the
+[ElevenLabs terms](https://elevenlabs.io/terms-of-use).
+
+The MIT license covers the game's software. This notice grants no separate
+license to reuse the recordings.
+
+---
+
 ## react
 
 ```
