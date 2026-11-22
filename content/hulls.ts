@@ -1,11 +1,21 @@
 // Hull catalog: every flyable hull, its base stats and how many module slots it has.
 // Moved from constants.ts unchanged (content-tree step 1); constants.ts re-exports it.
+//
+// Step 27 (design/content-tree.md 4.6): each hull has a class, and a class can
+// have a skill to fly it. The skill gates buying a hull of that class, never
+// boarding one already owned, and each level adds to that class's base hold.
+
+import {prerequisiteText, type SkillId} from './skills';
 
 export type HullId = 'ferrier' | 'tern' | 'skirmisher' | 'lattice' | 'shade' | 'gantry';
+export type HullClass = 'Frigate' | 'Hauler' | 'Industrial' | 'Command';
 
 export interface HullDefinition {
   id: HullId;
   name: string;
+  hullClass: HullClass;
+  /** The skill level needed to buy or build this hull. Boarding one already owned needs none. */
+  requires?: {skill: SkillId; level: number};
   role?: string;
   craftOnly?: boolean;
   cost: number;
@@ -30,6 +40,7 @@ export const HULL_DEFINITIONS: HullDefinition[] = [
   {
     id: 'ferrier',
     name: 'Ferrier',
+    hullClass: 'Frigate',
     role: 'Mining Frigate',
     cost: 0,
     cargo: 600,
@@ -50,6 +61,8 @@ export const HULL_DEFINITIONS: HullDefinition[] = [
   {
     id: 'tern',
     name: 'Tern',
+    hullClass: 'Hauler',
+    requires: {skill: 'haulerPiloting', level: 1},
     role: 'Heavy Hauler',
     cost: 2200,
     cargo: 1200,
@@ -70,6 +83,7 @@ export const HULL_DEFINITIONS: HullDefinition[] = [
   {
     id: 'skirmisher',
     name: 'Skirmisher',
+    hullClass: 'Frigate',
     role: 'Combat Frigate',
     cost: 2800,
     cargo: 300,
@@ -90,6 +104,7 @@ export const HULL_DEFINITIONS: HullDefinition[] = [
   {
     id: 'lattice',
     name: 'Lattice Tender',
+    hullClass: 'Industrial',
     role: 'Industrial Tender',
     craftOnly: true,
     cost: 0,
@@ -111,6 +126,7 @@ export const HULL_DEFINITIONS: HullDefinition[] = [
   {
     id: 'shade',
     name: 'Shade Skiff',
+    hullClass: 'Frigate',
     role: 'Stealth Extractor',
     cost: 3500,
     cargo: 400,
@@ -133,6 +149,7 @@ export const HULL_DEFINITIONS: HullDefinition[] = [
   {
     id: 'gantry',
     name: 'Gantry Command',
+    hullClass: 'Command',
     role: 'Industrial Command Flagship',
     craftOnly: true,
     cost: 0,
@@ -153,3 +170,26 @@ export const HULL_DEFINITIONS: HullDefinition[] = [
     perkText: 'Drone bandwidth 5. 2,000 m³ hold.',
   },
 ];
+
+/** The skill to fly each class that has one so far. Frigates, the starting class, need none. */
+export const CLASS_SKILL: Partial<Record<HullClass, SkillId>> = {Hauler: 'haulerPiloting'};
+
+/** Hauler Piloting: each level adds this share of a Hauler's base hold (the Tern's 1,200 m³ is 1,500 at level V). */
+export const HAULER_PILOTING_HOLD_PCT = 5;
+
+/** The Gantry's base hold once refitted. */
+export const GANTRY_REFIT_HOLD = 2500;
+
+/** A hull's base hold before modules and hardpoints: its catalog hold, the Gantry refit's, plus its class skill's share. */
+export function baseHoldAt(hull: HullDefinition, levels: Partial<Record<SkillId, number>>, gantryRefit = false): number {
+  const base = hull.id === 'gantry' && gantryRefit ? GANTRY_REFIT_HOLD : hull.baseCargo;
+  const skill = CLASS_SKILL[hull.hullClass];
+  const level = skill === 'haulerPiloting' ? (levels[skill] ?? 0) : 0;
+  return Math.round(base * (1 + (HAULER_PILOTING_HOLD_PCT / 100) * level));
+}
+
+/** "Hauler Piloting I" when that is needed to buy this hull and not trained, else null. */
+export function missingHullSkill(levels: Partial<Record<SkillId, number>>, hull: HullDefinition): string | null {
+  const req = hull.requires;
+  return req && (levels[req.skill] ?? 0) < req.level ? prerequisiteText([req]) : null;
+}

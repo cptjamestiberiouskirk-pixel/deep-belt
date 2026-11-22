@@ -7,7 +7,7 @@ import {MODULES} from '../content/modules';
 // before the Lance Driver existed.
 
 const BASE = {...RICH, milestoneIndustrialistClaimed: true};
-const NO_SKILLS = {skills: {mining: 0, laserTuning: 0, lowProfile: 0, gunnery: 0, chargeControl: 0, shieldOp: 0, boosterEfficiency: 0, armorLayering: 0, navigation: 0, cargoTrim: 0, refining: 0, signalAnalysis: 0}};
+const NO_SKILLS = {skills: {mining: 0, laserTuning: 0, lowProfile: 0, gunnery: 0, chargeControl: 0, shieldOp: 0, boosterEfficiency: 0, armorLayering: 0, navigation: 0, cargoTrim: 0, haulerPiloting: 0, refining: 0, signalAnalysis: 0}};
 const SKIRMISHER = {ownedHulls: ['ferrier', 'skirmisher'], activeHull: 'skirmisher'};
 const LANCE = MODULES.lance_driver.stats;
 

@@ -96,6 +96,7 @@ import {
 } from './utils/helper';
 import {characterClip, coachClip, type DialogueClip, type DialogueChannel} from './content/dialogue-audio';
 import {MARKET_MODULE_IDS, MODULES, minerFor, missingSkill, type ModuleId} from './content/modules';
+import {baseHoldAt, HAULER_PILOTING_HOLD_PCT, missingHullSkill} from './content/hulls';
 import type {SlotType} from './content/types';
 import {LENSES, LENS_IDS, lensBonusLabel} from './content/lenses';
 import {INVENTORY_ITEMS, readItem} from './content/inventory';
@@ -1518,6 +1519,14 @@ export const SKILL_DEFINITIONS: SkillDefinition[] = [
     description: `-${Math.round(CARGO_TRIM_CUT * 100)}% of the slowdown a loaded hold gives, per level`,
     getBonusText: (level: number) =>
       `-${Math.round(CARGO_TRIM_CUT * 100 * level)}% load slowdown (full hold: -${Math.round(100 * (1 - topSpeed({...speedBase(), navigation: 0, hullMult: 1, moduleMult: 1, load: effectiveLoad(1, level)}) / topSpeed({...speedBase(), navigation: 0, hullMult: 1, moduleMult: 1, load: 0})))}% top speed)`,
+  },
+  {
+    id: 'haulerPiloting',
+    name: 'Hauler Piloting',
+    category: SKILLS.haulerPiloting.category,
+    description: `Level I to buy a Hauler (the Tern); +${HAULER_PILOTING_HOLD_PCT}% Hauler base hold per level`,
+    getBonusText: (level: number) =>
+      `+${level * HAULER_PILOTING_HOLD_PCT}% Hauler hold (Tern ${baseHoldAt(HULL_DEFINITIONS.find((h) => h.id === 'tern')!, {haulerPiloting: level}).toLocaleString()} m³)`,
   },
   {
     id: 'refining',
@@ -6284,8 +6293,8 @@ export default function App() {
     const activeDef = HULL_DEFINITIONS.find((h) => h.id === curHull) || HULL_DEFINITIONS[0];
     const curLayout = hullLayoutsRef.current[curHull] || {};
 
-    // cargoMax = baseCargo + the fitted modules' hold space + (hullLayouts[activeHull]?.cargo_pod ? 200 : 0)
-    const effectiveBaseCargo = (curHull === 'gantry' && gantryRefitRef.current) ? 2500 : activeDef.baseCargo;
+    // cargoMax = base hold (with the class skill's share) + the fitted modules' hold space + (hullLayouts[activeHull]?.cargo_pod ? 200 : 0)
+    const effectiveBaseCargo = baseHoldAt(activeDef, skillsRef.current, gantryRefitRef.current);
     const newCargoMax = effectiveBaseCargo + holdBonus() + (curLayout.cargo_pod ? 200 : 0);
     cargoMaxRef.current = newCargoMax;
     setCargoMax(newCargoMax);
@@ -14832,7 +14841,7 @@ export default function App() {
     const destLayout = hullLayoutsRef.current[destHullId] || {};
     // What the destination hull will fit from its own loadout once boarded.
     const destHoldBonus = holdBonus(switchHull(fittingRef.current, activeHullRef.current, destHullId).fitted);
-    const effectiveBaseCargo = (destHullId === 'gantry' && gantryRefitRef.current) ? 2500 : destDef.baseCargo;
+    const effectiveBaseCargo = baseHoldAt(destDef, skillsRef.current, gantryRefitRef.current);
     return effectiveBaseCargo + destHoldBonus + (destLayout.cargo_pod ? 200 : 0);
   }, []);
 
@@ -14946,6 +14955,19 @@ export default function App() {
           detail: 'This flagship hull must be assembled in the Fabricator.',
           type: 'danger',
           duration: 6000,
+        });
+        return;
+      }
+
+      // A class skill gates buying a hull; one already owned is boarded by boardHull.
+      const needsSkill = missingHullSkill(skillsRef.current, hullDef);
+      if (needsSkill) {
+        gameAudio.playErrorBuzz();
+        setToastNotice({
+          id: `toast_hull_skill_${Date.now()}`,
+          title: 'Skill required',
+          detail: `${hullDef.name} needs ${needsSkill}. Train it in Skills [3].`,
+          type: 'warning',
         });
         return;
       }
@@ -31208,7 +31230,7 @@ export default function App() {
                               </div>
 
                               {/* Stat 3: Cargo hold */}
-                              <div style={statRowStyle}>
+                              <div style={statRowStyle} data-testid="ship-stat-cargo">
                                 <span style={statLabelStyle}>Cargo hold</span>
                                 <span style={statValueStyle}>
                                   {(() => {
@@ -31834,7 +31856,7 @@ export default function App() {
                   // Live current stats
                   const effectiveBaseHull = (activeHull === 'gantry' && gantryRefit) ? 150 : curActiveDef.baseHull;
                   const currentHullMax = effectiveBaseHull + (curLayout.armor_plate ? 20 : 0);
-                  const effectiveBaseCargo = (activeHull === 'gantry' && gantryRefit) ? 2500 : curActiveDef.baseCargo;
+                  const effectiveBaseCargo = baseHoldAt(curActiveDef, skills, gantryRefit);
                   const currentCargoMax = effectiveBaseCargo + fittedHoldBonus + (curLayout.cargo_pod ? 200 : 0);
 
                   const baseMaxSpeed = getConfig('playerMaxSpeed') as number;
@@ -32811,7 +32833,8 @@ export default function App() {
                           const cargoPodInstalled = Boolean(hullLayout.cargo_pod);
                           const activeHoldBonus = isCurrentActive ? fittedTotal(fitting.fitted, 'cargoM3') : 0;
 
-                          const baseCargoVal = (hull.id === 'gantry' && gantryRefit) ? 2500 : hull.baseCargo;
+                          const baseCargoVal = baseHoldAt(hull, skills, gantryRefit);
+                          const needsSkill = isOwned ? null : missingHullSkill(skills, hull);
                           const baseHullVal = (hull.id === 'gantry' && gantryRefit) ? 150 : hull.baseHull;
 
                           const appliedHull = baseHullVal + (armorInstalled ? 20 : 0);
@@ -32892,6 +32915,24 @@ export default function App() {
 
                                   {/* Line 2: Role Chip + Refit Badge */}
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}>
+                                    <span
+                                      data-testid={`hangar-class-${hull.id}`}
+                                      title={`${hull.hullClass} class`}
+                                      style={{
+                                        background: '#2a3650',
+                                        color: '#F6EED8',
+                                        border: '1.5px solid #0A0E1A',
+                                        borderRadius: '5px',
+                                        padding: '1px 6px',
+                                        fontFamily: "'JetBrains Mono', monospace",
+                                        fontSize: '10.5px',
+                                        fontWeight: 800,
+                                        lineHeight: '14px',
+                                        flexShrink: 0,
+                                        whiteSpace: 'nowrap',
+                                      }}>
+                                      {hull.hullClass.toUpperCase()}
+                                    </span>
                                     <span
                                       title={hull.role}
                                       style={{
@@ -33236,6 +33277,24 @@ export default function App() {
                                         MARKS
                                       </span>
                                     </div>
+                                    {needsSkill ? (
+                                    <span
+                                      data-testid={`hangar-needs-${hull.id}`}
+                                      title={`Train ${needsSkill} in Skills [3] to buy it`}
+                                      style={{
+                                        background: 'rgba(255, 181, 71, 0.15)',
+                                        color: '#FFB547',
+                                        border: '1.5px solid #FFB547',
+                                        borderRadius: '6px',
+                                        padding: '2px 7px',
+                                        fontFamily: "'Inter', sans-serif",
+                                        fontSize: '11px',
+                                        fontWeight: 700,
+                                        whiteSpace: 'nowrap',
+                                      }}>
+                                      Needs {needsSkill}
+                                    </span>
+                                    ) : (
                                     <button
                                       onClick={() => buyAndBoardHull(hull.id)}
                                       disabled={!canAfford}
@@ -33270,6 +33329,7 @@ export default function App() {
                                         <span>Need {hull.cost.toLocaleString()} M</span>
                                       )}
                                     </button>
+                                    )}
                                   </div>
                                 )}
                               </div>

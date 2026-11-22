@@ -198,11 +198,12 @@ test('fabricator: a recipe with materials on hand can be built', async ({page}) 
 });
 
 test('hangar: a new hull can be bought', async ({page}) => {
-  const problems = await docked(page);
+  // The Tern, a Hauler, needs Hauler Piloting I to buy (step 27); its hold takes the stocked cargo.
+  const problems = await docked(page, {...STOCKED, skills: {haulerPiloting: 1}});
   const before = (await readSave(page))!;
   await page.keyboard.press('6');
   await expect(page.getByText(/^HANGAR$/).first()).toBeVisible();
-  await page.getByRole('button', {name: /^Buy$/, disabled: false}).first().click();
+  await page.getByTestId('hangar-hull-tern').getByRole('button', {name: /^Buy$/, disabled: false}).click();
   await expect.poll(async () => (await readSave(page))!.ownedHulls.length).toBe(2);
   expect((await readSave(page))!.marks).toBeLessThan(before.marks);
   expectClean(problems);
