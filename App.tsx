@@ -25977,12 +25977,12 @@ export default function App() {
                                 fontSize: '10.5px',
                                 lineHeight: '13px',
                                 color: '#F6EED8',
-                                whiteSpace: isSpaceMode ? 'nowrap' : 'normal',
+                                whiteSpace: 'normal',
                                 overflow: 'hidden',
                                 textOverflow: 'ellipsis',
-                                WebkitLineClamp: isSpaceMode ? undefined : 2,
-                                WebkitBoxOrient: isSpaceMode ? undefined : 'vertical',
-                                display: isSpaceMode ? 'block' : '-webkit-box',
+                                WebkitLineClamp: 2,
+                                WebkitBoxOrient: 'vertical',
+                                display: '-webkit-box',
                               }}>
                               {toast.detail}
                             </div>

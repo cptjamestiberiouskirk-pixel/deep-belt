@@ -293,3 +293,22 @@ test('combat: a Light Cannon hit takes 30 off the pirate, as the catalog says', 
   expect(await pirateShield()).toBe(54);
   expectClean(problems);
 });
+
+test('a long space toast wraps to two lines instead of being cut to one', async ({page}) => {
+  await page.setViewportSize({width: 1280, height: 800});
+  const problems = await launch(page, {});
+  await flyTo(page, 'Belt One');
+  await page.keyboard.press('f');
+  await expect(page.getByText('Docking Rejected').first()).toBeVisible();
+  // Read the rendered toast text once, right after it appears: its detail is longer than one line.
+  const m = await page.evaluate(() => {
+    const el = (Array.from(document.querySelectorAll('body *')) as HTMLElement[]).find((e) =>
+      Array.from(e.childNodes).some((n) => n.nodeType === 3 && (n.textContent ?? '').includes('docking ring')))!;
+    const cs = getComputedStyle(el);
+    return {height: el.getBoundingClientRect().height, line: parseFloat(cs.lineHeight), cut: el.scrollWidth > el.clientWidth};
+  });
+  expect(m.height).toBeGreaterThan(m.line * 1.5);
+  expect(m.height).toBeLessThanOrEqual(m.line * 2 + 1);
+  expect(m.cut).toBe(false);
+  expectClean(problems);
+});
