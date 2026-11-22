@@ -18,7 +18,7 @@ Use it only for these jobs, and only when every limit below holds:
 | `audit` | `content/*.ts` ids defined but unused or used but missing; manifest assets missing or unused | no |
 | `edit` | A mechanical edit across files, described in a task file; the launcher runs type-check and lint afterwards. It can't edit package.json, the lockfile, tsconfig.json, .oxlintrc.json, .npmrc, dev/, .claude/, .github/ or node_modules/ | yes |
 
-No job has Bash or PowerShell. Every job gets REPL, Read, Grep, Glob and writes to its own run folder; `edit` also edits files outside the denied list. Commands come only from the launcher, so text in a file the session reads can't add flags to them (security review 2026-11-19: prefix rules such as `Bash(npm run lint:*)` also approve `--node-options`, and `Bash(git log:*)` approves `--output`).
+No job has Bash or PowerShell: both are on every job's deny list, because leaving them off the allow list still let a read-only `ls` through (LESSONS 2026-11-21). Every job gets REPL, Read, Grep, Glob and writes to its own run folder; `edit` also edits files outside the denied list. Commands come only from the launcher, so text in a file the session reads can't add flags to them (security review 2026-11-19: prefix rules such as `Bash(npm run lint:*)` also approve `--node-options`, and `Bash(git log:*)` approves `--output`).
 
 Limits:
 - No browser, no Playwright run, no server, no commit or push. Those stay here.
@@ -59,6 +59,17 @@ The run's lessons check doesn't replace this session's: the `check` job prints t
 The report is the child's claims, not proof: before acting on a finding, check it in the file it names. For `edit`, read the whole `git diff` and run `git ls-files --eol` on each changed file before any test run or commit.
 
 When `ended` is not `done`, read the tab with `read_terminal` before closing it, and report what it shows.
+
+## Measured so far
+
+One pair, so suggestive rather than settled (2026-11-21, `check` job, same tree, launcher ran the commands both times):
+
+| Run | Code Mode | Session time | Cache read | Cache create | Output |
+|---|---|---|---|---|---|
+| ab-base-2 | off | 29 s | 351,801 | 96,446 | 2,602 |
+| ab-code-2 | on | 35 s | 133,573 | 49,147 | 2,437 |
+
+Code Mode read 62% fewer cached tokens and created 49% fewer, at about the same output and 6 s slower. Live checks the same day (run deny-edit-1): an edit outside the denied list succeeded, an edit to `dev/lessons.mjs` was refused, and with Bash denied the session had no Bash tool, inside REPL too.
 
 ## Setup and limits
 

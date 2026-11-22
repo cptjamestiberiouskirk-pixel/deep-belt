@@ -13,6 +13,13 @@ Format, checked by `node dev/lessons.mjs --check`. A field's text may go on over
 - Status: open | promoted to PLAYBOOK "<section>" | closed: <why the rule no longer holds>
 ```
 
+## 2026-11-21: A Code Mode session ran Bash with no Bash allow rule
+- What went wrong: in run ab-code-2 (check job, dontAsk, allow list with no Bash rule), the session's first REPL snippet ran `ls -la .code-mode-runs/ab-code-2/` through Bash and it succeeded. The launcher and the skill said no job has Bash.
+- Why: leaving a tool off the allow list doesn't deny it. Claude Code still approves its own read-only commands, such as `ls`, in dontAsk mode (the reason is INFERRED; the run is CONFIRMED).
+- Rule going forward: a tool a launched session must not use goes on its deny list (`--disallowedTools Bash PowerShell`); a missing allow rule is not a denial.
+- Evidence: .code-mode-runs/ab-code-2/status.json `toolCalls` Bash 1; its transcript's tool_result for `ls -la` with is_error false; report.md "Commands run".
+- Status: open
+
 ## 2026-11-19: A force-stopped Claude session left its terminal tab sending mouse reports
 - What went wrong: after the first Code Mode run, the user saw "random characters scrolling" in the tab: text like `[555;31;39M` on every mouse move and `[I` on focus, typed into pwsh, which then printed `ParserError: Missing type name after '['`.
 - Why: Claude's full-screen UI turns on mouse tracking and focus reports and turns them off when it exits. dev/code-mode.ps1 ends it with Stop-Process -Force, so that cleanup never ran, and the launcher reset only the alternate screen and the cursor.

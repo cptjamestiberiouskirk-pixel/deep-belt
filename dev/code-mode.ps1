@@ -172,7 +172,8 @@ Make the edit the task below describes, only in the files it names.
     # No Bash or PowerShell for any job: a prefix rule such as Bash(npm run lint:*) also approves
     # added flags (npm --node-options, git --output, git grep -O) that run code or write files.
     $allowed = @('REPL', 'Read', 'Grep', 'Glob', "Write(./$runRel/**)", "Edit(./$runRel/**)")
-    $denied = @()
+    # Denied outright: with no allow rule, dontAsk still let a read-only `ls` through (run ab-code-2).
+    $denied = @('Bash', 'PowerShell')
     if ($Job -eq 'edit') {
         $allowed += 'Edit(./**)', 'Write(./**)'
         # Files that decide what the launcher's tsc and lint run, or that hold the tooling itself.
