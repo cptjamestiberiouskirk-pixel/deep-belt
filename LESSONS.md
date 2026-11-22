@@ -17,7 +17,7 @@ Format, checked by `node dev/lessons.mjs --check`. A field's text may go on over
 - What went wrong: in run ab-code-2 (check job, dontAsk, allow list with no Bash rule), the session's first REPL snippet ran `ls -la .code-mode-runs/ab-code-2/` through Bash and it succeeded. The launcher and the skill said no job has Bash.
 - Why: leaving a tool off the allow list doesn't deny it. Claude Code still approves its own read-only commands, such as `ls`, in dontAsk mode (the reason is INFERRED; the run is CONFIRMED).
 - Rule going forward: a tool a launched session must not use goes on its deny list (`--disallowedTools Bash PowerShell`); a missing allow rule is not a denial.
-- Evidence: .code-mode-runs/ab-code-2/status.json `toolCalls` Bash 1; its transcript's tool_result for `ls -la` with is_error false; report.md "Commands run".
+- Evidence: E:/DevTemp/deep-belt-code-mode-b0b996b7/ab-code-2/status.json (the worktree's git-ignored .code-mode-runs/, copied there 2026-11-22) `toolCalls` Bash 1; its transcript's tool_result for `ls -la` with is_error false; report.md "Commands run".
 - Status: open
 
 ## 2026-11-19: A force-stopped Claude session left its terminal tab sending mouse reports
@@ -31,7 +31,7 @@ Format, checked by `node dev/lessons.mjs --check`. A field's text may go on over
 - What went wrong: the first `-NoCodeMode` baseline of the check job sent `node dev/lessons.mjs ... & npx tsc -p . & npm run lint` as one Bash call. The launcher's allow list holds one rule per command, so in dontAsk mode the call was denied, and the run ended `done` in 19 s with nothing run, which made it useless as a baseline.
 - Why: the job text asked for the three commands "in parallel in one REPL snippet". With no REPL tool, the session got the same parallelism by chaining them in one shell line, and allow rules match a whole command line.
 - Rule going forward: job text for a launcher run says one command per Bash call, with no `&`, `&&`, `;` or pipes; a run's numbers count only when its report lists an exit code for every command the job names.
-- Evidence: .code-mode-runs/ab-base-1/report.md, "the Bash tool call was denied before execution"; status.json `toolCalls` Bash 1.
+- Evidence: E:/DevTemp/deep-belt-code-mode-b0b996b7/ab-base-1/report.md, "the Bash tool call was denied before execution"; status.json `toolCalls` Bash 1.
 - Status: open
 
 ## 2026-11-19: A shell append turned .gitignore from CRLF to mixed line endings
