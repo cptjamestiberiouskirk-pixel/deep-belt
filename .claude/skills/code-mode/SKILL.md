@@ -62,6 +62,8 @@ When `ended` is not `done`, read the tab with `read_terminal` before closing it,
 
 ## Measured so far
 
+A run's numbers count only when its `checks` have an exit code for every command the job names; a run without them measured nothing.
+
 One pair, so suggestive rather than settled (2026-11-21, `check` job, same tree, launcher ran the commands both times):
 
 | Run | Code Mode | Session time | Cache read | Cache create | Output |
