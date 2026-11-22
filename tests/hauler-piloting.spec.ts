@@ -10,7 +10,7 @@ import {SKILLS} from '../content/skills';
 
 const BASE = {...RICH, milestoneIndustrialistClaimed: true};
 const SKILLS_AT = (haulerPiloting: number) => ({
-  skills: {mining: 0, laserTuning: 0, lowProfile: 0, gunnery: 0, chargeControl: 0, shieldOp: 0, boosterEfficiency: 0, armorLayering: 0, navigation: 0, cargoTrim: 0, haulerPiloting, industrialPiloting: 0, refining: 0, signalAnalysis: 0},
+  skills: {mining: 0, laserTuning: 0, lowProfile: 0, gunnery: 0, chargeControl: 0, shieldOp: 0, boosterEfficiency: 0, armorLayering: 0, navigation: 0, cargoTrim: 0, haulerPiloting, industrialPiloting: 0, commandPiloting: 0, refining: 0, signalAnalysis: 0},
 });
 const hull = (id: HullId) => HULL_DEFINITIONS.find((h) => h.id === id)!;
 const TERN_ACTIVE = {ownedHulls: ['ferrier', 'tern'], activeHull: 'tern'};

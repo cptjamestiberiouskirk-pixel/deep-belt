@@ -151,6 +151,7 @@ export const HULL_DEFINITIONS: HullDefinition[] = [
     id: 'gantry',
     name: 'Gantry Command',
     hullClass: 'Command',
+    requires: {skill: 'commandPiloting', level: 1},
     role: 'Industrial Command Flagship',
     craftOnly: true,
     cost: 0,
@@ -172,16 +173,18 @@ export const HULL_DEFINITIONS: HullDefinition[] = [
   },
 ];
 
-/** The skill to fly each class that has one so far. Frigates, the starting class, need none. */
-export const CLASS_SKILL: Partial<Record<HullClass, SkillId>> = {Hauler: 'haulerPiloting', Industrial: 'industrialPiloting'};
+/** The skill to fly each class that has one. Frigates, the starting class, need none. */
+export const CLASS_SKILL: Partial<Record<HullClass, SkillId>> = {Hauler: 'haulerPiloting', Industrial: 'industrialPiloting', Command: 'commandPiloting'};
 
 /** Hauler Piloting: each level adds this share of a Hauler's base hold (the Tern's 1,200 m³ is 1,500 at level V). */
 export const HAULER_PILOTING_HOLD_PCT = 5;
 /** Industrial Piloting: each level adds this share of an Industrial's base hold (the Lattice Tender's 900 m³ is 1,125 at level V). */
 export const INDUSTRIAL_PILOTING_HOLD_PCT = 5;
+/** Command Piloting: each level adds this share of a Command hull's base hold (the Gantry's 2,000 m³ is 2,500 at level V, 3,125 refitted). */
+export const COMMAND_PILOTING_HOLD_PCT = 5;
 
 /** Each class skill's share of base hold per level. */
-export const CLASS_HOLD_PCT: Partial<Record<HullClass, number>> = {Hauler: HAULER_PILOTING_HOLD_PCT, Industrial: INDUSTRIAL_PILOTING_HOLD_PCT};
+export const CLASS_HOLD_PCT: Partial<Record<HullClass, number>> = {Hauler: HAULER_PILOTING_HOLD_PCT, Industrial: INDUSTRIAL_PILOTING_HOLD_PCT, Command: COMMAND_PILOTING_HOLD_PCT};
 
 /** The Fabricator recipes that build a hull, and the hull each builds. Building one needs that hull's skill. */
 export const HULL_RECIPES: Record<string, HullId> = {lattice_tender: 'lattice', gantry_command: 'gantry'};

@@ -756,7 +756,9 @@ test('rift: extracting at a conduit ends the run and brings the ship home', asyn
 
 test('flagship: a build survives a reload, and the Gantry can be boarded', async ({page}) => {
   test.setTimeout(180_000);
+  // Command Piloting I (step 29) is needed to assemble the Gantry.
   const problems = await docked(page, {
+    skills: {commandPiloting: 1},
     cargoQuantumCore: 2,
     cargoIntegritySeal: 2,
     cargoThermalGrid: 1,

@@ -53,7 +53,8 @@ test('skills screen: at Navigation II, Cargo Trim I queues for 100 MARKS and tak
   const before = (await readSave(page))!;
   await openTab(page, '3', 'SKILLS MATRIX');
   const nav = page.getByTestId('skill-category-Navigation');
-  await expect(nav.getByRole('button', {name: /^NEEDS/})).toHaveCount(0);
+  // Scoped to the card: Command Piloting, also in Navigation, needs Industrial Piloting I.
+  await expect(page.getByTestId('skill-card-cargoTrim').getByRole('button', {name: /^NEEDS/})).toHaveCount(0);
   // The cards give the speed a ship reaches (content/flight.ts), not the 320 cap:
   // Navigation II, 220 × 1.2 × 0.4 = 105.6 px/s = 2.11 km/s; untrained Cargo Trim, a full hold costs 40%.
   await expect(nav).toContainText('+20% top speed (2.11 km/s)');

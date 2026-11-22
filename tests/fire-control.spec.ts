@@ -10,7 +10,7 @@ import {fittedTotal, type Slots} from '../content/fitting';
 
 const BASE = {...RICH, milestoneIndustrialistClaimed: true};
 // Gunnery 0 keeps the numbers whole: a Light Cannon hits for 30, or 36 with the relay.
-const NO_SKILLS = {skills: {mining: 0, laserTuning: 0, lowProfile: 0, gunnery: 0, chargeControl: 0, shieldOp: 0, boosterEfficiency: 0, armorLayering: 0, navigation: 0, cargoTrim: 0, haulerPiloting: 0, industrialPiloting: 0, refining: 0, signalAnalysis: 0}};
+const NO_SKILLS = {skills: {mining: 0, laserTuning: 0, lowProfile: 0, gunnery: 0, chargeControl: 0, shieldOp: 0, boosterEfficiency: 0, armorLayering: 0, navigation: 0, cargoTrim: 0, haulerPiloting: 0, industrialPiloting: 0, commandPiloting: 0, refining: 0, signalAnalysis: 0}};
 const fitting = (fitted: Array<string | null>) => ({fitting: {hangar: {}, fitted, loadouts: {}}});
 const PLAIN: Slots = ['miner_mk1', null, null, 'light_cannon'];
 const RELAY: Slots = ['miner_mk1', 'fire_control', null, 'light_cannon'];

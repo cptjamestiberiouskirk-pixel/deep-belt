@@ -4,7 +4,7 @@
 //
 // The bonus each level gives stays in App.tsx's SKILL_DEFINITIONS for now.
 
-export type SkillId = 'mining' | 'laserTuning' | 'lowProfile' | 'gunnery' | 'chargeControl' | 'shieldOp' | 'boosterEfficiency' | 'armorLayering' | 'navigation' | 'cargoTrim' | 'haulerPiloting' | 'industrialPiloting' | 'refining' | 'signalAnalysis';
+export type SkillId = 'mining' | 'laserTuning' | 'lowProfile' | 'gunnery' | 'chargeControl' | 'shieldOp' | 'boosterEfficiency' | 'armorLayering' | 'navigation' | 'cargoTrim' | 'haulerPiloting' | 'industrialPiloting' | 'commandPiloting' | 'refining' | 'signalAnalysis';
 export type SkillCategory = 'Extraction' | 'Gunnery' | 'Defense' | 'Navigation' | 'Industry' | 'Science';
 
 export interface SkillDef {
@@ -51,6 +51,11 @@ export const SKILLS: Record<SkillId, SkillDef> = {
   // Industrial (the Lattice Tender) at the Fabricator, and each level adds 5% to
   // an Industrial's base hold. Rank 2, as the Lattice is built from tier-3 parts.
   industrialPiloting: {id: 'industrialPiloting', name: 'Industrial Piloting', category: 'Navigation', rank: 2, prerequisites: []},
+  // Step 29, the third hull class skill: level I is needed to assemble a Command
+  // hull (the Gantry Command) at the Fabricator, and each level adds 5% to a Command
+  // hull's base hold. Rank 3, after Industrial Piloting I: the Gantry is the
+  // Industrial line's flagship, built from twice the Lattice's parts and Vael exotics.
+  commandPiloting: {id: 'commandPiloting', name: 'Command Piloting', category: 'Navigation', rank: 3, prerequisites: [{skill: 'industrialPiloting', level: 1}]},
   // Step 15, the first Industry skill: more refined goods from each 50 ore. Rank 2,
   // after Mining II. It came after step 14 made refined sales draw Notice.
   refining: {id: 'refining', name: 'Refining', category: 'Industry', rank: 2, prerequisites: [{skill: 'mining', level: 2}]},

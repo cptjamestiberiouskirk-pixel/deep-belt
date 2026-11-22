@@ -96,7 +96,7 @@ import {
 } from './utils/helper';
 import {characterClip, coachClip, type DialogueClip, type DialogueChannel} from './content/dialogue-audio';
 import {MARKET_MODULE_IDS, MODULES, minerFor, missingSkill, type ModuleId} from './content/modules';
-import {baseHoldAt, HAULER_PILOTING_HOLD_PCT, HULL_RECIPES, INDUSTRIAL_PILOTING_HOLD_PCT, missingHullSkill, missingRecipeSkill} from './content/hulls';
+import {baseHoldAt, COMMAND_PILOTING_HOLD_PCT, HAULER_PILOTING_HOLD_PCT, HULL_RECIPES, INDUSTRIAL_PILOTING_HOLD_PCT, missingHullSkill, missingRecipeSkill} from './content/hulls';
 import type {SlotType} from './content/types';
 import {LENSES, LENS_IDS, lensBonusLabel} from './content/lenses';
 import {INVENTORY_ITEMS, readItem} from './content/inventory';
@@ -1535,6 +1535,14 @@ export const SKILL_DEFINITIONS: SkillDefinition[] = [
     description: `Level I to assemble an Industrial (the Lattice Tender); +${INDUSTRIAL_PILOTING_HOLD_PCT}% Industrial base hold per level`,
     getBonusText: (level: number) =>
       `+${level * INDUSTRIAL_PILOTING_HOLD_PCT}% Industrial hold (Lattice ${baseHoldAt(HULL_DEFINITIONS.find((h) => h.id === 'lattice')!, {industrialPiloting: level}).toLocaleString()} m³)`,
+  },
+  {
+    id: 'commandPiloting',
+    name: 'Command Piloting',
+    category: SKILLS.commandPiloting.category,
+    description: `Level I to assemble a Command hull (the Gantry Command); +${COMMAND_PILOTING_HOLD_PCT}% Command base hold per level`,
+    getBonusText: (level: number) =>
+      `+${level * COMMAND_PILOTING_HOLD_PCT}% Command hold (Gantry ${baseHoldAt(HULL_DEFINITIONS.find((h) => h.id === 'gantry')!, {commandPiloting: level}).toLocaleString()} m³)`,
   },
   {
     id: 'refining',

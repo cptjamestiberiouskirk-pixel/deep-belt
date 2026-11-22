@@ -10,7 +10,7 @@ import {SKILLS} from '../content/skills';
 
 const BASE = {...RICH, milestoneIndustrialistClaimed: true};
 const SKILLS_AT = (industrialPiloting: number) => ({
-  skills: {mining: 0, laserTuning: 0, lowProfile: 0, gunnery: 0, chargeControl: 0, shieldOp: 0, boosterEfficiency: 0, armorLayering: 0, navigation: 0, cargoTrim: 0, haulerPiloting: 0, industrialPiloting, refining: 0, signalAnalysis: 0},
+  skills: {mining: 0, laserTuning: 0, lowProfile: 0, gunnery: 0, chargeControl: 0, shieldOp: 0, boosterEfficiency: 0, armorLayering: 0, navigation: 0, cargoTrim: 0, haulerPiloting: 0, industrialPiloting, commandPiloting: 0, refining: 0, signalAnalysis: 0},
 });
 const PARTS = {cargoQuantumCore: 1, cargoIntegritySeal: 1, cargoThermalGrid: 1};
 const hull = (id: HullId) => HULL_DEFINITIONS.find((h) => h.id === id)!;
@@ -23,7 +23,7 @@ test('catalog: Industrial Piloting is a rank 2 Navigation skill, and level I gat
   expect(missingRecipeSkill({industrialPiloting: 0}, 'lattice_tender')).toBe('Industrial Piloting I');
   expect(missingRecipeSkill({industrialPiloting: 1}, 'lattice_tender')).toBeNull();
   // Recipes that build no gated hull need nothing; a name from Object.prototype is not a recipe.
-  for (const id of ['hull_plate', 'gantry_command', 'gantry_refit', 'toString']) expect(missingRecipeSkill({}, id), id).toBeNull();
+  for (const id of ['hull_plate', 'gantry_refit', 'toString']) expect(missingRecipeSkill({}, id), id).toBeNull();
 });
 
 test('catalog: each level adds 5% to an Industrial base hold, and to no other class', () => {
