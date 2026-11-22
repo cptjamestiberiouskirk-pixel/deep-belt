@@ -10,7 +10,7 @@ import {SKILLS} from '../content/skills';
 
 const BASE = {...RICH, milestoneIndustrialistClaimed: true};
 const SKILLS_AT = (haulerPiloting: number) => ({
-  skills: {mining: 0, laserTuning: 0, lowProfile: 0, gunnery: 0, chargeControl: 0, shieldOp: 0, boosterEfficiency: 0, armorLayering: 0, navigation: 0, cargoTrim: 0, haulerPiloting, refining: 0, signalAnalysis: 0},
+  skills: {mining: 0, laserTuning: 0, lowProfile: 0, gunnery: 0, chargeControl: 0, shieldOp: 0, boosterEfficiency: 0, armorLayering: 0, navigation: 0, cargoTrim: 0, haulerPiloting, industrialPiloting: 0, refining: 0, signalAnalysis: 0},
 });
 const hull = (id: HullId) => HULL_DEFINITIONS.find((h) => h.id === id)!;
 const TERN_ACTIVE = {ownedHulls: ['ferrier', 'tern'], activeHull: 'tern'};
@@ -20,8 +20,10 @@ test('catalog: every hull has a class, and Hauler Piloting I gates the Tern', ()
     ferrier: 'Frigate', tern: 'Hauler', skirmisher: 'Frigate', lattice: 'Industrial', shade: 'Frigate', gantry: 'Command',
   });
   expect(SKILLS.haulerPiloting).toEqual({id: 'haulerPiloting', name: 'Hauler Piloting', category: 'Navigation', rank: 1, prerequisites: []});
-  expect(CLASS_SKILL).toEqual({Hauler: 'haulerPiloting'});
-  expect(HULL_DEFINITIONS.filter((h) => h.requires).map((h) => [h.id, h.requires])).toEqual([['tern', {skill: 'haulerPiloting', level: 1}]]);
+  expect(CLASS_SKILL.Hauler).toBe('haulerPiloting');
+  expect(CLASS_SKILL.Frigate).toBeUndefined();
+  expect(HULL_DEFINITIONS.filter((h) => h.hullClass === 'Hauler').map((h) => [h.id, h.requires])).toEqual([['tern', {skill: 'haulerPiloting', level: 1}]]);
+  expect(HULL_DEFINITIONS.filter((h) => h.hullClass === 'Frigate' && h.requires)).toEqual([]);
   expect(missingHullSkill({haulerPiloting: 0}, hull('tern'))).toBe('Hauler Piloting I');
   expect(missingHullSkill({haulerPiloting: 1}, hull('tern'))).toBeNull();
   expect(missingHullSkill({}, hull('skirmisher'))).toBeNull();

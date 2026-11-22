@@ -4,7 +4,7 @@
 //
 // The bonus each level gives stays in App.tsx's SKILL_DEFINITIONS for now.
 
-export type SkillId = 'mining' | 'laserTuning' | 'lowProfile' | 'gunnery' | 'chargeControl' | 'shieldOp' | 'boosterEfficiency' | 'armorLayering' | 'navigation' | 'cargoTrim' | 'haulerPiloting' | 'refining' | 'signalAnalysis';
+export type SkillId = 'mining' | 'laserTuning' | 'lowProfile' | 'gunnery' | 'chargeControl' | 'shieldOp' | 'boosterEfficiency' | 'armorLayering' | 'navigation' | 'cargoTrim' | 'haulerPiloting' | 'industrialPiloting' | 'refining' | 'signalAnalysis';
 export type SkillCategory = 'Extraction' | 'Gunnery' | 'Defense' | 'Navigation' | 'Industry' | 'Science';
 
 export interface SkillDef {
@@ -47,6 +47,10 @@ export const SKILLS: Record<SkillId, SkillDef> = {
   // Tern), and each level adds 5% to a Hauler's base hold (content/hulls.ts).
   // Rank 1, no prerequisites. A Tern owned before the skill is still flown.
   haulerPiloting: {id: 'haulerPiloting', name: 'Hauler Piloting', category: 'Navigation', rank: 1, prerequisites: []},
+  // Step 28, the second hull class skill: level I is needed to assemble an
+  // Industrial (the Lattice Tender) at the Fabricator, and each level adds 5% to
+  // an Industrial's base hold. Rank 2, as the Lattice is built from tier-3 parts.
+  industrialPiloting: {id: 'industrialPiloting', name: 'Industrial Piloting', category: 'Navigation', rank: 2, prerequisites: []},
   // Step 15, the first Industry skill: more refined goods from each 50 ore. Rank 2,
   // after Mining II. It came after step 14 made refined sales draw Notice.
   refining: {id: 'refining', name: 'Refining', category: 'Industry', rank: 2, prerequisites: [{skill: 'mining', level: 2}]},

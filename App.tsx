@@ -96,7 +96,7 @@ import {
 } from './utils/helper';
 import {characterClip, coachClip, type DialogueClip, type DialogueChannel} from './content/dialogue-audio';
 import {MARKET_MODULE_IDS, MODULES, minerFor, missingSkill, type ModuleId} from './content/modules';
-import {baseHoldAt, HAULER_PILOTING_HOLD_PCT, missingHullSkill} from './content/hulls';
+import {baseHoldAt, HAULER_PILOTING_HOLD_PCT, HULL_RECIPES, INDUSTRIAL_PILOTING_HOLD_PCT, missingHullSkill, missingRecipeSkill} from './content/hulls';
 import type {SlotType} from './content/types';
 import {LENSES, LENS_IDS, lensBonusLabel} from './content/lenses';
 import {INVENTORY_ITEMS, readItem} from './content/inventory';
@@ -1527,6 +1527,14 @@ export const SKILL_DEFINITIONS: SkillDefinition[] = [
     description: `Level I to buy a Hauler (the Tern); +${HAULER_PILOTING_HOLD_PCT}% Hauler base hold per level`,
     getBonusText: (level: number) =>
       `+${level * HAULER_PILOTING_HOLD_PCT}% Hauler hold (Tern ${baseHoldAt(HULL_DEFINITIONS.find((h) => h.id === 'tern')!, {haulerPiloting: level}).toLocaleString()} m³)`,
+  },
+  {
+    id: 'industrialPiloting',
+    name: 'Industrial Piloting',
+    category: SKILLS.industrialPiloting.category,
+    description: `Level I to assemble an Industrial (the Lattice Tender); +${INDUSTRIAL_PILOTING_HOLD_PCT}% Industrial base hold per level`,
+    getBonusText: (level: number) =>
+      `+${level * INDUSTRIAL_PILOTING_HOLD_PCT}% Industrial hold (Lattice ${baseHoldAt(HULL_DEFINITIONS.find((h) => h.id === 'lattice')!, {industrialPiloting: level}).toLocaleString()} m³)`,
   },
   {
     id: 'refining',
@@ -12654,6 +12662,20 @@ export default function App() {
     const recipe = FABRICATOR_RECIPES[recipeId];
     if (!recipe) return;
 
+    // A hull's class skill gates building it, as it gates buying one in the Hangar.
+    const needsHullSkill = missingRecipeSkill(skillsRef.current, recipeId);
+    if (needsHullSkill) {
+      gameAudio.playErrorBuzz();
+      const hullName = HULL_DEFINITIONS.find((h) => h.id === HULL_RECIPES[recipeId])?.name ?? recipe.name;
+      setToastNotice({
+        id: `toast_fab_hull_skill_${Date.now()}`,
+        title: 'Skill required',
+        detail: `${hullName} needs ${needsHullSkill}. Train it in Skills [3].`,
+        type: 'warning',
+      });
+      return;
+    }
+
     if (recipeId === 'lattice_tender') {
       if (ownedHullsRef.current.includes('lattice')) {
         soundManager.playFailBuzz();
@@ -16524,6 +16546,7 @@ export default function App() {
             const canAffordRecipe = (rKey: string) => {
               const rec = FABRICATOR_RECIPES[rKey];
               if (!rec) return false;
+              if (missingRecipeSkill(skillsRef.current, rKey)) return false;
               if (rKey === 'lattice_tender' && ownedHullsRef.current.includes('lattice')) return false;
               if (rKey === 'gantry_command' && ownedHullsRef.current.includes('gantry')) return false;
               if (rKey === 'gantry_refit' && (!ownedHullsRef.current.includes('gantry') || gantryRefitRef.current)) return false;
@@ -33240,6 +33263,24 @@ export default function App() {
                                         CRAFT ONLY
                                       </span>
                                     </div>
+                                    {needsSkill ? (
+                                    <span
+                                      data-testid={`hangar-needs-${hull.id}`}
+                                      title={`Train ${needsSkill} in Skills [3] to assemble it`}
+                                      style={{
+                                        background: 'rgba(255, 181, 71, 0.15)',
+                                        color: '#FFB547',
+                                        border: '1.5px solid #FFB547',
+                                        borderRadius: '6px',
+                                        padding: '2px 7px',
+                                        fontFamily: "'Inter', sans-serif",
+                                        fontSize: '11px',
+                                        fontWeight: 700,
+                                        whiteSpace: 'nowrap',
+                                      }}>
+                                      Needs {needsSkill}
+                                    </span>
+                                    ) : (
                                     <button
                                       onClick={() => buyAndBoardHull(hull.id)}
                                       title="Craft at Fabricator"
@@ -33264,6 +33305,7 @@ export default function App() {
                                       }}>
                                       <span>Craft at Fabricator</span>
                                     </button>
+                                    )}
                                   </div>
                                 ) : (
                                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px', width: '100%' }}>
@@ -34205,6 +34247,7 @@ export default function App() {
 
                           const missing = inputsList.find((inp) => !inp.hasEnough);
                           const canAfford = !missing;
+                          const needsHullSkill = missingRecipeSkill(skills, recipe.id);
                           const isAlreadyOwned =
                             (recipe.id === 'lattice_tender' && ownedHulls.includes('lattice')) ||
                             (recipe.id === 'gantry_command' && ownedHulls.includes('gantry')) ||
@@ -34255,6 +34298,12 @@ export default function App() {
                             btnColor = '#8BD17C';
                             btnBorder = '2px solid #8BD17C';
                             btnContent = <span>{recipe.id === 'gantry_refit' ? 'Already refit' : 'Already owned'}</span>;
+                          } else if (needsHullSkill) {
+                            btnDisabled = true;
+                            btnBg = '#1E2536';
+                            btnColor = '#FFB547';
+                            btnBorder = '2px solid #3A4560';
+                            btnContent = <span>Needs {needsHullSkill}</span>;
                           } else if (!canAfford) {
                             btnDisabled = true;
                             btnBg = '#1E2536';
@@ -34303,6 +34352,7 @@ export default function App() {
                               )}
 
                               <div
+                                data-testid={`fab-recipe-${recipe.id}`}
                                 ref={(el) => {
                                   recipeCardRefs.current[idx] = el;
                                 }}

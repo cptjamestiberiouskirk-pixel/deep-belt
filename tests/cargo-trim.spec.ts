@@ -58,7 +58,8 @@ test('skills screen: at Navigation II, Cargo Trim I queues for 100 MARKS and tak
   // Navigation II, 220 × 1.2 × 0.4 = 105.6 px/s = 2.11 km/s; untrained Cargo Trim, a full hold costs 40%.
   await expect(nav).toContainText('+20% top speed (2.11 km/s)');
   await expect(nav).toContainText('full hold: -40% top speed');
-  await nav.getByRole('button', {name: 'LVL I (100 MARKS • 2:00)'}).click();
+  // Scoped to the card: Industrial Piloting, also rank 2 in Navigation, has the same LVL I button.
+  await page.getByTestId('skill-card-cargoTrim').getByRole('button', {name: 'LVL I (100 MARKS • 2:00)'}).click();
   await expect.poll(async () => (await readSave(page))!.trainingQueue.length).toBe(1);
   const after = (await readSave(page))!;
   expect(after.trainingQueue[0]).toMatchObject({skillId: 'cargoTrim', targetLevel: 1, duration: 120, cost: 100});

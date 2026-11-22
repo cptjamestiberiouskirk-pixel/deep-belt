@@ -105,6 +105,7 @@ export const HULL_DEFINITIONS: HullDefinition[] = [
     id: 'lattice',
     name: 'Lattice Tender',
     hullClass: 'Industrial',
+    requires: {skill: 'industrialPiloting', level: 1},
     role: 'Industrial Tender',
     craftOnly: true,
     cost: 0,
@@ -172,10 +173,18 @@ export const HULL_DEFINITIONS: HullDefinition[] = [
 ];
 
 /** The skill to fly each class that has one so far. Frigates, the starting class, need none. */
-export const CLASS_SKILL: Partial<Record<HullClass, SkillId>> = {Hauler: 'haulerPiloting'};
+export const CLASS_SKILL: Partial<Record<HullClass, SkillId>> = {Hauler: 'haulerPiloting', Industrial: 'industrialPiloting'};
 
 /** Hauler Piloting: each level adds this share of a Hauler's base hold (the Tern's 1,200 m³ is 1,500 at level V). */
 export const HAULER_PILOTING_HOLD_PCT = 5;
+/** Industrial Piloting: each level adds this share of an Industrial's base hold (the Lattice Tender's 900 m³ is 1,125 at level V). */
+export const INDUSTRIAL_PILOTING_HOLD_PCT = 5;
+
+/** Each class skill's share of base hold per level. */
+export const CLASS_HOLD_PCT: Partial<Record<HullClass, number>> = {Hauler: HAULER_PILOTING_HOLD_PCT, Industrial: INDUSTRIAL_PILOTING_HOLD_PCT};
+
+/** The Fabricator recipes that build a hull, and the hull each builds. Building one needs that hull's skill. */
+export const HULL_RECIPES: Record<string, HullId> = {lattice_tender: 'lattice', gantry_command: 'gantry'};
 
 /** The Gantry's base hold once refitted. */
 export const GANTRY_REFIT_HOLD = 2500;
@@ -184,8 +193,15 @@ export const GANTRY_REFIT_HOLD = 2500;
 export function baseHoldAt(hull: HullDefinition, levels: Partial<Record<SkillId, number>>, gantryRefit = false): number {
   const base = hull.id === 'gantry' && gantryRefit ? GANTRY_REFIT_HOLD : hull.baseCargo;
   const skill = CLASS_SKILL[hull.hullClass];
-  const level = skill === 'haulerPiloting' ? (levels[skill] ?? 0) : 0;
-  return Math.round(base * (1 + (HAULER_PILOTING_HOLD_PCT / 100) * level));
+  const level = skill ? (levels[skill] ?? 0) : 0;
+  return Math.round(base * (1 + ((CLASS_HOLD_PCT[hull.hullClass] ?? 0) / 100) * level));
+}
+
+/** "Industrial Piloting I" when that is needed to build this recipe's hull and not trained, else null (also for a recipe that builds no hull). */
+export function missingRecipeSkill(levels: Partial<Record<SkillId, number>>, recipeId: string): string | null {
+  const hullId = Object.hasOwn(HULL_RECIPES, recipeId) ? HULL_RECIPES[recipeId] : undefined;
+  const hull = hullId && HULL_DEFINITIONS.find((h) => h.id === hullId);
+  return hull ? missingHullSkill(levels, hull) : null;
 }
 
 /** "Hauler Piloting I" when that is needed to buy this hull and not trained, else null. */
