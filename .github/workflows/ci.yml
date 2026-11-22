@@ -36,9 +36,14 @@ jobs:
           path: dist
 
   test:
-    name: Play-test in a browser
+    name: Play-test in a browser (shard ${{ matrix.shard }} of 3)
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # The suite took 23-27 minutes in one job; three shards run it in about a third of that.
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -48,11 +53,11 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       # Builds the game, serves the build, and plays it with Playwright.
-      - run: npm test
+      - run: npm test -- --shard=${{ matrix.shard }}/3
       - if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: playwright-results
+          name: playwright-results-${{ matrix.shard }}
           path: test-results
           retention-days: 7
 
