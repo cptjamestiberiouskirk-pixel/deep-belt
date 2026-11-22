@@ -16,6 +16,9 @@ export type Inventory = Partial<Record<string, number>>;
 /** The drones a hull carries in its hold, in the order the Drones panel lists them. */
 export const DRONE_IDS = ['extractDrone', 'defenseDrone', 'salvageDrone'] as const;
 
+/** Each drone's work cycle in seconds, untrained: a mining yield, a shot, a scoop. Drone Operation shortens it (content/skills.ts droneCycleAt). */
+export const DRONE_CYCLE_SEC: Record<(typeof DRONE_IDS)[number], number> = {extractDrone: 10, defenseDrone: 2, salvageDrone: 2};
+
 /** Colony goods: the Command Hub that founds a colony, and the materials it builds with. */
 export const COLONY_GOOD_IDS = ['commandHub', 'polymer', 'chemical', 'polymerComposite'] as const;
 

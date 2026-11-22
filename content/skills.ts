@@ -4,7 +4,7 @@
 //
 // The bonus each level gives stays in App.tsx's SKILL_DEFINITIONS for now.
 
-export type SkillId = 'mining' | 'laserTuning' | 'lowProfile' | 'gunnery' | 'chargeControl' | 'shieldOp' | 'boosterEfficiency' | 'armorLayering' | 'navigation' | 'cargoTrim' | 'haulerPiloting' | 'industrialPiloting' | 'commandPiloting' | 'refining' | 'signalAnalysis';
+export type SkillId = 'mining' | 'laserTuning' | 'lowProfile' | 'gunnery' | 'chargeControl' | 'shieldOp' | 'boosterEfficiency' | 'armorLayering' | 'navigation' | 'cargoTrim' | 'haulerPiloting' | 'industrialPiloting' | 'commandPiloting' | 'refining' | 'droneOperation' | 'signalAnalysis';
 export type SkillCategory = 'Extraction' | 'Gunnery' | 'Defense' | 'Navigation' | 'Industry' | 'Science';
 
 export interface SkillDef {
@@ -59,6 +59,11 @@ export const SKILLS: Record<SkillId, SkillDef> = {
   // Step 15, the first Industry skill: more refined goods from each 50 ore. Rank 2,
   // after Mining II. It came after step 14 made refined sales draw Notice.
   refining: {id: 'refining', name: 'Refining', category: 'Industry', rank: 2, prerequisites: [{skill: 'mining', level: 2}]},
+  // Step 31, the first drone skill: each level cuts all three drones' work cycle by
+  // 5%. Rank 3, after Command Piloting IV, so it stays out of the first 30 minutes
+  // (rule 2), where the Harrow Market already sells drones: Command Piloting III can
+  // be trained in 23 minutes, IV takes at least 47 (design/content-tree.md 4.5).
+  droneOperation: {id: 'droneOperation', name: 'Drone Operation', category: 'Industry', rank: 3, prerequisites: [{skill: 'commandPiloting', level: 4}]},
   // Step 17, the first Science skill: wider target bands in the probe scan sweep,
   // where a scan needs 2 hits of 3 inside bands about 0.36 s wide and a failed scan
   // locks the scanner for 60 s. Rank 1, no prerequisites.
@@ -81,6 +86,14 @@ export const LASER_TUNING_CUT = 0.04;
 /** A mining cycle in seconds at a Laser Tuning level, to 0.1 s: the MK1's 10 s is 8 s at level 5. */
 export function minerCycleAt(baseSec: number, laserTuningLevel: number): number {
   return Math.round(baseSec * (1 - LASER_TUNING_CUT * laserTuningLevel) * 10) / 10;
+}
+
+/** Drone Operation: each level cuts every drone's work cycle by this share. */
+export const DRONE_OPERATION_CUT = 0.05;
+
+/** A drone's work cycle in seconds at a Drone Operation level, to 0.1 s: the extraction drone's 10 s is 7.5 s at level 5. */
+export function droneCycleAt(baseSec: number, droneOperationLevel: number): number {
+  return Math.round(baseSec * (1 - DRONE_OPERATION_CUT * droneOperationLevel) * 10) / 10;
 }
 
 /** Ferrite sold at once without drawing Notice, before Low Profile. */

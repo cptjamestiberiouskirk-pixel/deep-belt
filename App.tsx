@@ -99,12 +99,12 @@ import {MARKET_MODULE_IDS, MODULES, minerFor, missingSkill, type ModuleId} from 
 import {baseHoldAt, COMMAND_PILOTING_HOLD_PCT, HAULER_PILOTING_HOLD_PCT, HULL_RECIPES, INDUSTRIAL_PILOTING_HOLD_PCT, missingHullSkill, missingRecipeSkill} from './content/hulls';
 import type {SlotType} from './content/types';
 import {LENSES, LENS_IDS, lensBonusLabel} from './content/lenses';
-import {INVENTORY_ITEMS, readItem} from './content/inventory';
+import {DRONE_CYCLE_SEC, INVENTORY_ITEMS, readItem} from './content/inventory';
 import {CargoHoldPanel} from './utils/CargoHoldPanel';
 import {MARKET_CARGO_DESCRIPTIONS} from './content/market';
 import {MarketPanel} from './utils/MarketPanel';
 import {createWarpVisuals, drawWarpFlow} from './utils/warp-visuals';
-import {ARMOR_LAYERING_PCT, BASE_REFINE_OUTPUT, BOOSTER_EFFICIENCY_CUT, boosterCapAt, CARGO_TRIM_CUT, CHARGE_CONTROL_CUT, effectiveLoad, FERRITE_PER_TRITANIUM, freeFerriteAt, LASER_TUNING_CUT, LOW_PROFILE_FREE_FERRITE, LOW_PROFILE_MINING_CUT, maxArmorAt, minerCycleAt, miningNoticePerSec, noticeFerrite, prerequisiteText, REFINING_BONUS_PER_LEVEL, refineOutputAt, saleNotice, SCAN_BANDS, SCAN_SWEEP_RAD_PER_SEC, scanBandAt, scanWindowSec, SIGNAL_ANALYSIS_WIDEN, SKILL_CATEGORY_ORDER, skillLevels, SKILLS, unmetPrerequisites, weaponCycleAt} from './content/skills';
+import {ARMOR_LAYERING_PCT, BASE_REFINE_OUTPUT, BOOSTER_EFFICIENCY_CUT, boosterCapAt, CARGO_TRIM_CUT, CHARGE_CONTROL_CUT, DRONE_OPERATION_CUT, droneCycleAt, effectiveLoad, FERRITE_PER_TRITANIUM, freeFerriteAt, LASER_TUNING_CUT, LOW_PROFILE_FREE_FERRITE, LOW_PROFILE_MINING_CUT, maxArmorAt, minerCycleAt, miningNoticePerSec, noticeFerrite, prerequisiteText, REFINING_BONUS_PER_LEVEL, refineOutputAt, saleNotice, SCAN_BANDS, SCAN_SWEEP_RAD_PER_SEC, scanBandAt, scanWindowSec, SIGNAL_ANALYSIS_WIDEN, SKILL_CATEGORY_ORDER, skillLevels, SKILLS, unmetPrerequisites, weaponCycleAt} from './content/skills';
 import {formatSpeed, FULL_HOLD_THRUST_CUT, flightLimits, PIXELS_PER_KM, topSpeed} from './content/flight';
 import type {ModuleDef} from './content/types';
 import {
@@ -1551,6 +1551,14 @@ export const SKILL_DEFINITIONS: SkillDefinition[] = [
     description: `+${REFINING_BONUS_PER_LEVEL} refined goods from every ${50} ore refined, per level`,
     getBonusText: (level: number) =>
       `50 ore -> ${refineOutputAt(level)} refined (+${Math.round((100 * (refineOutputAt(level) - BASE_REFINE_OUTPUT)) / BASE_REFINE_OUTPUT)}%)`,
+  },
+  {
+    id: 'droneOperation',
+    name: 'Drone Operation',
+    category: SKILLS.droneOperation.category,
+    description: `-${Math.round(DRONE_OPERATION_CUT * 100)}% work cycle time per level for extraction, defense and salvage drones`,
+    getBonusText: (level: number) =>
+      `-${Math.round(DRONE_OPERATION_CUT * 100 * level)}% cycle time (extraction ${droneCycleAt(DRONE_CYCLE_SEC.extractDrone, level).toFixed(1)} s, defense and salvage ${droneCycleAt(DRONE_CYCLE_SEC.defenseDrone, level).toFixed(1)} s)`,
   },
   {
     id: 'signalAnalysis',
@@ -20345,7 +20353,7 @@ export default function App() {
         }
 
         drone.timer += dt;
-        if (drone.timer >= 10.0) {
+        if (drone.timer >= droneCycleAt(DRONE_CYCLE_SEC.extractDrone, skillsRef.current.droneOperation || 0)) {
           drone.timer = 0;
           const isExotic = rock.type === 'prismite' || rock.type === 'nimbus' || rock.type === 'radflux';
           const miningSkill = skillsRef.current.mining || 0;
@@ -20387,7 +20395,7 @@ export default function App() {
         drone.y = p.y + Math.sin(angle) * 100;
 
         drone.timer += dt;
-        if (drone.timer >= 2.0) {
+        if (drone.timer >= droneCycleAt(DRONE_CYCLE_SEC.defenseDrone, skillsRef.current.droneOperation || 0)) {
           drone.timer = 0;
           let nearestHostile: any = null;
           let minHDist = 400; // 8.0 km (400 px)
@@ -20566,7 +20574,7 @@ export default function App() {
         }
 
         drone.timer += dt;
-        if (drone.timer >= 2.0) {
+        if (drone.timer >= droneCycleAt(DRONE_CYCLE_SEC.salvageDrone, skillsRef.current.droneOperation || 0)) {
           drone.timer = 0;
           if (nearestTarget) {
             const dDroneToTarget = Math.hypot(nearestTarget.entity.x - drone.x, nearestTarget.entity.y - drone.y);
@@ -39382,7 +39390,7 @@ export default function App() {
             name: 'Extraction Drone',
             held: cargoExtractDrone,
             deployed: deployedDrones.filter((d) => d.type === 'extractDrone').length,
-            subline: 'Mining tether (8 km) · 10s cycle',
+            subline: `Mining tether (8 km) · ${droneCycleAt(DRONE_CYCLE_SEC.extractDrone, skills.droneOperation || 0)}s cycle`,
             color: '#FFB547',
           },
           {
@@ -39390,7 +39398,7 @@ export default function App() {
             name: 'Defense Drone',
             held: cargoDefenseDrone,
             deployed: deployedDrones.filter((d) => d.type === 'defenseDrone').length,
-            subline: 'Escort perimeter · 8 dmg / 2s',
+            subline: `Escort perimeter · 8 dmg / ${droneCycleAt(DRONE_CYCLE_SEC.defenseDrone, skills.droneOperation || 0)}s`,
             color: '#4CC9F0',
           },
           {

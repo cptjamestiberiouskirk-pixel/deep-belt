@@ -1,7 +1,7 @@
 import {appendFileSync, mkdirSync} from 'node:fs';
 import {dirname} from 'node:path';
 import {expect, test, type Page} from '@playwright/test';
-import {enterGame, flyTo, mineUntil, openWithSave, readSave, RICH, selectTarget, settle, targetPanel, tuneLaser, undock, warpTo} from './helpers';
+import {enterGame, flyTo, mineUntil, openWithSave, readSave, RICH, SAVE_KEY, selectTarget, settle, targetPanel, tuneLaser, undock, warpTo} from './helpers';
 
 // Balance probe (design/content-tree.md rule 5: tuning is measured). It plays
 // the production build and records numbers the screen doesn't show, through
@@ -26,7 +26,7 @@ const player = (page: Page) => page.evaluate(() => (window as any).__DEEP_BELT_P
 const pirate = (page: Page) => page.evaluate(() => (window as any).__DEEP_BELT_PROBE__.pirate() as Pirate);
 
 const BASE = {...RICH, milestoneIndustrialistClaimed: true};
-const skills = (s: Record<string, number>) => ({skills: {mining: 0, laserTuning: 0, lowProfile: 0, gunnery: 0, chargeControl: 0, shieldOp: 0, boosterEfficiency: 0, armorLayering: 0, navigation: 0, cargoTrim: 0, haulerPiloting: 0, industrialPiloting: 0, commandPiloting: 0, refining: 0, signalAnalysis: 0, ...s}});
+const skills = (s: Record<string, number>) => ({skills: {mining: 0, laserTuning: 0, lowProfile: 0, gunnery: 0, chargeControl: 0, shieldOp: 0, boosterEfficiency: 0, armorLayering: 0, navigation: 0, cargoTrim: 0, haulerPiloting: 0, industrialPiloting: 0, commandPiloting: 0, refining: 0, droneOperation: 0, signalAnalysis: 0, ...s}});
 const fitting = (fitted: Array<string | null>) => ({fitting: {hangar: {}, fitted, loadouts: {}}});
 const PLAIN = ['miner_mk1', null, null, 'light_cannon'];
 const BULK = ['miner_mk1', 'bulk_hold', null, 'light_cannon'];
@@ -711,5 +711,38 @@ for (const c of TRIPS) {
       backSec: Math.round((tBack - tUndock) / 100) / 10,
       tripSec: Math.round((tBack - t0) / 100) / 10,
     });
+  });
+}
+// --- Drone output: one extraction drone on a tuned Belt One asteroid. The save is
+// written whenever Ferrite changes, so the times between rises are the drone's cycle.
+for (const level of [0, 5]) {
+  test(`drones: extraction cycle at Drone Operation ${level}`, async ({page}) => {
+    test.setTimeout(180_000);
+    await openWithSave(page, {...BASE, ...skills({droneOperation: level}), ...fitting(PLAIN), cargoExtractDrone: 1});
+    await enterGame(page);
+    await undock(page);
+    await flyTo(page, 'Belt One');
+    await selectTarget(page, /Asteroid ·/);
+    await tuneLaser(page);
+    await page.keyboard.press('d');
+    await expect(page.getByText('DRONE CONTROL BAY')).toBeVisible();
+    await expect(async () => {
+      await page.keyboard.press('Enter');
+      await expect(page.getByText('Bandwidth: 1 / 2')).toBeVisible({timeout: 2000});
+    }).toPass({timeout: 20_000});
+    await page.keyboard.press('Escape');
+    const rises: {t: number; ferrite: number}[] = await page.evaluate(async (key) => {
+      const out: {t: number; ferrite: number}[] = [];
+      let last = 0;
+      const start = performance.now();
+      while (performance.now() - start < 50_000) {
+        const f = JSON.parse(localStorage.getItem(key) || '{}').inventory?.ferrite ?? 0;
+        if (f !== last) { out.push({t: Math.round(performance.now() - start), ferrite: f}); last = f; }
+        await new Promise((r) => setTimeout(r, 50));
+      }
+      return out;
+    }, SAVE_KEY);
+    const gaps = rises.slice(1).map((r, i) => Math.round((r.t - rises[i].t) / 100) / 10);
+    record({probe: 'drones', case: `extraction, Drone Operation ${level}`, rises, gaps, ferriteIn50s: rises.at(-1)?.ferrite ?? 0});
   });
 }

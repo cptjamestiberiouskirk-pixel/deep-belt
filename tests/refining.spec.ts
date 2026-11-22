@@ -51,7 +51,7 @@ test('skills screen: at Mining II, Refining I queues for 100 MARKS and takes 2:0
   await enterGame(page);
   const before = (await readSave(page))!;
   await openSkills(page);
-  await expect(page.getByTestId('skill-category-Industry').getByRole('button', {name: /^NEEDS/})).toHaveCount(0);
+  await expect(page.getByTestId('skill-card-refining').getByRole('button', {name: /^NEEDS/})).toHaveCount(0);
   await page.getByTestId('skill-card-refining').getByRole('button', {name: 'LVL I (100 MARKS • 2:00)'}).click();
   await expect.poll(async () => (await readSave(page))!.trainingQueue.length).toBe(1);
   const after = (await readSave(page))!;
