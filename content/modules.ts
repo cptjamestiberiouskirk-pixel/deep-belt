@@ -16,12 +16,15 @@ export type ModuleId =
   | 'shield_booster'
   | 'shield_booster_ii'
   | 'composite_armor'
+  | 'composite_armor_ii'
   | 'fire_control'
   | 'light_cannon'
   | 'lance_driver';
 
 /** Composite Armor's armor HP (step 12). */
 export const COMPOSITE_ARMOR_HP = 100;
+/** Composite Armor II's armor HP (step 34): half as much again as the first tier. */
+export const COMPOSITE_ARMOR_II_HP = 150;
 /** Fire Control Relay's weapon damage bonus, in percent (step 16). */
 export const FIRE_CONTROL_DAMAGE_PCT = 20;
 
@@ -136,8 +139,25 @@ export const MODULES: Record<ModuleId, ModuleDef> = {
     slot: 'utility',
     stats: {armorHp: COMPOSITE_ARMOR_HP},
     statBadge: `+${COMPOSITE_ARMOR_HP} armor`,
-    desc: `Layered ceramic and alloy plating: +${COMPOSITE_ARMOR_HP} armor HP. Uses no capacitor, but armor does not regenerate; the station repairs it for MARKS.`,
+    desc: `Layered ceramic and alloy plating: +${COMPOSITE_ARMOR_HP} armor HP. Uses no capacitor, but armor does not regenerate in space; docking repairs it.`,
     icon: 'module_armor_plate',
+  },
+  // Step 34: the tier step of Composite Armor (rule 3), a straight upgrade behind
+  // Armor Layering V. One only.
+  composite_armor_ii: {
+    id: 'composite_armor_ii',
+    name: 'Composite Armor II',
+    category: 'module',
+    group: 'Armor',
+    tier: 2,
+    volume: 0,
+    basePrice: 2250,
+    slot: 'utility',
+    stats: {armorHp: COMPOSITE_ARMOR_II_HP},
+    statBadge: `+${COMPOSITE_ARMOR_II_HP} armor`,
+    desc: `Denser layered plating: +${COMPOSITE_ARMOR_II_HP} armor HP. Uses no capacitor, but armor does not regenerate in space; docking repairs it.`,
+    icon: 'module_armor_plate',
+    requires: {skill: 'armorLayering', level: 5},
   },
   // Step 16: an offense side-grade for a utility slot. Raider waves cost HP for as
   // long as they last, so more damage shortens them; but the slot then holds no

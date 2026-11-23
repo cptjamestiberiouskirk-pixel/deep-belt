@@ -531,6 +531,11 @@ const VAEL_FIGHTS: Array<{name: string; weapon: string; second: string | null; c
   {name: 'Lance Driver + Shield Booster II, Shield Operation V', weapon: 'lance_driver', second: 'shield_booster_ii', so: 5},
   {name: 'Lance Driver + booster, managed, Shield Operation V', weapon: 'lance_driver', second: 'shield_booster', so: 5, managed: true},
   {name: 'Lance Driver + Shield Booster II, managed, Shield Operation V', weapon: 'lance_driver', second: 'shield_booster_ii', so: 5, managed: true},
+  // Step 34: Composite Armor II needs Armor Layering V; compare with 'Lance Driver + armor, Armor Layering V'.
+  {name: 'Lance Driver + Composite Armor II, Armor Layering V', weapon: 'lance_driver', second: 'composite_armor_ii', al: 5},
+  // The Lance Driver fight ends with armor to spare on both tiers; the Light Cannon's longer fight runs it out.
+  {name: 'Light Cannon + armor, Armor Layering V', weapon: 'light_cannon', second: 'composite_armor', al: 5},
+  {name: 'Light Cannon + Composite Armor II, Armor Layering V', weapon: 'light_cannon', second: 'composite_armor_ii', al: 5},
 ];
 type Vael = {isAlive: boolean; shield: number; armor: number; hull: number; speed: number};
 for (const c of VAEL_FIGHTS) {

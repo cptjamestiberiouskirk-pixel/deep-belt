@@ -22,7 +22,7 @@ test('catalog: Composite Armor is a utility module for 900 MARKS that adds armor
   });
   expect(MODULES.composite_armor.maxOwned).toBeUndefined(); // one only
   expect(MODULES.composite_armor.requires).toBeUndefined();
-  expect(MARKET_MODULE_IDS).toEqual(['miner_mk2', 'expanded_hold', 'bulk_hold', 'shield_booster', 'shield_booster_ii', 'composite_armor', 'fire_control', 'light_cannon', 'lance_driver']);
+  expect(MARKET_MODULE_IDS).toEqual(['miner_mk2', 'expanded_hold', 'bulk_hold', 'shield_booster', 'shield_booster_ii', 'composite_armor', 'composite_armor_ii', 'fire_control', 'light_cannon', 'lance_driver']);
   expect(fittedTotal(['miner_mk1', 'composite_armor', 'shield_booster', 'light_cannon'], 'armorHp')).toBe(COMPOSITE_ARMOR_HP);
 });
 
@@ -48,7 +48,7 @@ test('composite armor: bought into a free slot, shown in Ship stats and the HUD,
 
   // Buy: the Ferrier has a free utility slot, so it is fitted at once.
   await openTab(page, '1', 'Sell cargo');
-  const card = page.locator('div', {hasText: 'Composite Armor', has: page.getByRole('button', {name: 'Buy'})}).last();
+  const card = page.getByTestId('market-card-composite_armor');
   await expect(card).toContainText(`+${COMPOSITE_ARMOR_HP} armor`);
   await card.getByRole('button', {name: 'Buy'}).click();
   await expect.poll(async () => (await readSave(page))!.fitting.fitted).toContain('composite_armor');

@@ -11,7 +11,7 @@ export type StatId =
   | 'cycleSec' // seconds per cycle
   | 'cargoM3' // hold space added
   | 'shieldHpPerSec' // shield restored per second while active
-  | 'armorHp' // armor HP added (never regenerates; the station repairs it for MARKS)
+  | 'armorHp' // armor HP added (never regenerates in space; docking repairs it)
   | 'damage' // damage per shot
   | 'damagePct' // percent added to the fitted weapon's damage
   | 'rangeKm' // optimal range
