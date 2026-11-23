@@ -19380,7 +19380,7 @@ export default function App() {
       }
     }
 
-    // 6. Shield Booster: the fitted booster's catalog stats (8 HP/s, 25 Cap per 3 s cycle)
+    // 6. Shield Booster: the fitted boosters' catalog stats (boosterStats: 8 HP/s for a Booster I, 12 for a II, 25 Cap per 3 s cycle each)
     const booster = boosterStats();
     if (moduleShieldActive && fittedSlots.slot3ShieldBooster) {
       p.shieldBoosterTimer = (p.shieldBoosterTimer || 0) + dt;
@@ -37785,7 +37785,7 @@ export default function App() {
                   toggleShieldBooster();
                 }}
                 disabled={!fittedSlots.slot3ShieldBooster || (p.capacitor < (boosterStats().capPerCycle ?? 25) && !moduleShieldActive)}
-                title={`Boost [3] — Shield Booster (+${Math.round((boosterStats().shieldHpPerSec ?? 8) * (1 + 0.1 * (skills.shieldOp || 0)))} HP/s pulse, ${boosterStats().capPerCycle ?? 25} Cap)`}
+                title={`Boost [3] — ${fitting.fitted.flatMap((m) => (m && MODULES[m].stats.shieldHpPerSec !== undefined ? [MODULES[m].name] : [])).join(' + ') || 'Shield Booster'} (+${Math.round((boosterStats().shieldHpPerSec ?? 8) * (1 + 0.1 * (skills.shieldOp || 0)))} HP/s pulse, ${boosterStats().capPerCycle ?? 25} Cap)`}
                 style={{
                   ...actionBtnBaseStyle,
                   position: 'relative',

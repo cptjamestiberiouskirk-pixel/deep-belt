@@ -159,13 +159,22 @@ for (const f of FIGHTS) {
 
 // --- Holding out: park at Belt Two without firing and time how long the pirate
 // takes to destroy the ship; then read the armor after the tow home (step 12).
-const HOLDOUTS: Array<{name: string; fitted: Array<string | null>; booster: boolean; so?: number; be?: number}> = [
+// A "managed" booster is turned on only once the shield is below half, and on
+// again whenever it has shut off there and the Cap covers a cycle (25), as a
+// player would: above half, a cycle would stop at full shield.
+const BOOST_CAP = 25;
+const HOLDOUTS: Array<{name: string; fitted: Array<string | null>; booster: boolean; so?: number; be?: number; managed?: boolean}> = [
   {name: 'nothing in the utility slots', fitted: PLAIN, booster: false},
   {name: 'Shield Booster, active', fitted: ['miner_mk1', 'shield_booster', null, 'light_cannon'], booster: true},
   {name: 'Composite Armor', fitted: ['miner_mk1', 'composite_armor', null, 'light_cannon'], booster: false},
   // Step 13.
   {name: 'Shield Booster, active, Shield Operation II', fitted: ['miner_mk1', 'shield_booster', null, 'light_cannon'], booster: true, so: 2},
   {name: 'Shield Booster, active, Shield Operation II, Booster Efficiency V', fitted: ['miner_mk1', 'shield_booster', null, 'light_cannon'], booster: true, so: 2, be: 5},
+  // Step 33: Shield Booster II needs Shield Operation V, so both sides have it.
+  {name: 'Shield Booster, active, Shield Operation V', fitted: ['miner_mk1', 'shield_booster', null, 'light_cannon'], booster: true, so: 5},
+  {name: 'Shield Booster II, active, Shield Operation V', fitted: ['miner_mk1', 'shield_booster_ii', null, 'light_cannon'], booster: true, so: 5},
+  {name: 'Shield Booster, managed, Shield Operation V', fitted: ['miner_mk1', 'shield_booster', null, 'light_cannon'], booster: false, so: 5, managed: true},
+  {name: 'Shield Booster II, managed, Shield Operation V', fitted: ['miner_mk1', 'shield_booster_ii', null, 'light_cannon'], booster: false, so: 5, managed: true},
 ];
 for (const c of HOLDOUTS) {
   test(`holdout: Belt Two pirate, ${c.name}`, async ({page}) => {
@@ -180,12 +189,20 @@ for (const c of HOLDOUTS) {
     let p = await player(page);
     const startHp = p.shield + p.armor + p.hull;
     let minCap = Infinity;
+    let presses = 0;
+    let lastPress = 0;
+    const startShield = p.shield;
     while (Date.now() - start < 240_000) {
       await page.waitForTimeout(250);
       if (await page.getByText('Docked · safe').isVisible()) break;
       p = await player(page);
       minCap = Math.min(minCap, p.capacitor);
       if (firstHit === null && p.shield + p.armor + p.hull < startHp) firstHit = Date.now();
+      if (c.managed && !p.boosterActive && p.shield < startShield / 2 && p.capacitor >= BOOST_CAP && Date.now() - lastPress > 1000) {
+        await page.keyboard.press('3');
+        presses++;
+        lastPress = Date.now();
+      }
     }
     const destroyed = await page.getByText('Docked · safe').isVisible();
     await page.waitForTimeout(1000);
@@ -198,6 +215,7 @@ for (const c of HOLDOUTS) {
       destroyed,
       secFromFirstHitToTow: firstHit && destroyed ? Math.round((Date.now() - firstHit) / 100) / 10 : null,
       minCap: Math.round(minCap),
+      ...(c.managed ? {boosterPresses: presses, hpAtEnd: destroyed ? 0 : Math.round(p.shield + p.armor + p.hull), secRun: Math.round((Date.now() - start) / 1000)} : {}),
       armorAfterTow: Math.round(after.armor),
       repairScreenArmor: armorText ? `${armorText[1]}/${armorText[2]}` : null,
     });
@@ -495,7 +513,7 @@ for (const c of WAVES) {
 // --- The Vael Heavy Pirate Frigate (200 shield, 200 armor, 200 hull), past the
 // jump gate, in a Ferrier or a Skirmisher at Gunnery III. Locks it from the Overview and fires
 // until it or the Ferrier is dead.
-const VAEL_FIGHTS: Array<{name: string; weapon: string; second: string | null; cc?: number; hull?: string; al?: number}> = [
+const VAEL_FIGHTS: Array<{name: string; weapon: string; second: string | null; cc?: number; hull?: string; al?: number; so?: number; managed?: boolean}> = [
   {name: 'Light Cannon', weapon: 'light_cannon', second: null},
   {name: 'Lance Driver', weapon: 'lance_driver', second: null},
   {name: 'Lance Driver + booster', weapon: 'lance_driver', second: 'shield_booster'},
@@ -508,12 +526,17 @@ const VAEL_FIGHTS: Array<{name: string; weapon: string; second: string | null; c
   {name: 'Lance Driver, Armor Layering V', weapon: 'lance_driver', second: null, al: 5},
   {name: 'Lance Driver + booster, Armor Layering V', weapon: 'lance_driver', second: 'shield_booster', al: 5},
   {name: 'Lance Driver + armor, Armor Layering V', weapon: 'lance_driver', second: 'composite_armor', al: 5},
+  // Step 33: Shield Booster II needs Shield Operation V, so both sides have it.
+  {name: 'Lance Driver + booster, Shield Operation V', weapon: 'lance_driver', second: 'shield_booster', so: 5},
+  {name: 'Lance Driver + Shield Booster II, Shield Operation V', weapon: 'lance_driver', second: 'shield_booster_ii', so: 5},
+  {name: 'Lance Driver + booster, managed, Shield Operation V', weapon: 'lance_driver', second: 'shield_booster', so: 5, managed: true},
+  {name: 'Lance Driver + Shield Booster II, managed, Shield Operation V', weapon: 'lance_driver', second: 'shield_booster_ii', so: 5, managed: true},
 ];
 type Vael = {isAlive: boolean; shield: number; armor: number; hull: number; speed: number};
 for (const c of VAEL_FIGHTS) {
   test(`vael fight: ${c.name}`, async ({page}) => {
     test.setTimeout(300_000);
-    await openWithSave(page, {...BASE, ...skills({gunnery: 3, chargeControl: c.cc ?? 0, armorLayering: c.al ?? 0, shieldOp: c.second === 'shield_booster' ? 1 : 0}), ...fitting(['miner_mk1', c.second, null, c.weapon]), missionIndex: 3, missionStatus: 'completed', hasGatePermit: true, ...(c.hull ? {ownedHulls: ['ferrier', c.hull], activeHull: c.hull} : {})});
+    await openWithSave(page, {...BASE, ...skills({gunnery: 3, chargeControl: c.cc ?? 0, armorLayering: c.al ?? 0, shieldOp: c.so ?? (c.second === 'shield_booster' ? 1 : 0)}), ...fitting(['miner_mk1', c.second, null, c.weapon]), missionIndex: 3, missionStatus: 'completed', hasGatePermit: true, ...(c.hull ? {ownedHulls: ['ferrier', c.hull], activeHull: c.hull} : {})});
     await enterGame(page);
     await undock(page);
     await flyTo(page, 'Harrow Outer Jump Gate');
@@ -529,18 +552,25 @@ for (const c of VAEL_FIGHTS) {
     await page.keyboard.press('l');
     await expect.poll(() => targetPanel(page), {timeout: 20_000}).toMatch(/Locked/);
     await page.keyboard.press('2');
-    if (c.second === 'shield_booster') await page.keyboard.press('3');
+    if (!c.managed && (c.second === 'shield_booster' || c.second === 'shield_booster_ii')) await page.keyboard.press('3');
     const start = Date.now();
     let p = await player(page);
     const startHp = {shield: p.shield, armor: p.armor, hull: p.hull};
     let q = await vael();
     let minHull = p.hull;
+    let presses = 0;
+    let lastPress = 0;
     // A lost ship is towed to the station and repaired, so docked marks the loss.
     while (q.isAlive && !p.docked && Date.now() - start < 240_000) {
       await page.waitForTimeout(250);
       p = await player(page);
       q = await vael();
       if (!p.docked) minHull = Math.min(minHull, p.hull);
+      if (c.managed && !p.docked && !p.boosterActive && p.shield < startHp.shield / 2 && p.capacitor >= BOOST_CAP && Date.now() - lastPress > 1000) {
+        await page.keyboard.press('3');
+        presses++;
+        lastPress = Date.now();
+      }
     }
     record({
       probe: 'vael fight',
@@ -549,6 +579,7 @@ for (const c of VAEL_FIGHTS) {
       shipLost: p.docked,
       fightSec: Math.round((Date.now() - start) / 100) / 10,
       pirateHpLeft: q.isAlive ? Math.round(q.shield + q.armor + q.hull) : 0,
+      ...(c.managed ? {boosterPresses: presses} : {}),
       ...(p.docked ? {} : {
         hpLost: Math.round(startHp.shield + startHp.armor + startHp.hull - (p.shield + p.armor + p.hull)),
         armorLost: Math.round(startHp.armor - p.armor),

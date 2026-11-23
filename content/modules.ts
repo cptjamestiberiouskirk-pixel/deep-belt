@@ -14,6 +14,7 @@ export type ModuleId =
   | 'expanded_hold'
   | 'bulk_hold'
   | 'shield_booster'
+  | 'shield_booster_ii'
   | 'composite_armor'
   | 'fire_control'
   | 'light_cannon'
@@ -101,6 +102,25 @@ export const MODULES: Record<ModuleId, ModuleDef> = {
     icon: 'module_shield_booster_icon',
     // Up to three: the most utility slots any hull has (the Gantry). Doubles add up.
     maxOwned: 3,
+  },
+  // Step 33: the tier step of the Shield Booster (rule 3: a straight upgrade that
+  // costs a skill level). Half as much shield again for the same Cap and cycle,
+  // behind Shield Operation V: at least 31 minutes of training, past the opening.
+  // One only; doubles of it would be a later, probed step.
+  shield_booster_ii: {
+    id: 'shield_booster_ii',
+    name: 'Shield Booster II',
+    category: 'module',
+    group: 'Shield boosters',
+    tier: 2,
+    volume: 0,
+    basePrice: 2400,
+    slot: 'utility',
+    stats: {shieldHpPerSec: 12, cycleSec: 3, capPerCycle: 25},
+    statBadge: '+12 HP/s pulse',
+    desc: 'Tuned matrix generator restoring 12 shield HP per second on active cycle, for the same capacitor as the Shield Booster.',
+    icon: 'module_shield_booster_icon',
+    requires: {skill: 'shieldOp', level: 5},
   },
   // Step 12: a side-grade to the Shield Booster. Flat armor that uses no Cap and
   // needs no activation, so a Cap-hungry weapon keeps firing; but armor never
