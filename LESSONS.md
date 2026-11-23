@@ -13,6 +13,13 @@ Format, checked by `node dev/lessons.mjs --check`. A field's text may go on over
 - Status: open | promoted to PLAYBOOK "<section>" | closed: <why the rule no longer holds>
 ```
 
+## 2026-11-23: An armor probe ended before either tier's armor ran out
+- What went wrong: step 34's first probe of Composite Armor II against the first tier (Vael fight with a Lance Driver, Armor Layering V) gave the same result for both: killed in about 40 s, 208 armor lost, no hull lost. The fight ends with armor to spare on the first tier, so the II's extra armor never came into play. A Light Cannon case, added to run the armor out, ended the same way (252 lost, 18 and 93 left).
+- Why: as with the step 33 booster probe, the case was chosen without asking when the module's effect would show; extra armor shows only in a fight that gets through the first tier's armor.
+- Rule going forward: before probing a change to a module's effect, check that the probe runs the module while that effect can show (a booster while the shield is below full); a result equal to the old one is checked for that before it is reported as "no effect".
+- Evidence: session d8be0f06 scratchpad probe34.jsonl; commit b871984 reports the armor left (62 and 137, 18 and 93) and "margin, not a different outcome".
+- Status: promoted to PLAYBOOK "Probing a module's effect"
+
 ## 2026-11-23: A Bash edit wrote a real CR for the text \r into LESSONS.md and PLAYBOOK.md
 - What went wrong: the 11-22 lesson and PLAYBOOK step quoting `grep -c $'\r$'` held a carriage return byte where the text has backslash and r. Git then saw both files as `w/-text`, and their diff replaced every line. In Q29 my first fix, a `node -e` passed through Bash, wrote the CR back while printing "fixed 1".
 - Why: both edits put a backslash escape through Bash, which turned it into the character before the script saw it, as the PLAYBOOK section says it will.
@@ -25,7 +32,7 @@ Format, checked by `node dev/lessons.mjs --check`. A field's text may go on over
 - Why: I reused the step 13 probe cases, which measure Cap use, for a change to the HP restored, without asking when the booster would be running.
 - Rule going forward: before probing a change to a module's effect, check that the probe runs the module while that effect can show (a booster while the shield is below full); a result equal to the old one is checked for that before it is reported as "no effect".
 - Evidence: session d8be0f06 scratchpad probe33-after.jsonl (minCap 14 in both holdouts); the managed cases added to tests/balance-probe.spec.ts.
-- Status: open
+- Status: promoted to PLAYBOOK "Probing a module's effect"
 
 ## 2026-11-22: A sed edit turned four test files from CRLF to LF
 - What went wrong: in step 33 I added shield_booster_ii to the MARKET_MODULE_IDS pin in four specs with Git Bash `sed -i`; `git ls-files --eol` then showed them `w/lf` where the rest are `w/crlf`. A `grep -c $'\r$'` check counted a CR on every line of those LF files, so it hid the change. Fixed with a node script before any test run.

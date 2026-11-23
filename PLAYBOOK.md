@@ -95,6 +95,13 @@ From: 2026-11-21 "A polish test imported a fixture local to another spec"; 2026-
 2. When an item is present in two market lists, use the test ID on its outer card or row. A card or row is found by a test id on its outer element, not by text and `.last()`.
 3. A check that something is absent is run once where it is present (a mutant or the state that shows it) and must fail there.
 
+## Probing a module's effect
+
+From: 2026-11-22 "A booster probe measured nothing because the booster ran before any damage"; 2026-11-23 "An armor probe ended before either tier's armor ran out"
+
+1. Before probing a change to a module's effect, check that the probe runs the module while that effect can show (a booster while the shield is below full).
+2. A result equal to the old one is checked for that before it is reported as "no effect".
+
 ## Adding a skill, module or gate
 
 From: 2026-11-18 "A new skill broke a test that pins every skill id"; 2026-11-21 "A skill gate on the Tern broke a test that clicked the first Buy button"; 2026-11-21 "A new rank 2 Navigation skill made a category-scoped Train button ambiguous"; 2026-11-22 "A new skill with a prerequisite broke two tests that counted Needs lines"
