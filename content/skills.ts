@@ -4,7 +4,7 @@
 //
 // The bonus each level gives stays in App.tsx's SKILL_DEFINITIONS for now.
 
-export type SkillId = 'mining' | 'laserTuning' | 'lowProfile' | 'gunnery' | 'chargeControl' | 'shieldOp' | 'boosterEfficiency' | 'armorLayering' | 'navigation' | 'cargoTrim' | 'haulerPiloting' | 'industrialPiloting' | 'commandPiloting' | 'refining' | 'droneOperation' | 'signalAnalysis';
+export type SkillId = 'mining' | 'laserTuning' | 'lowProfile' | 'gunnery' | 'chargeControl' | 'shieldOp' | 'boosterEfficiency' | 'armorLayering' | 'navigation' | 'cargoTrim' | 'haulerPiloting' | 'industrialPiloting' | 'commandPiloting' | 'refining' | 'droneOperation' | 'exoticPacking' | 'signalAnalysis';
 export type SkillCategory = 'Extraction' | 'Gunnery' | 'Defense' | 'Navigation' | 'Industry' | 'Science';
 
 export interface SkillDef {
@@ -64,6 +64,11 @@ export const SKILLS: Record<SkillId, SkillDef> = {
   // (rule 2), where the Harrow Market already sells drones: Command Piloting III can
   // be trained in 23 minutes, IV takes at least 47 (design/content-tree.md 4.5).
   droneOperation: {id: 'droneOperation', name: 'Drone Operation', category: 'Industry', rank: 3, prerequisites: [{skill: 'commandPiloting', level: 4}]},
+  // Step 32: each level adds 4% to the sale price of packed exotics (Packed
+  // Prismite 900 is 1,080 at V). Rank 2, no prerequisites: no exotic is bought or
+  // sold in the scripted first 30 minutes, and none can be bought at all, so the
+  // bonus opens no buy-and-sell loop (design/content-tree.md, step 32).
+  exoticPacking: {id: 'exoticPacking', name: 'Exotic Packing', category: 'Industry', rank: 2, prerequisites: []},
   // Step 17, the first Science skill: wider target bands in the probe scan sweep,
   // where a scan needs 2 hits of 3 inside bands about 0.36 s wide and a failed scan
   // locks the scanner for 60 s. Rank 1, no prerequisites.
@@ -86,6 +91,14 @@ export const LASER_TUNING_CUT = 0.04;
 /** A mining cycle in seconds at a Laser Tuning level, to 0.1 s: the MK1's 10 s is 8 s at level 5. */
 export function minerCycleAt(baseSec: number, laserTuningLevel: number): number {
   return Math.round(baseSec * (1 - LASER_TUNING_CUT * laserTuningLevel) * 10) / 10;
+}
+
+/** Exotic Packing: each level adds this many percent to a packed exotic's sale price. */
+export const PACKING_SALE_PCT = 4;
+
+/** A packed exotic's sale price in whole MARKS at an Exotic Packing level: Packed Prismite's 900 is 1,080 at level 5. */
+export function packedSalePriceAt(basePrice: number, exoticPackingLevel: number): number {
+  return Math.round(basePrice * (1 + (PACKING_SALE_PCT * exoticPackingLevel) / 100));
 }
 
 /** Drone Operation: each level cuts every drone's work cycle by this share. */

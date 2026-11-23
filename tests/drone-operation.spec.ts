@@ -11,7 +11,7 @@ import {DRONE_OPERATION_CUT, droneCycleAt, prerequisiteText, SKILLS, unmetPrereq
 
 const BASE = {...RICH, milestoneIndustrialistClaimed: true};
 const SKILLS_AT = (droneOperation: number, commandPiloting = 4) => ({
-  skills: {mining: 0, laserTuning: 0, lowProfile: 0, gunnery: 0, chargeControl: 0, shieldOp: 0, boosterEfficiency: 0, armorLayering: 0, navigation: 0, cargoTrim: 0, haulerPiloting: 0, industrialPiloting: 1, commandPiloting, refining: 0, droneOperation, signalAnalysis: 0},
+  skills: {mining: 0, laserTuning: 0, lowProfile: 0, gunnery: 0, chargeControl: 0, shieldOp: 0, boosterEfficiency: 0, armorLayering: 0, navigation: 0, cargoTrim: 0, haulerPiloting: 0, industrialPiloting: 1, commandPiloting, refining: 0, droneOperation, exoticPacking: 0, signalAnalysis: 0},
 });
 
 test('catalog: Drone Operation is a rank 3 Industry skill after Command Piloting IV', () => {

@@ -104,7 +104,7 @@ import {CargoHoldPanel} from './utils/CargoHoldPanel';
 import {MARKET_CARGO_DESCRIPTIONS} from './content/market';
 import {MarketPanel} from './utils/MarketPanel';
 import {createWarpVisuals, drawWarpFlow} from './utils/warp-visuals';
-import {ARMOR_LAYERING_PCT, BASE_REFINE_OUTPUT, BOOSTER_EFFICIENCY_CUT, boosterCapAt, CARGO_TRIM_CUT, CHARGE_CONTROL_CUT, DRONE_OPERATION_CUT, droneCycleAt, effectiveLoad, FERRITE_PER_TRITANIUM, freeFerriteAt, LASER_TUNING_CUT, LOW_PROFILE_FREE_FERRITE, LOW_PROFILE_MINING_CUT, maxArmorAt, minerCycleAt, miningNoticePerSec, noticeFerrite, prerequisiteText, REFINING_BONUS_PER_LEVEL, refineOutputAt, saleNotice, SCAN_BANDS, SCAN_SWEEP_RAD_PER_SEC, scanBandAt, scanWindowSec, SIGNAL_ANALYSIS_WIDEN, SKILL_CATEGORY_ORDER, skillLevels, SKILLS, unmetPrerequisites, weaponCycleAt} from './content/skills';
+import {ARMOR_LAYERING_PCT, BASE_REFINE_OUTPUT, BOOSTER_EFFICIENCY_CUT, boosterCapAt, CARGO_TRIM_CUT, CHARGE_CONTROL_CUT, DRONE_OPERATION_CUT, droneCycleAt, PACKING_SALE_PCT, packedSalePriceAt, effectiveLoad, FERRITE_PER_TRITANIUM, freeFerriteAt, LASER_TUNING_CUT, LOW_PROFILE_FREE_FERRITE, LOW_PROFILE_MINING_CUT, maxArmorAt, minerCycleAt, miningNoticePerSec, noticeFerrite, prerequisiteText, REFINING_BONUS_PER_LEVEL, refineOutputAt, saleNotice, SCAN_BANDS, SCAN_SWEEP_RAD_PER_SEC, scanBandAt, scanWindowSec, SIGNAL_ANALYSIS_WIDEN, SKILL_CATEGORY_ORDER, skillLevels, SKILLS, unmetPrerequisites, weaponCycleAt} from './content/skills';
 import {formatSpeed, FULL_HOLD_THRUST_CUT, flightLimits, PIXELS_PER_KM, topSpeed} from './content/flight';
 import type {ModuleDef} from './content/types';
 import {
@@ -1551,6 +1551,14 @@ export const SKILL_DEFINITIONS: SkillDefinition[] = [
     description: `+${REFINING_BONUS_PER_LEVEL} refined goods from every ${50} ore refined, per level`,
     getBonusText: (level: number) =>
       `50 ore -> ${refineOutputAt(level)} refined (+${Math.round((100 * (refineOutputAt(level) - BASE_REFINE_OUTPUT)) / BASE_REFINE_OUTPUT)}%)`,
+  },
+  {
+    id: 'exoticPacking',
+    name: 'Exotic Packing',
+    category: SKILLS.exoticPacking.category,
+    description: `+${PACKING_SALE_PCT}% sale price for Packed Prismite, Nimbus and Radflux per level`,
+    getBonusText: (level: number) =>
+      `+${PACKING_SALE_PCT * level}% packed exotic prices (Packed Prismite ${packedSalePriceAt(STATION_PRICES.Harrow.packedPrismite, level).toLocaleString()} MARKS)`,
   },
   {
     id: 'droneOperation',
@@ -12360,7 +12368,7 @@ export default function App() {
     if (current <= 0) return;
     cargoPackedPrismiteRef.current = 0;
     setCargoPackedPrismite(0);
-    const price = getStationPrices(currentSystemRef.current).packedPrismite;
+    const price = packedSalePriceAt(getStationPrices(currentSystemRef.current).packedPrismite, skillsRef.current.exoticPacking || 0);
     const total = current * price;
     setMarks((prev) => {
       const newMarks = Math.max(0, prev + total);
@@ -12376,7 +12384,7 @@ export default function App() {
     if (current <= 0) return;
     cargoPackedNimbusRef.current = 0;
     setCargoPackedNimbus(0);
-    const price = getStationPrices(currentSystemRef.current).packedNimbus;
+    const price = packedSalePriceAt(getStationPrices(currentSystemRef.current).packedNimbus, skillsRef.current.exoticPacking || 0);
     const total = current * price;
     setMarks((prev) => {
       const newMarks = Math.max(0, prev + total);
@@ -12392,7 +12400,7 @@ export default function App() {
     if (current <= 0) return;
     cargoPackedRadfluxRef.current = 0;
     setCargoPackedRadflux(0);
-    const price = getStationPrices(currentSystemRef.current).packedRadflux;
+    const price = packedSalePriceAt(getStationPrices(currentSystemRef.current).packedRadflux, skillsRef.current.exoticPacking || 0);
     const total = current * price;
     setMarks((prev) => {
       const newMarks = Math.max(0, prev + total);
@@ -13136,9 +13144,9 @@ export default function App() {
     const priPrice = prices.prismite;
     const nimPrice = prices.nimbus;
     const radPrice = prices.radflux;
-    const ppriPrice = prices.packedPrismite;
-    const pnimPrice = prices.packedNimbus;
-    const pradPrice = prices.packedRadflux;
+    const ppriPrice = packedSalePriceAt(prices.packedPrismite, skillsRef.current.exoticPacking || 0);
+    const pnimPrice = packedSalePriceAt(prices.packedNimbus, skillsRef.current.exoticPacking || 0);
+    const pradPrice = packedSalePriceAt(prices.packedRadflux, skillsRef.current.exoticPacking || 0);
     const polyPrice = prices.polymer;
     const chemPrice = prices.chemical;
     const polyCompPrice = prices.polymerComposite;
@@ -28819,9 +28827,9 @@ export default function App() {
                   const prismitePrice = prices.prismite;
                   const nimbusPrice = prices.nimbus;
                   const radfluxPrice = prices.radflux;
-                  const packedPrismitePrice = prices.packedPrismite;
-                  const packedNimbusPrice = prices.packedNimbus;
-                  const packedRadfluxPrice = prices.packedRadflux;
+                  const packedPrismitePrice = packedSalePriceAt(prices.packedPrismite, skills.exoticPacking || 0);
+                  const packedNimbusPrice = packedSalePriceAt(prices.packedNimbus, skills.exoticPacking || 0);
+                  const packedRadfluxPrice = packedSalePriceAt(prices.packedRadflux, skills.exoticPacking || 0);
                   const silicateLensPrice = prices.silicateLens;
                   const metallicLensPrice = prices.metallicLens;
                   const exoticLensPrice = prices.exoticLens;

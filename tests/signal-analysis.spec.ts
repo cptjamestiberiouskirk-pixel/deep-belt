@@ -9,7 +9,7 @@ import {SCAN_BANDS, SCAN_SWEEP_RAD_PER_SEC, scanBandAt, scanWindowSec, SIGNAL_AN
 
 const BASE = {...RICH, milestoneIndustrialistClaimed: true, hasProbeLauncher: true};
 const SKILLS_AT = (signalAnalysis: number) => ({
-  skills: {mining: 0, laserTuning: 0, lowProfile: 0, gunnery: 0, chargeControl: 0, shieldOp: 0, boosterEfficiency: 0, navigation: 0, cargoTrim: 0, refining: 0, droneOperation: 0, signalAnalysis},
+  skills: {mining: 0, laserTuning: 0, lowProfile: 0, gunnery: 0, chargeControl: 0, shieldOp: 0, boosterEfficiency: 0, navigation: 0, cargoTrim: 0, refining: 0, droneOperation: 0, exoticPacking: 0, signalAnalysis},
 });
 
 test('catalog: Signal Analysis is a rank 1 Science skill that widens the scan bands', () => {
