@@ -37811,7 +37811,7 @@ export default function App() {
                 <div style={btnSubLabelStyle}>
                   {!fittedSlots.slot3ShieldBooster
                     ? 'not fitted'
-                    : (moduleShieldActive ? 'active' : (p.capacitor < 25 ? 'low cap' : 'ready'))}
+                    : (moduleShieldActive ? 'active' : (p.capacitor < (boosterStats().capPerCycle ?? 25) ? 'low cap' : 'ready'))}
                 </div>
                 <CycleProgressBar
                   active={moduleShieldActive}
