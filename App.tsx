@@ -6319,6 +6319,18 @@ export default function App() {
     patrolAngle: 0,
   });
 
+  /**
+   * Starts a killed pirate's respawn wait, the same for a kill by the ship's
+   * weapon and by a defense drone: 180 s for the Belt Two and Vael pirates, 60 s
+   * for the Rift Corsair. Others need none: the Ash Drift pirate returns on its
+   * own 90 s countdown, and raiders and Rift guardians do not respawn this way.
+   */
+  const startRespawnTimer = (hostile: {id: string}) => {
+    if (hostile.id === pirateRef.current.id) pirateRef.current.respawnTimer = 180;
+    else if (hostile.id === vaelPirateRef.current.id) vaelPirateRef.current.respawnTimer = 180;
+    else if (hostile.id === riftPirateRef.current.id) riftPirateRef.current.respawnTimer = 60.0;
+  };
+
   // Layout Persistence & Stat Application
   const applyHullLayout = useCallback(() => {
     const curHull = activeHullRef.current;
@@ -19511,10 +19523,8 @@ export default function App() {
                 activePirateTarget.hull = 0;
                 if (guardianTarget) {
                   // No respawns within a run: the shared handler below marks it done.
-                } else if (!isTargetAshPirate && !raiderTarget && !isTargetRift) {
-                  pirate.respawnTimer = 180;
-                } else if (isTargetRift) {
-                  riftPirateRef.current.respawnTimer = 60.0;
+                } else {
+                  startRespawnTimer(activePirateTarget);
                 }
                 p.cannonActive = false;
                 p.cannonTimer = 0;
@@ -20480,8 +20490,7 @@ export default function App() {
             } else if (nearestHostile.hull <= 0) {
               nearestHostile.isAlive = false;
               nearestHostile.hull = 0;
-              if (nearestHostile.id === pirateRef.current.id) pirateRef.current.respawnTimer = 180;
-              else if (nearestHostile.id === riftPirateRef.current.id) riftPirateRef.current.respawnTimer = 60.0;
+              startRespawnTimer(nearestHostile);
 
               gameAudio.playExplosion();
               createExplosion(nearestHostile.x, nearestHostile.y, 70, '#ef4444');
