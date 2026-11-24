@@ -27,7 +27,7 @@ const player = (page: Page) => page.evaluate(() => (window as any).__DEEP_BELT_P
 const pirate = (page: Page) => page.evaluate(() => (window as any).__DEEP_BELT_PROBE__.pirate() as Pirate);
 
 const BASE = {...RICH, milestoneIndustrialistClaimed: true};
-const skills = (s: Record<string, number>) => ({skills: {mining: 0, laserTuning: 0, lowProfile: 0, gunnery: 0, chargeControl: 0, shieldOp: 0, boosterEfficiency: 0, armorLayering: 0, navigation: 0, cargoTrim: 0, haulerPiloting: 0, industrialPiloting: 0, commandPiloting: 0, refining: 0, droneOperation: 0, exoticPacking: 0, signalAnalysis: 0, signalRecovery: 0, ...s}});
+const skills = (s: Record<string, number>) => ({skills: {mining: 0, laserTuning: 0, lowProfile: 0, gunnery: 0, chargeControl: 0, shieldOp: 0, boosterEfficiency: 0, armorLayering: 0, navigation: 0, cargoTrim: 0, haulerPiloting: 0, industrialPiloting: 0, commandPiloting: 0, refining: 0, droneOperation: 0, exoticPacking: 0, signalAnalysis: 0, signalRecovery: 0, armorMending: 0, ...s}});
 const fitting = (fitted: Array<string | null>) => ({fitting: {hangar: {}, fitted, loadouts: {}}});
 const PLAIN = ['miner_mk1', null, null, 'light_cannon'];
 const BULK = ['miner_mk1', 'bulk_hold', null, 'light_cannon'];
@@ -667,7 +667,8 @@ for (const c of WAVES) {
       raidersLeft: await alive(),
       fightSec: Math.round((Date.now() - start) / 1000),
       hpLost: Math.round(p0.shield + p0.armor + p0.hull - (p.shield + p.armor + p.hull)),
-      // Armor and hull don't regenerate: the station repairs them for 3 and 4 MARKS an HP.
+      // Without Armor Mending (step 48) armor and hull don't come back in space. Docking
+      // repairs them for free; repairMarks is the Repair tab's 3 and 4 MARKS an HP.
       armorLost: Math.round(p0.armor - p.armor),
       hullLost: Math.round(p0.hull - p.hull),
       repairMarks: Math.round((p0.armor - p.armor) * 3 + (p0.hull - p.hull) * 4),
@@ -778,6 +779,75 @@ for (const c of VAEL_FIGHTS) {
       minHull: Math.round(minHull),
       standoffKm: km.max ? [Math.round(km.min * 10) / 10, Math.round(km.max * 10) / 10] : null,
     });
+  });
+}
+
+// --- Armor Mending (step 48): the Vael Heavy Pirate twice without docking. Win the
+// first fight, wait at Vael Station (over 20 km from the pirate's home, in space, not
+// docked) for its 180 s respawn, then fight it again. Records the armor each fight
+// starts with and how the second one ends, at Armor Mending 0 and V, both at Armor
+// Layering V (its prerequisite). Docking would repair armor for free, so it never docks.
+// (A Lance Driver at Gunnery III with no armor module loses the first fight, so the
+// Gunnery III cases carry Composite Armor, as tests/pirate-respawn.spec.ts does.)
+const MENDS: Array<{name: string; weapon: string; second: string | null; gu: number; am: number}> = [
+  {name: 'Lance Driver + armor, Gunnery III, Armor Mending 0', weapon: 'lance_driver', second: 'composite_armor', gu: 3, am: 0},
+  {name: 'Lance Driver + armor, Gunnery III, Armor Mending V', weapon: 'lance_driver', second: 'composite_armor', gu: 3, am: 5},
+  {name: 'Lance Driver II, Gunnery V, Armor Mending 0', weapon: 'lance_driver_ii', second: null, gu: 5, am: 0},
+  {name: 'Lance Driver II, Gunnery V, Armor Mending V', weapon: 'lance_driver_ii', second: null, gu: 5, am: 5},
+];
+for (const c of MENDS) {
+  test(`armor mending: two Vael fights, ${c.name}`, async ({page}) => {
+    test.setTimeout(600_000);
+    type V = {isAlive: boolean; shield: number; armor: number; hull: number; respawnTimer: number};
+    const vael = () => page.evaluate(() => (window as any).__DEEP_BELT_PROBE__.vaelPirate() as V);
+    await openWithSave(page, {...BASE, ...skills({gunnery: c.gu, armorLayering: 5, armorMending: c.am}), ...fitting(['miner_mk1', c.second, null, c.weapon]), missionIndex: 3, missionStatus: 'completed', hasGatePermit: true});
+    await enterGame(page);
+    await undock(page);
+    await flyTo(page, 'Harrow Outer Jump Gate');
+    await expect(async () => {
+      await page.keyboard.press('j');
+      await expect(page.getByText('Vael System ·')).toBeVisible({timeout: 5000});
+    }).toPass({timeout: 60_000});
+    /** One fight at the Vael Belt: lock, fire, until the pirate dies or the ship is towed home. */
+    const fight = async () => {
+      await flyTo(page, 'Vael Belt');
+      await expect.poll(async () => (await vael()).isAlive, {timeout: 30_000}).toBe(true);
+      const startShip = await player(page);
+      await page.getByText('Ships', {exact: true}).click();
+      await page.getByText('Heavy Pirate Frigate', {exact: true}).first().click();
+      await expect.poll(() => targetPanel(page)).toMatch(/Heavy Pirate Frigate/);
+      await page.keyboard.press('l');
+      await expect.poll(() => targetPanel(page), {timeout: 20_000}).toMatch(/Locked/);
+      if (!(await player(page)).cannonActive) await page.keyboard.press('2');
+      const start = Date.now();
+      let p = startShip;
+      let q = await vael();
+      while (q.isAlive && !p.docked && Date.now() - start < 240_000) {
+        await page.waitForTimeout(250);
+        p = await player(page);
+        q = await vael();
+      }
+      // The weapon is a toggle: leave it off for the wait.
+      if (!p.docked && (await player(page)).cannonActive) await page.keyboard.press('2');
+      return {
+        startArmor: Math.round(startShip.armor), startHull: Math.round(startShip.hull),
+        won: !q.isAlive, shipLost: p.docked, fightSec: Math.round((Date.now() - start) / 100) / 10,
+        endArmor: p.docked ? null : Math.round(p.armor), endHull: p.docked ? null : Math.round(p.hull),
+        pirateHpLeft: q.isAlive ? Math.round(q.shield + q.armor + q.hull) : 0,
+      };
+    };
+    const first = await fight();
+    let second: Awaited<ReturnType<typeof fight>> | null = null;
+    let waitSec: number | null = null;
+    if (first.won && !first.shipLost) {
+      await flyTo(page, 'Vael Station');
+      const t0 = Date.now();
+      await expect.poll(async () => (await vael()).isAlive, {timeout: 240_000, intervals: [1000]}).toBe(true);
+      waitSec = Math.round((Date.now() - t0) / 1000);
+      expect((await player(page)).docked, 'the wait is in space').toBe(false);
+      second = await fight();
+    }
+    record({probe: 'armor mending', case: c.name, first, waitSec, second});
   });
 }
 

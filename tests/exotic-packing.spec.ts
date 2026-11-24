@@ -12,7 +12,7 @@ import {PACKING_SALE_PCT, packedSalePriceAt, SKILLS} from '../content/skills';
 
 const BASE = {...RICH, milestoneIndustrialistClaimed: true};
 const SKILLS_AT = (exoticPacking: number) => ({
-  skills: {mining: 0, laserTuning: 0, lowProfile: 0, gunnery: 0, chargeControl: 0, shieldOp: 0, boosterEfficiency: 0, armorLayering: 0, navigation: 0, cargoTrim: 0, haulerPiloting: 0, industrialPiloting: 0, commandPiloting: 0, refining: 0, droneOperation: 0, exoticPacking, signalAnalysis: 0, signalRecovery: 0},
+  skills: {mining: 0, laserTuning: 0, lowProfile: 0, gunnery: 0, chargeControl: 0, shieldOp: 0, boosterEfficiency: 0, armorLayering: 0, navigation: 0, cargoTrim: 0, haulerPiloting: 0, industrialPiloting: 0, commandPiloting: 0, refining: 0, droneOperation: 0, exoticPacking, signalAnalysis: 0, signalRecovery: 0, armorMending: 0},
 });
 
 test('catalog: Exotic Packing is a rank 2 Industry skill with no prerequisites', () => {

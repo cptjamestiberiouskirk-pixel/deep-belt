@@ -55,8 +55,8 @@ test('skills screen: at Shield Operation II, Booster Efficiency I queues for 100
   await enterGame(page);
   const before = (await readSave(page))!;
   await openSkills(page);
-  const defense = page.getByTestId('skill-category-Defense');
-  await expect(defense.getByRole('button', {name: /^NEEDS/})).toHaveCount(0);
+  // Scoped to the card: Armor Mending, also under Defense, needs Armor Layering V (step 48).
+  await expect(page.getByTestId('skill-card-boosterEfficiency').getByRole('button', {name: /^NEEDS/})).toHaveCount(0);
   await page.getByTestId('skill-card-boosterEfficiency').getByRole('button', {name: 'LVL I (100 MARKS • 2:00)'}).click();
   await expect.poll(async () => (await readSave(page))!.trainingQueue.length).toBe(1);
   const after = (await readSave(page))!;

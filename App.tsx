@@ -104,7 +104,7 @@ import {CargoHoldPanel} from './utils/CargoHoldPanel';
 import {MARKET_CARGO_DESCRIPTIONS} from './content/market';
 import {MarketPanel} from './utils/MarketPanel';
 import {createWarpVisuals, drawWarpFlow} from './utils/warp-visuals';
-import {ARMOR_LAYERING_PCT, BASE_REFINE_OUTPUT, BOOSTER_EFFICIENCY_CUT, boosterCapAt, CARGO_TRIM_CUT, CHARGE_CONTROL_CUT, DRONE_OPERATION_CUT, droneCycleAt, PACKING_SALE_PCT, packedSalePriceAt, effectiveLoad, FERRITE_PER_TRITANIUM, freeFerriteAt, LASER_TUNING_CUT, LOW_PROFILE_FREE_FERRITE, LOW_PROFILE_MINING_CUT, maxArmorAt, minerCycleAt, miningNoticePerSec, noticeFerrite, prerequisiteText, REFINING_BONUS_PER_LEVEL, refineOutputAt, saleNotice, SCAN_BANDS, SCAN_SUCCESS_COOLDOWN_SEC, SCAN_SWEEP_RAD_PER_SEC, scanBandAt, scanLockoutSecAt, scanWindowSec, SIGNAL_ANALYSIS_WIDEN, SIGNAL_RECOVERY_CUT_SEC, SKILL_CATEGORY_ORDER, skillLevels, SKILLS, unmetPrerequisites, weaponCycleAt} from './content/skills';
+import {ARMOR_LAYERING_PCT, ARMOR_MENDING_HP_PER_SEC, armorMendRateAt, BASE_REFINE_OUTPUT, BOOSTER_EFFICIENCY_CUT, boosterCapAt, CARGO_TRIM_CUT, CHARGE_CONTROL_CUT, DRONE_OPERATION_CUT, droneCycleAt, PACKING_SALE_PCT, packedSalePriceAt, effectiveLoad, FERRITE_PER_TRITANIUM, freeFerriteAt, LASER_TUNING_CUT, LOW_PROFILE_FREE_FERRITE, LOW_PROFILE_MINING_CUT, maxArmorAt, minerCycleAt, miningNoticePerSec, noticeFerrite, prerequisiteText, REFINING_BONUS_PER_LEVEL, refineOutputAt, saleNotice, SCAN_BANDS, SCAN_SUCCESS_COOLDOWN_SEC, SCAN_SWEEP_RAD_PER_SEC, scanBandAt, scanLockoutSecAt, scanWindowSec, SIGNAL_ANALYSIS_WIDEN, SIGNAL_RECOVERY_CUT_SEC, SKILL_CATEGORY_ORDER, skillLevels, SKILLS, unmetPrerequisites, weaponCycleAt} from './content/skills';
 import {formatSpeed, FULL_HOLD_THRUST_CUT, flightLimits, PIXELS_PER_KM, topSpeed} from './content/flight';
 import type {ModuleDef} from './content/types';
 import {
@@ -1503,6 +1503,14 @@ export const SKILL_DEFINITIONS: SkillDefinition[] = [
     description: `+${ARMOR_LAYERING_PCT}% armor HP per level, fitted armor included`,
     getBonusText: (level: number) =>
       `+${level * ARMOR_LAYERING_PCT}% armor HP (${maxArmorAt(HULL_DEFINITIONS[0].baseArmor, 0, level)} max HP)`,
+  },
+  {
+    id: 'armorMending',
+    name: 'Armor Mending',
+    category: SKILLS.armorMending.category,
+    description: `+${ARMOR_MENDING_HP_PER_SEC} armor HP a second in space, per level, after 4s without a hit`,
+    getBonusText: (level: number) =>
+      `+${armorMendRateAt(level).toFixed(1)} armor HP/s in space (hull only at a station)`,
   },
   {
     id: 'navigation',
@@ -18377,9 +18385,17 @@ export default function App() {
 
     if (p.shieldRegenDelayTimer > 0) {
       p.shieldRegenDelayTimer -= dt;
-    } else if (p.shield < p.maxShield) {
-      // Natural passive Shield regeneration uses real dt clamped 0.001..0.05
-      p.shield = Math.min(p.maxShield, p.shield + 2 * dt * shieldRegenMult);
+    } else {
+      if (p.shield < p.maxShield) {
+        // Natural passive Shield regeneration uses real dt clamped 0.001..0.05
+        p.shield = Math.min(p.maxShield, p.shield + 2 * dt * shieldRegenMult);
+      }
+      // Armor Mending (step 48): armor comes back after the same 4 s without a hit,
+      // slowed in the Rift's decay phases as the shield is, never past max armor.
+      const mendPerSec = armorMendRateAt(skillsRef.current.armorMending || 0);
+      if (mendPerSec > 0 && p.armor < p.maxArmor) {
+        p.armor = Math.min(p.maxArmor, p.armor + mendPerSec * dt * shieldRegenMult);
+      }
     }
 
     // Belt Notice Accumulation & Decay in space

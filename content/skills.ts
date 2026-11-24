@@ -4,7 +4,7 @@
 //
 // The bonus each level gives stays in App.tsx's SKILL_DEFINITIONS for now.
 
-export type SkillId = 'mining' | 'laserTuning' | 'lowProfile' | 'gunnery' | 'chargeControl' | 'shieldOp' | 'boosterEfficiency' | 'armorLayering' | 'navigation' | 'cargoTrim' | 'haulerPiloting' | 'industrialPiloting' | 'commandPiloting' | 'refining' | 'droneOperation' | 'exoticPacking' | 'signalAnalysis' | 'signalRecovery';
+export type SkillId = 'mining' | 'laserTuning' | 'lowProfile' | 'gunnery' | 'chargeControl' | 'shieldOp' | 'boosterEfficiency' | 'armorLayering' | 'armorMending' | 'navigation' | 'cargoTrim' | 'haulerPiloting' | 'industrialPiloting' | 'commandPiloting' | 'refining' | 'droneOperation' | 'exoticPacking' | 'signalAnalysis' | 'signalRecovery';
 export type SkillCategory = 'Extraction' | 'Gunnery' | 'Defense' | 'Navigation' | 'Industry' | 'Science';
 
 export interface SkillDef {
@@ -40,6 +40,10 @@ export const SKILLS: Record<SkillId, SkillDef> = {
   // sibling of Shield Operation. The Vael pirate probe found armor decides the
   // fights a Ferrier wins there, and a skill takes no slot from the booster or relay.
   armorLayering: {id: 'armorLayering', name: 'Armor Layering', category: 'Defense', rank: 1, prerequisites: []},
+  // Step 48 (designed in step 41): armor that comes back slowly in space, after the
+  // same 4 s without a hit that holds the shield back. Rank 2, after Armor Layering
+  // V, which Composite Armor II needs too. Hull still comes back only at a station.
+  armorMending: {id: 'armorMending', name: 'Armor Mending', category: 'Defense', rank: 2, prerequisites: [{skill: 'armorLayering', level: 5}]},
   navigation: {id: 'navigation', name: 'Navigation', category: 'Navigation', rank: 1, prerequisites: []},
   // Step 9: a loaded hold slows and handles less. Rank 2, after Navigation II.
   cargoTrim: {id: 'cargoTrim', name: 'Cargo Trim', category: 'Navigation', rank: 2, prerequisites: [{skill: 'navigation', level: 2}]},
@@ -168,6 +172,14 @@ export const ARMOR_LAYERING_PCT = 10;
 /** Max armor at an Armor Layering level: a Ferrier's 80 is 120 at level 5, or 270 with Composite Armor's 100. */
 export function maxArmorAt(baseArmor: number, fittedArmor: number, armorLayeringLevel: number): number {
   return Math.round((baseArmor + fittedArmor) * (1 + (ARMOR_LAYERING_PCT / 100) * armorLayeringLevel));
+}
+
+/** Armor Mending: each level restores this much armor HP a second in space (step 48). */
+export const ARMOR_MENDING_HP_PER_SEC = 0.2;
+
+/** Armor HP a second that Armor Mending restores at a level, to 0.1: 1 HP/s at level 5, half the shield's passive 2. */
+export function armorMendRateAt(armorMendingLevel: number): number {
+  return Math.round(ARMOR_MENDING_HP_PER_SEC * armorMendingLevel * 10) / 10;
 }
 
 /** Refined goods from one 50-ore batch, before Refining. */

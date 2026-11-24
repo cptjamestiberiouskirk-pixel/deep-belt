@@ -197,9 +197,9 @@ export const MODULES: Record<ModuleId, ModuleDef> = {
     requires: {skill: 'shieldOp', level: 5},
   },
   // Step 12: a side-grade to the Shield Booster. Flat armor that uses no Cap and
-  // needs no activation, so a Cap-hungry weapon keeps firing; but armor never
-  // regenerates in space. Docking repairs it for free (the user, 2026-11-24: docking
-  // stays free, no repair charge). One only.
+  // needs no activation, so a Cap-hungry weapon keeps firing; but armor comes back
+  // in space only with the Armor Mending skill (step 48, 1 HP/s at V). Docking repairs
+  // it for free (the user, 2026-11-24: docking stays free, no repair charge). One only.
   composite_armor: {
     id: 'composite_armor',
     name: 'Composite Armor',
@@ -211,7 +211,7 @@ export const MODULES: Record<ModuleId, ModuleDef> = {
     slot: 'utility',
     stats: {armorHp: COMPOSITE_ARMOR_HP},
     statBadge: `+${COMPOSITE_ARMOR_HP} armor`,
-    desc: `Layered ceramic and alloy plating: +${COMPOSITE_ARMOR_HP} armor HP. Uses no capacitor, but armor does not regenerate in space; docking repairs it.`,
+    desc: `Layered ceramic and alloy plating: +${COMPOSITE_ARMOR_HP} armor HP. Uses no capacitor; armor comes back in space only with Armor Mending, and docking repairs it.`,
     icon: 'module_armor_plate',
   },
   // Step 34: the tier step of Composite Armor (rule 3), a straight upgrade behind
@@ -227,7 +227,7 @@ export const MODULES: Record<ModuleId, ModuleDef> = {
     slot: 'utility',
     stats: {armorHp: COMPOSITE_ARMOR_II_HP},
     statBadge: `+${COMPOSITE_ARMOR_II_HP} armor`,
-    desc: `Denser layered plating: +${COMPOSITE_ARMOR_II_HP} armor HP. Uses no capacitor, but armor does not regenerate in space; docking repairs it.`,
+    desc: `Denser layered plating: +${COMPOSITE_ARMOR_II_HP} armor HP. Uses no capacitor; armor comes back in space only with Armor Mending, and docking repairs it.`,
     icon: 'module_armor_plate',
     requires: {skill: 'armorLayering', level: 5},
   },

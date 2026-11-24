@@ -5,7 +5,8 @@ import {fittedTotal} from '../content/fitting';
 
 // Step 12 of design/content-tree.md: Composite Armor, a utility module and a
 // side-grade to the Shield Booster. It adds flat armor that uses no Cap, but
-// armor never regenerates and the station charges to repair it. One only.
+// armor comes back in space only with Armor Mending (step 48), and docking repairs
+// it for free. One only.
 
 const BASE = {...RICH, milestoneIndustrialistClaimed: true};
 const PLAIN = {fitting: {hangar: {}, fitted: ['miner_mk1', null, null, 'light_cannon'], loadouts: {}}};

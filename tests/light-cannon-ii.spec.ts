@@ -9,7 +9,7 @@ import {toLegacy, type Slots} from '../content/fitting';
 
 const BASE = {...RICH, milestoneIndustrialistClaimed: true};
 const SKILLS_AT = (gunnery: number) => ({
-  skills: {mining: 0, laserTuning: 0, lowProfile: 0, gunnery, chargeControl: 0, shieldOp: 0, boosterEfficiency: 0, armorLayering: 0, navigation: 0, cargoTrim: 0, haulerPiloting: 0, industrialPiloting: 0, commandPiloting: 0, refining: 0, droneOperation: 0, exoticPacking: 0, signalAnalysis: 0, signalRecovery: 0},
+  skills: {mining: 0, laserTuning: 0, lowProfile: 0, gunnery, chargeControl: 0, shieldOp: 0, boosterEfficiency: 0, armorLayering: 0, navigation: 0, cargoTrim: 0, haulerPiloting: 0, industrialPiloting: 0, commandPiloting: 0, refining: 0, droneOperation: 0, exoticPacking: 0, signalAnalysis: 0, signalRecovery: 0, armorMending: 0},
 });
 const fitting = (fitted: Slots) => ({fitting: {hangar: {}, fitted, loadouts: {}}});
 const PLAIN: Slots = ['miner_mk1', null, null, 'light_cannon'];
