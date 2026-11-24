@@ -1,6 +1,7 @@
 import {appendFileSync, mkdirSync} from 'node:fs';
 import {dirname} from 'node:path';
 import {expect, test, type Page} from '@playwright/test';
+import {PIXELS_PER_KM} from '../content/flight';
 import {enterGame, flyTo, mineUntil, openWithSave, readSave, RICH, SAVE_KEY, selectTarget, settle, targetPanel, tuneLaser, undock, warpTo} from './helpers';
 
 // Balance probe (design/content-tree.md rule 5: tuning is measured). It plays
@@ -103,6 +104,8 @@ const FIGHTS: Array<{name: string; weapon: string; cc: number; booster: boolean;
   {name: 'Lance Driver, Gunnery IV', weapon: 'lance_driver', cc: 0, booster: false, gunnery: 4},
   {name: 'Light Cannon, Gunnery V', weapon: 'light_cannon', cc: 0, booster: false, gunnery: 5},
   {name: 'Lance Driver, Gunnery V', weapon: 'lance_driver', cc: 0, booster: false, gunnery: 5},
+  // Step 38: Lance Driver II needs Gunnery V.
+  {name: 'Lance Driver II, Gunnery V', weapon: 'lance_driver_ii', cc: 0, booster: false, gunnery: 5},
   {name: 'Lance Driver', weapon: 'lance_driver', cc: 0, booster: false},
   {name: 'Light Cannon + booster', weapon: 'light_cannon', cc: 0, booster: true},
   {name: 'Lance Driver + booster', weapon: 'lance_driver', cc: 0, booster: true},
@@ -141,10 +144,16 @@ for (const f of FIGHTS) {
     let p = await player(page);
     const startHp = p.shield + p.armor + p.hull;
     let q = await pirate(page);
+    const km = {min: Infinity, max: 0};
     while (q.isAlive && Date.now() - start < 150_000 && p.hull > 0) {
       await page.waitForTimeout(250);
       p = await player(page);
       q = await pirate(page);
+      if (q.isAlive && Date.now() - start > 5000) {
+        const d = Math.hypot(q.x - p.x, q.y - p.y) / PIXELS_PER_KM;
+        km.min = Math.min(km.min, d);
+        km.max = Math.max(km.max, d);
+      }
       minCap = Math.min(minCap, p.capacitor);
       if (p.capacitor < 8) lowCapSec += 0.25;
       pirateTop = Math.max(pirateTop, q.speed);
@@ -159,6 +168,7 @@ for (const f of FIGHTS) {
       secBelow8Cap: lowCapSec,
       boosterStillOn: p.boosterActive,
       pirateTopSpeed: Math.round(pirateTop),
+      standoffKm: km.max ? [Math.round(km.min * 10) / 10, Math.round(km.max * 10) / 10] : null,
     });
   });
 }
@@ -459,19 +469,23 @@ for (const c of WARP_ESCAPES) {
 // --- Fighting a raider wave: sell ore to bring one, then lock each raider from
 // the Overview and fire until both are dead. Gunnery III. Records the fight's
 // length, the HP it cost and the lowest Cap. Step 16 adds the Fire Control Relay.
-const WAVES: Array<{name: string; weapon: string; cc: number; relay: boolean}> = [
+const WAVES: Array<{name: string; weapon: string; cc: number; relay: boolean; gu?: number}> = [
   {name: 'Light Cannon', weapon: 'light_cannon', cc: 0, relay: false},
   {name: 'Light Cannon + Fire Control Relay', weapon: 'light_cannon', cc: 0, relay: true},
   {name: 'Light Cannon, Charge Control V', weapon: 'light_cannon', cc: 5, relay: false},
   {name: 'Light Cannon + Fire Control Relay, Charge Control V', weapon: 'light_cannon', cc: 5, relay: true},
   {name: 'Lance Driver', weapon: 'lance_driver', cc: 0, relay: false},
   {name: 'Lance Driver + Fire Control Relay', weapon: 'lance_driver', cc: 0, relay: true},
+  // Step 38: Lance Driver II needs Gunnery V, so these three compare at V.
+  {name: 'Light Cannon, Gunnery V', weapon: 'light_cannon', cc: 0, relay: false, gu: 5},
+  {name: 'Lance Driver, Gunnery V', weapon: 'lance_driver', cc: 0, relay: false, gu: 5},
+  {name: 'Lance Driver II, Gunnery V', weapon: 'lance_driver_ii', cc: 0, relay: false, gu: 5},
 ];
 for (const c of WAVES) {
   test(`raiders: fight, ${c.name}`, async ({page}) => {
     test.setTimeout(240_000);
     const fitted = ['miner_mk1', c.relay ? 'fire_control' : null, null, c.weapon];
-    await openWithSave(page, {...BASE, ...skills({mining: 2, gunnery: 3, chargeControl: c.cc}), ...fitting(fitted), cargoFerrite: 600});
+    await openWithSave(page, {...BASE, ...skills({mining: 2, gunnery: c.gu ?? 3, chargeControl: c.cc}), ...fitting(fitted), cargoFerrite: 600});
     await enterGame(page);
     await page.keyboard.press('1');
     await settle(page);
@@ -485,7 +499,16 @@ for (const c of WAVES) {
     const start = Date.now();
     let minCap = Infinity;
     let p = p0;
+    const km = {min: Infinity, max: 0};
     while (Date.now() - start < 180_000 && (await alive()) > 0 && p.hull > 0) {
+      if (Date.now() - start > 5000) {
+        const rs = await page.evaluate(() => (window as any).__DEEP_BELT_PROBE__.raiders() as Array<{x: number; y: number}>);
+        for (const r of rs) {
+          const d = Math.hypot(r.x - p.x, r.y - p.y) / PIXELS_PER_KM;
+          km.min = Math.min(km.min, d);
+          km.max = Math.max(km.max, d);
+        }
+      }
       if (!/Raider[\s\S]*Locked|Locked[\s\S]*Raider/.test(await targetPanel(page))) {
         const row = page.getByText(/^Raider \d+$/).first();
         if (!(await row.isVisible())) await page.getByText('Ships', {exact: true}).click();
@@ -512,6 +535,7 @@ for (const c of WAVES) {
       hullLost: Math.round(p0.hull - p.hull),
       repairMarks: Math.round((p0.armor - p.armor) * 3 + (p0.hull - p.hull) * 4),
       minCap: Math.round(minCap),
+      standoffKm: km.max ? [Math.round(km.min * 10) / 10, Math.round(km.max * 10) / 10] : null,
     });
   });
 }
@@ -548,6 +572,9 @@ const VAEL_FIGHTS: Array<{name: string; weapon: string; second: string | null; c
   {name: 'Lance Driver + Fire Control Relay II, Gunnery V', weapon: 'lance_driver', second: 'fire_control_ii', gu: 5},
   {name: 'Light Cannon + Fire Control Relay, Gunnery V', weapon: 'light_cannon', second: 'fire_control', gu: 5},
   {name: 'Light Cannon + Fire Control Relay II, Gunnery V', weapon: 'light_cannon', second: 'fire_control_ii', gu: 5},
+  // Step 38: Lance Driver II needs Gunnery V; compare with 'Lance Driver, Gunnery V'.
+  {name: 'Light Cannon, Gunnery V', weapon: 'light_cannon', second: null, gu: 5},
+  {name: 'Lance Driver II, Gunnery V', weapon: 'lance_driver_ii', second: null, gu: 5},
 ];
 type Vael = {isAlive: boolean; shield: number; armor: number; hull: number; speed: number};
 for (const c of VAEL_FIGHTS) {
@@ -575,6 +602,7 @@ for (const c of VAEL_FIGHTS) {
     const startHp = {shield: p.shield, armor: p.armor, hull: p.hull};
     let q = await vael();
     let minHull = p.hull;
+    const km = {min: Infinity, max: 0};
     let presses = 0;
     let lastPress = 0;
     // A lost ship is towed to the station and repaired, so docked marks the loss.
@@ -583,6 +611,12 @@ for (const c of VAEL_FIGHTS) {
       p = await player(page);
       q = await vael();
       if (!p.docked) minHull = Math.min(minHull, p.hull);
+      if (q.isAlive && !p.docked && Date.now() - start > 5000) {
+        const v = await page.evaluate(() => (window as any).__DEEP_BELT_PROBE__.vaelPirate() as {x: number; y: number});
+        const d = Math.hypot(v.x - p.x, v.y - p.y) / PIXELS_PER_KM;
+        km.min = Math.min(km.min, d);
+        km.max = Math.max(km.max, d);
+      }
       if (c.managed && !p.docked && !p.boosterActive && p.shield < startHp.shield / 2 && p.capacitor >= BOOST_CAP && Date.now() - lastPress > 1000) {
         await page.keyboard.press('3');
         presses++;
@@ -603,6 +637,7 @@ for (const c of VAEL_FIGHTS) {
         hullLost: Math.round(startHp.hull - p.hull),
       }),
       minHull: Math.round(minHull),
+      standoffKm: km.max ? [Math.round(km.min * 10) / 10, Math.round(km.max * 10) / 10] : null,
     });
   });
 }

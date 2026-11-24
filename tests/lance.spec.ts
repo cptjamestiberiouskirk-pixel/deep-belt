@@ -10,7 +10,7 @@ import {toLegacy} from '../content/fitting';
 const BASE = {...RICH, milestoneIndustrialistClaimed: true};
 const SKILLS_AT = (gunnery: number) => ({skills: {mining: 0, gunnery, shieldOp: 0, navigation: 0}});
 
-test('catalog: the Lance Driver is a weapon behind Gunnery II, the last module card', () => {
+test('catalog: the Lance Driver is a weapon behind Gunnery II, the card before Lance Driver II', () => {
   expect(MODULES.lance_driver).toMatchObject({
     name: 'Lance Driver',
     slot: 'weapon',
@@ -19,7 +19,7 @@ test('catalog: the Lance Driver is a weapon behind Gunnery II, the last module c
     stats: {damage: 47, cycleSec: 4, rangeKm: 12, capPerCycle: 14},
     requires: {skill: 'gunnery', level: 2},
   });
-  expect(MARKET_MODULE_IDS).toEqual(['miner_mk2', 'expanded_hold', 'expanded_hold_ii', 'bulk_hold', 'shield_booster', 'shield_booster_ii', 'composite_armor', 'composite_armor_ii', 'fire_control', 'fire_control_ii', 'light_cannon', 'lance_driver']);
+  expect(MARKET_MODULE_IDS).toEqual(['miner_mk2', 'expanded_hold', 'expanded_hold_ii', 'bulk_hold', 'shield_booster', 'shield_booster_ii', 'composite_armor', 'composite_armor_ii', 'fire_control', 'fire_control_ii', 'light_cannon', 'lance_driver', 'lance_driver_ii']);
   expect(missingSkill({gunnery: 1}, 'lance_driver')).toBe('Gunnery II');
   expect(missingSkill({gunnery: 2}, 'lance_driver')).toBeNull();
   expect(missingSkill({}, 'light_cannon')).toBeNull();
@@ -40,7 +40,9 @@ test('market: without Gunnery II the Lance Driver card says what it needs and ha
   await openWithSave(page, {...BASE, ...SKILLS_AT(1)});
   await enterGame(page);
   await openMarket(page);
-  const card = page.locator('div', {hasText: 'Lance Driver', has: page.getByText('Needs Gunnery II', {exact: true})}).last();
+  // By test id: the text "Lance Driver" also matches the Lance Driver II card (step 38).
+  const card = page.getByTestId('market-card-lance_driver');
+  await expect(card).toContainText('Needs Gunnery II');
   await expect(card).toContainText('47 dmg / 4s');
   await expect(card.getByRole('button', {name: 'Buy'})).toHaveCount(0);
   expectClean(problems);
@@ -52,8 +54,9 @@ test('market: the keyboard reaches the Lance Driver card and Enter buys it', asy
   await enterGame(page);
   await openMarket(page);
   // Focus starts on row 0 and wraps upward. After the module cards come the probe
-  // launcher, the deed and six buy rows, so the last card is 9 presses up.
-  for (let i = 0; i < 9; i++) await page.keyboard.press('ArrowUp');
+  // launcher, the deed and six buy rows, so the last card (Lance Driver II, step 38)
+  // is 9 presses up and the Lance Driver, the card before it, 10.
+  for (let i = 0; i < 10; i++) await page.keyboard.press('ArrowUp');
   // Enter first finishes the officer's typed-out line, so wait for it.
   await settle(page);
   await page.keyboard.press('Enter');
@@ -70,7 +73,7 @@ test('lance driver: bought, fitted in place of the cannon, kept on reload, and o
 
   // Buy: the Ferrier's weapon slot holds the Light Cannon, so it waits in the hangar.
   await openMarket(page);
-  const card = page.locator('div', {hasText: 'Lance Driver', has: page.getByRole('button', {name: 'Buy'})}).last();
+  const card = page.getByTestId('market-card-lance_driver');
   await card.getByRole('button', {name: 'Buy'}).click();
   await expect(page.getByText('Lance Driver stored')).toBeVisible();
   await expect.poll(async () => (await readSave(page))!.fitting.hangar.lance_driver).toBe(1);

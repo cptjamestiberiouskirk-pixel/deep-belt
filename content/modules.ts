@@ -21,7 +21,11 @@ export type ModuleId =
   | 'fire_control'
   | 'fire_control_ii'
   | 'light_cannon'
-  | 'lance_driver';
+  | 'lance_driver'
+  | 'lance_driver_ii';
+
+/** Lance Driver II's damage per shot (step 38): half as much again as the Lance Driver's 47, rounded down. */
+export const LANCE_DRIVER_II_DAMAGE = 70;
 
 /** Expanded Hold II's hold space in m³ (step 36): half as much again as the first tier's 500. */
 export const EXPANDED_HOLD_II_BONUS = 750;
@@ -247,6 +251,23 @@ export const MODULES: Record<ModuleId, ModuleDef> = {
     desc: 'Long-barrel mass driver: 47 kinetic damage per slug out to 12.0 km optimal range.',
     icon: 'module_cannon_icon',
     requires: {skill: 'gunnery', level: 2},
+  },
+  // Step 38: the Lance Driver's tier step, behind Gunnery V. Half as much damage
+  // again (70, not 47) for the same 4 s cycle, 12 km and 14 Cap: 17.5 damage/s.
+  lance_driver_ii: {
+    id: 'lance_driver_ii',
+    name: 'Lance Driver II',
+    category: 'module',
+    group: 'Projectile weapons',
+    tier: 3,
+    volume: 0,
+    basePrice: 3750,
+    slot: 'weapon',
+    stats: {damage: LANCE_DRIVER_II_DAMAGE, cycleSec: 4, rangeKm: 12, capPerCycle: 14},
+    statBadge: `${LANCE_DRIVER_II_DAMAGE} dmg / 4s`,
+    desc: `Heavier mass driver on the Lance's long barrel: ${LANCE_DRIVER_II_DAMAGE} kinetic damage per slug out to 12.0 km optimal range.`,
+    icon: 'module_cannon_icon',
+    requires: {skill: 'gunnery', level: 5},
   },
 };
 
