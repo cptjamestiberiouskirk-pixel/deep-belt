@@ -13,6 +13,13 @@ Format, checked by `node dev/lessons.mjs --check`. A field's text may go on over
 - Status: open | promoted to PLAYBOOK "<section>" | closed: <why the rule no longer holds>
 ```
 
+## 2026-11-24: The lessons check ran in the same command as the commit it was for
+- What went wrong: step 36's commit (87a329c) says "the seven specs that pin it" without naming them, which PLAYBOOK "Adding a skill, module or gate" step 1 asks for. The lessons check that listed that section ran in the same Bash command as `git commit` and the push, so its output arrived after both. The commit was already on main, which is not force-pushed, so the message stays as it is.
+- Why: I chained the check onto the commit to save a round trip. A check's output can only change a step that waits for it.
+- Rule going forward: the lessons check before a commit or push runs in its own command, and every PLAYBOOK section it lists is read before the commit command is sent.
+- Evidence: commit 87a329c's message ("the seven specs that pin it"); PLAYBOOK "Adding a skill, module or gate" step 1, "name each in the commit message".
+- Status: open
+
 ## 2026-11-23: An armor probe ended before either tier's armor ran out
 - What went wrong: step 34's first probe of Composite Armor II against the first tier (Vael fight with a Lance Driver, Armor Layering V) gave the same result for both: killed in about 40 s, 208 armor lost, no hull lost. The fight ends with armor to spare on the first tier, so the II's extra armor never came into play. A Light Cannon case, added to run the armor out, ended the same way (252 lost, 18 and 93 left).
 - Why: as with the step 33 booster probe, the case was chosen without asking when the module's effect would show; extra armor shows only in a fight that gets through the first tier's armor.
