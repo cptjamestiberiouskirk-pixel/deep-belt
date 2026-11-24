@@ -30,6 +30,9 @@ const skills = (s: Record<string, number>) => ({skills: {mining: 0, laserTuning:
 const fitting = (fitted: Array<string | null>) => ({fitting: {hangar: {}, fitted, loadouts: {}}});
 const PLAIN = ['miner_mk1', null, null, 'light_cannon'];
 const BULK = ['miner_mk1', 'bulk_hold', null, 'light_cannon'];
+// Step 36: a Ferrier's two utility slots with holds, without and with the II.
+const TWO_HOLDS = ['miner_mk1', 'expanded_hold', 'expanded_hold', 'light_cannon'];
+const HOLD_II = ['miner_mk1', 'expanded_hold', 'expanded_hold_ii', 'light_cannon'];
 
 // --- Top speed: hold thrust from a standstill and take the highest speed seen.
 const SPEEDS = [
@@ -39,6 +42,9 @@ const SPEEDS = [
   {name: 'Bulk Hold, empty', fitted: BULK, ferrite: 0, trim: 0},
   {name: 'Bulk Hold, full (1500)', fitted: BULK, ferrite: 1500, trim: 0},
   {name: 'Bulk Hold, full (1500), Cargo Trim V', fitted: BULK, ferrite: 1500, trim: 5},
+  {name: 'two Expanded Holds, full (1600)', fitted: TWO_HOLDS, ferrite: 1600, trim: 0},
+  {name: 'Expanded Hold and II, empty', fitted: HOLD_II, ferrite: 0, trim: 0},
+  {name: 'Expanded Hold and II, full (1850)', fitted: HOLD_II, ferrite: 1850, trim: 0},
 ];
 for (const c of SPEEDS) {
   test(`speed: ${c.name}`, async ({page}) => {

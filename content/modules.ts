@@ -12,6 +12,7 @@ export type ModuleId =
   | 'miner_mk1'
   | 'miner_mk2'
   | 'expanded_hold'
+  | 'expanded_hold_ii'
   | 'bulk_hold'
   | 'shield_booster'
   | 'shield_booster_ii'
@@ -22,6 +23,8 @@ export type ModuleId =
   | 'light_cannon'
   | 'lance_driver';
 
+/** Expanded Hold II's hold space in m³ (step 36): half as much again as the first tier's 500. */
+export const EXPANDED_HOLD_II_BONUS = 750;
 /** Composite Armor's armor HP (step 12). */
 export const COMPOSITE_ARMOR_HP = 100;
 /** Composite Armor II's armor HP (step 34): half as much again as the first tier. */
@@ -75,6 +78,24 @@ export const MODULES: Record<ModuleId, ModuleDef> = {
     icon: 'module_cargo_expander_icon',
     // Up to three: the most utility slots any hull has (the Gantry). Doubles add up.
     maxOwned: 3,
+  },
+  // Step 36: the tier step of the Expanded Hold (rule 3), a straight upgrade
+  // behind Navigation V. One only. The Bulk Hold stays the side-grade: more
+  // space, no skill, for 20% speed.
+  expanded_hold_ii: {
+    id: 'expanded_hold_ii',
+    name: 'Expanded Hold II',
+    category: 'module',
+    group: 'Cargo expanders',
+    tier: 2,
+    volume: 0,
+    basePrice: 2125,
+    slot: 'utility',
+    stats: {cargoM3: EXPANDED_HOLD_II_BONUS},
+    statBadge: `+${EXPANDED_HOLD_II_BONUS} hold`,
+    desc: `Reinforced storage pods expanding hold capacity by +${EXPANDED_HOLD_II_BONUS} units, with no loss of speed.`,
+    icon: 'module_cargo_expander_icon',
+    requires: {skill: 'navigation', level: 5},
   },
   // Step 8: a side-grade to the Expanded Hold. Almost twice the space in one
   // slot, for 20% less top speed and thrust, so a hauler is easier to catch.

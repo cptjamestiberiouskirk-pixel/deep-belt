@@ -28,7 +28,7 @@ test('catalog: the Fire Control Relay is a utility module for 1100 MARKS that ad
   });
   expect(MODULES.fire_control.maxOwned).toBeUndefined(); // one only
   expect(MODULES.fire_control.requires).toBeUndefined();
-  expect(MARKET_MODULE_IDS).toEqual(['miner_mk2', 'expanded_hold', 'bulk_hold', 'shield_booster', 'shield_booster_ii', 'composite_armor', 'composite_armor_ii', 'fire_control', 'fire_control_ii', 'light_cannon', 'lance_driver']);
+  expect(MARKET_MODULE_IDS).toEqual(['miner_mk2', 'expanded_hold', 'expanded_hold_ii', 'bulk_hold', 'shield_booster', 'shield_booster_ii', 'composite_armor', 'composite_armor_ii', 'fire_control', 'fire_control_ii', 'light_cannon', 'lance_driver']);
   expect(fittedTotal(RELAY, 'damagePct')).toBe(20);
   expect(fittedTotal(PLAIN, 'damagePct')).toBe(0);
   expect([CANNON, BOOSTED]).toEqual([30, 36]);
