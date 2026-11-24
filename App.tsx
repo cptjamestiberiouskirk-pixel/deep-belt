@@ -6253,12 +6253,12 @@ export default function App() {
       },
       pirate: () => {
         const q = pirateRef.current;
-        return {isAlive: q.isAlive, shield: q.shield, armor: q.armor, hull: q.hull, speed: Math.hypot(q.vx, q.vy), x: q.x, y: q.y};
+        return {isAlive: q.isAlive, shield: q.shield, armor: q.armor, hull: q.hull, speed: Math.hypot(q.vx, q.vy), x: q.x, y: q.y, respawnTimer: q.respawnTimer};
       },
       raiders: () => raidersRef.current.filter((r) => r.isAlive).map((r) => ({x: r.x, y: r.y, speed: Math.hypot(r.vx, r.vy)})),
       vaelPirate: () => {
         const q = vaelPirateRef.current;
-        return {isAlive: q.isAlive, shield: q.shield, armor: q.armor, hull: q.hull, speed: Math.hypot(q.vx, q.vy), x: q.x, y: q.y};
+        return {isAlive: q.isAlive, shield: q.shield, armor: q.armor, hull: q.hull, speed: Math.hypot(q.vx, q.vy), x: q.x, y: q.y, respawnTimer: q.respawnTimer};
       },
     };
   }, []);
@@ -19856,6 +19856,13 @@ export default function App() {
           addFloatingText(isVael ? 'HEAVY PIRATE RE-SPAWNED IN VAEL BELT' : 'PIRATE FRIGATE RE-SPAWNED AT BELT TWO', pirate.x, pirate.y, '#ef4444');
         }
       }
+    }
+    // The other system's pirate (only the current one is picked above) keeps counting
+    // down its respawn wait while the ship is away; it comes back only once the ship
+    // is in its system, through the branch above (not within 20 km of its home).
+    const awayPirate = isVael ? pirateRef.current : vaelPirateRef.current;
+    if (!awayPirate.isAlive && awayPirate.respawnTimer > 0) {
+      awayPirate.respawnTimer = Math.max(0, awayPirate.respawnTimer - dt);
     }
 
     // 8.5 Raider Wave Pirates AI & Combat (exact same frigate type and stats as Belt Two)

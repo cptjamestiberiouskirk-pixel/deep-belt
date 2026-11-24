@@ -106,3 +106,36 @@ test('a gun kill leaves the Vael pirate dead at 60 s and brings it back within 1
   const sinceKill = await page.evaluate(() => (performance.now() - (window as any).__kill.t) / 1000);
   expect(sinceKill).toBeLessThan(190);
 });
+
+// The user, 2026-11-24: a dead pirate's respawn countdown runs while the ship is in
+// another system. Only the current system's pirate is updated each frame (App.tsx, the
+// pirate pick in the game loop), so the other one's wait is counted down separately.
+test('the Belt Two pirate\'s respawn countdown keeps running while the ship is in Vael', async ({page}) => {
+  test.setTimeout(300_000);
+  const beltTwo = (page: Page) => page.evaluate(() => (window as any).__DEEP_BELT_PROBE__.pirate());
+  await openWithSave(page, {...BASE, ...skills({gunnery: 3, armorLayering: 5}), ...fitting(['miner_mk1', 'composite_armor', null, 'lance_driver']), missionIndex: 3, missionStatus: 'completed', hasGatePermit: true});
+  await enterGame(page);
+  await undock(page);
+  await flyTo(page, 'Belt Two');
+  await page.getByText('Ships', {exact: true}).click();
+  await page.getByText('Pirate Frigate', {exact: true}).first().click();
+  await expect.poll(() => targetPanel(page)).toMatch(/Pirate Frigate/);
+  await page.keyboard.press('l');
+  await expect.poll(() => targetPanel(page), {timeout: 20_000}).toMatch(/Locked/);
+  await page.keyboard.press('2');
+  await expect.poll(async () => (await beltTwo(page)).isAlive, {timeout: 120_000, intervals: [200]}).toBe(false);
+  await flyTo(page, 'Harrow Outer Jump Gate');
+  await expect(async () => {
+    await page.keyboard.press('j');
+    await expect(page.getByText('Vael System ·')).toBeVisible({timeout: 5000});
+  }).toPass({timeout: 60_000});
+  const t1 = (await beltTwo(page)).respawnTimer;
+  expect(t1, 'the wait should still be running on arrival in Vael').toBeGreaterThan(30);
+  await page.waitForTimeout(15_000); // a span of the game's clock, not a wait for a condition
+  const t2 = (await beltTwo(page)).respawnTimer;
+  // The game caps a frame's step at 0.05 s (App.tsx update()), so under load its clock can
+  // run slower than the wall clock: half the span is the floor. A frozen wait takes off 0.
+  expect(t1 - t2, '15 s in Vael should take about 15 s off the wait').toBeGreaterThan(7.5);
+  expect(t1 - t2).toBeLessThan(18);
+  expect((await beltTwo(page)).isAlive).toBe(false);
+});
