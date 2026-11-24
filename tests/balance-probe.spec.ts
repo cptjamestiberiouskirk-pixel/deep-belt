@@ -418,6 +418,114 @@ for (const c of [{name: 'empty hold', tritanium: 0}, {name: 'full hold (600 Trit
   });
 }
 
+// --- Step 45: fleeing with a full hold, with and without a Bulk Hold, at Cargo Trim V
+// and Navigation 0 or II. Hostiles fly at a fixed share of a plain Ferrier's 88 px/s
+// (App.tsx hostileBaseSpeed): raiders 70.4, the Vael pirate 66. A raider wave comes
+// from a sale (Tritanium stays in the hold); the Vael pirate is provoked by a lock and
+// fled once it is inside 6.4 km (the warp to the Vael Belt lands 2 to 3 km from it).
+// It has no leash, so the only way it stops is out of reach. The ship thrusts straight away from the nearest hostile for 45 s.
+const BULK_FLEES: Array<{hostile: 'raiders' | 'vael'; fit: string; fitted: Array<string | null>; tritanium: number; nav: number}> = [];
+for (const hostile of ['raiders', 'vael'] as const) {
+  for (const f of [{fit: 'no Bulk Hold', fitted: PLAIN, tritanium: 600}, {fit: 'Bulk Hold', fitted: BULK, tritanium: 1500}]) {
+    for (const nav of [0, 2]) BULK_FLEES.push({hostile, ...f, nav});
+  }
+}
+for (const c of BULK_FLEES) {
+  test(`full-hold flee: ${c.hostile === 'raiders' ? 'raider wave' : 'Vael pirate'}, ${c.fit}, Navigation ${c.nav}`, async ({page}) => {
+    test.setTimeout(300_000);
+    await openWithSave(page, {...BASE, ...skills({navigation: c.nav, cargoTrim: 5}), ...fitting(c.fitted), cargoFerrite: c.hostile === 'raiders' ? 240 : 0, cargoTritanium: c.tritanium, ...(c.hostile === 'vael' ? {missionIndex: 3, missionStatus: 'completed', hasGatePermit: true} : {})});
+    await enterGame(page);
+    type Xy = {x: number; y: number; speed: number};
+    let hostiles: () => Promise<Xy[]>;
+    if (c.hostile === 'raiders') {
+      await page.keyboard.press('1');
+      await settle(page);
+      await page.keyboard.press('Enter');
+      await expect.poll(async () => (await readSave(page))!.inventory?.ferrite).toBe(0);
+      await page.keyboard.press('Escape');
+      await undock(page);
+      await expect(page.getByText(/Raider wave inbound/).first()).toBeVisible({timeout: 20_000});
+      hostiles = () => page.evaluate(() => (window as any).__DEEP_BELT_PROBE__.raiders() as Xy[]);
+      await expect.poll(async () => (await hostiles()).length, {timeout: 20_000}).toBeGreaterThan(0);
+    } else {
+      await undock(page);
+      await flyTo(page, 'Harrow Outer Jump Gate');
+      await expect(async () => {
+        await page.keyboard.press('j');
+        await expect(page.getByText('Vael System ·')).toBeVisible({timeout: 5000});
+      }).toPass({timeout: 60_000});
+      await flyTo(page, 'Vael Belt');
+      hostiles = async () => {
+        const v = await page.evaluate(() => (window as any).__DEEP_BELT_PROBE__.vaelPirate() as Xy & {isAlive: boolean});
+        return v.isAlive ? [v] : [];
+      };
+      await page.getByText('Ships', {exact: true}).click();
+      await page.getByText('Heavy Pirate Frigate', {exact: true}).first().click();
+      await expect.poll(() => targetPanel(page)).toMatch(/Heavy Pirate Frigate/);
+      await page.keyboard.press('l');
+      await expect.poll(async () => {
+        const [v] = await hostiles();
+        const q = await player(page);
+        return v ? Math.hypot(v.x - q.x, v.y - q.y) / PIXELS_PER_KM : 99;
+      }, {timeout: 60_000}).toBeLessThan(6.4);
+    }
+    let p: any = await player(page);
+    const start0 = {shield: p.shield, armor: p.armor, hull: p.hull};
+    let held: string | null = null;
+    const hold = async (key: string | null) => {
+      if (held === key) return;
+      if (held) await page.keyboard.up(held);
+      if (key) await page.keyboard.down(key);
+      held = key;
+    };
+    await page.keyboard.down('ArrowUp');
+    const start = Date.now();
+    let last = start;
+    let inRangeSec = 0;
+    let lastInRangeSec = 0;
+    let gap = 0;
+    let startGap: number | null = null;
+    let hostileTop = 0;
+    let playerTop = 0;
+    while (Date.now() - start < 45_000) {
+      p = await player(page);
+      const hs = await hostiles();
+      if (!hs.length || p.docked || p.hull <= 0) break;
+      const near = hs.reduce((a, b) => (Math.hypot(p.x - a.x, p.y - a.y) <= Math.hypot(p.x - b.x, p.y - b.y) ? a : b));
+      gap = Math.hypot(p.x - near.x, p.y - near.y) / PIXELS_PER_KM;
+      if (startGap === null) startGap = gap;
+      hostileTop = Math.max(hostileTop, ...hs.map((h) => h.speed));
+      playerTop = Math.max(playerTop, p.speed);
+      const now = Date.now();
+      if (gap <= 8) {
+        inRangeSec += (now - last) / 1000;
+        lastInRangeSec = (now - start) / 1000;
+      }
+      last = now;
+      const want = Math.atan2(p.y - near.y, p.x - near.x);
+      const diff = Math.atan2(Math.sin(want - p.heading), Math.cos(want - p.heading));
+      await hold(Math.abs(diff) < 0.1 ? null : diff > 0 ? 'ArrowRight' : 'ArrowLeft');
+      await page.waitForTimeout(100);
+    }
+    await hold(null);
+    await page.keyboard.up('ArrowUp');
+    const lost = p.docked || p.hull <= 0;
+    record({
+      probe: 'full-hold flee',
+      case: `${c.hostile}, ${c.fit}, Navigation ${c.nav}`,
+      escaped: !lost && gap > 8,
+      shipLost: lost,
+      startGapKm: startGap === null ? null : Math.round(startGap * 10) / 10,
+      lastInRangeSec: Math.round(lastInRangeSec * 10) / 10,
+      secInRange: Math.round(inRangeSec * 10) / 10,
+      gapAfter45sKm: Math.round(gap * 10) / 10,
+      ...(lost ? {} : {shieldLost: Math.round(start0.shield - p.shield), armorLost: Math.round(start0.armor - p.armor), hullLost: Math.round(start0.hull - p.hull)}),
+      playerTopSpeed: Math.round(playerTop),
+      hostileTopSpeed: Math.round(hostileTop),
+    });
+  });
+}
+
 // --- Warping away from a raider wave: wait until a raider is in firing range
 // (8 km), warp to Belt One, and record the HP lost during the spool and in the
 // 20 s after dropping out, and how close the raiders still are by then.
