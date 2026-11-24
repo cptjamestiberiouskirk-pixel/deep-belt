@@ -33,7 +33,7 @@ test('catalog: Composite Armor II is a utility module for 2,250 MARKS behind Arm
   // Half as much armor again as the first tier, which needs no skill.
   expect(MODULES.composite_armor.stats).toEqual({armorHp: COMPOSITE_ARMOR_HP});
   expect(MODULES.composite_armor.requires).toBeUndefined();
-  expect(MARKET_MODULE_IDS).toEqual(['miner_mk2', 'expanded_hold', 'bulk_hold', 'shield_booster', 'shield_booster_ii', 'composite_armor', 'composite_armor_ii', 'fire_control', 'light_cannon', 'lance_driver']);
+  expect(MARKET_MODULE_IDS).toEqual(['miner_mk2', 'expanded_hold', 'bulk_hold', 'shield_booster', 'shield_booster_ii', 'composite_armor', 'composite_armor_ii', 'fire_control', 'fire_control_ii', 'light_cannon', 'lance_driver']);
   expect(missingSkill({armorLayering: 4}, 'composite_armor_ii')).toBe('Armor Layering V');
   expect(missingSkill({armorLayering: 5}, 'composite_armor_ii')).toBeNull();
   // On a Gantry next to the first tier, the two add up.

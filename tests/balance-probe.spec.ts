@@ -513,7 +513,7 @@ for (const c of WAVES) {
 // --- The Vael Heavy Pirate Frigate (200 shield, 200 armor, 200 hull), past the
 // jump gate, in a Ferrier or a Skirmisher at Gunnery III. Locks it from the Overview and fires
 // until it or the Ferrier is dead.
-const VAEL_FIGHTS: Array<{name: string; weapon: string; second: string | null; cc?: number; hull?: string; al?: number; so?: number; managed?: boolean}> = [
+const VAEL_FIGHTS: Array<{name: string; weapon: string; second: string | null; cc?: number; hull?: string; al?: number; so?: number; gu?: number; managed?: boolean}> = [
   {name: 'Light Cannon', weapon: 'light_cannon', second: null},
   {name: 'Lance Driver', weapon: 'lance_driver', second: null},
   {name: 'Lance Driver + booster', weapon: 'lance_driver', second: 'shield_booster'},
@@ -533,15 +533,21 @@ const VAEL_FIGHTS: Array<{name: string; weapon: string; second: string | null; c
   {name: 'Lance Driver + Shield Booster II, managed, Shield Operation V', weapon: 'lance_driver', second: 'shield_booster_ii', so: 5, managed: true},
   // Step 34: Composite Armor II needs Armor Layering V; compare with 'Lance Driver + armor, Armor Layering V'.
   {name: 'Lance Driver + Composite Armor II, Armor Layering V', weapon: 'lance_driver', second: 'composite_armor_ii', al: 5},
-  // The Lance Driver fight ends with armor to spare on both tiers; the Light Cannon's longer fight runs it out.
+  // The Lance Driver fight ends with armor to spare on both tiers, and so does the Light Cannon's longer one (18 and 93 left).
   {name: 'Light Cannon + armor, Armor Layering V', weapon: 'light_cannon', second: 'composite_armor', al: 5},
   {name: 'Light Cannon + Composite Armor II, Armor Layering V', weapon: 'light_cannon', second: 'composite_armor_ii', al: 5},
+  // Step 35: Fire Control Relay II needs Gunnery V, so every case here has it (the others run at Gunnery III).
+  {name: 'Lance Driver, Gunnery V', weapon: 'lance_driver', second: null, gu: 5},
+  {name: 'Lance Driver + Fire Control Relay, Gunnery V', weapon: 'lance_driver', second: 'fire_control', gu: 5},
+  {name: 'Lance Driver + Fire Control Relay II, Gunnery V', weapon: 'lance_driver', second: 'fire_control_ii', gu: 5},
+  {name: 'Light Cannon + Fire Control Relay, Gunnery V', weapon: 'light_cannon', second: 'fire_control', gu: 5},
+  {name: 'Light Cannon + Fire Control Relay II, Gunnery V', weapon: 'light_cannon', second: 'fire_control_ii', gu: 5},
 ];
 type Vael = {isAlive: boolean; shield: number; armor: number; hull: number; speed: number};
 for (const c of VAEL_FIGHTS) {
   test(`vael fight: ${c.name}`, async ({page}) => {
     test.setTimeout(300_000);
-    await openWithSave(page, {...BASE, ...skills({gunnery: 3, chargeControl: c.cc ?? 0, armorLayering: c.al ?? 0, shieldOp: c.so ?? (c.second === 'shield_booster' ? 1 : 0)}), ...fitting(['miner_mk1', c.second, null, c.weapon]), missionIndex: 3, missionStatus: 'completed', hasGatePermit: true, ...(c.hull ? {ownedHulls: ['ferrier', c.hull], activeHull: c.hull} : {})});
+    await openWithSave(page, {...BASE, ...skills({gunnery: c.gu ?? 3, chargeControl: c.cc ?? 0, armorLayering: c.al ?? 0, shieldOp: c.so ?? (c.second === 'shield_booster' ? 1 : 0)}), ...fitting(['miner_mk1', c.second, null, c.weapon]), missionIndex: 3, missionStatus: 'completed', hasGatePermit: true, ...(c.hull ? {ownedHulls: ['ferrier', c.hull], activeHull: c.hull} : {})});
     await enterGame(page);
     await undock(page);
     await flyTo(page, 'Harrow Outer Jump Gate');

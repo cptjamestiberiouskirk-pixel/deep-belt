@@ -18,6 +18,7 @@ export type ModuleId =
   | 'composite_armor'
   | 'composite_armor_ii'
   | 'fire_control'
+  | 'fire_control_ii'
   | 'light_cannon'
   | 'lance_driver';
 
@@ -27,6 +28,8 @@ export const COMPOSITE_ARMOR_HP = 100;
 export const COMPOSITE_ARMOR_II_HP = 150;
 /** Fire Control Relay's weapon damage bonus, in percent (step 16). */
 export const FIRE_CONTROL_DAMAGE_PCT = 20;
+/** Fire Control Relay II's weapon damage bonus, in percent (step 35). */
+export const FIRE_CONTROL_II_DAMAGE_PCT = 30;
 
 export const MODULES: Record<ModuleId, ModuleDef> = {
   miner_mk1: {
@@ -175,6 +178,23 @@ export const MODULES: Record<ModuleId, ModuleDef> = {
     statBadge: `+${FIRE_CONTROL_DAMAGE_PCT}% weapon damage`,
     desc: `Targeting relay that times each shot to the hull's weak points: +${FIRE_CONTROL_DAMAGE_PCT}% damage from the fitted weapon. Takes a utility slot from the hold, booster or armor.`,
     icon: 'module_sensor',
+  },
+  // Step 35: the tier step of the Fire Control Relay (rule 3), a straight upgrade
+  // behind Gunnery V. One only.
+  fire_control_ii: {
+    id: 'fire_control_ii',
+    name: 'Fire Control Relay II',
+    category: 'module',
+    group: 'Fire control',
+    tier: 2,
+    volume: 0,
+    basePrice: 2750,
+    slot: 'utility',
+    stats: {damagePct: FIRE_CONTROL_II_DAMAGE_PCT},
+    statBadge: `+${FIRE_CONTROL_II_DAMAGE_PCT}% weapon damage`,
+    desc: `Finer targeting relay that leads each shot onto the hull's weak points: +${FIRE_CONTROL_II_DAMAGE_PCT}% damage from the fitted weapon. Takes a utility slot from the hold, booster or armor.`,
+    icon: 'module_sensor',
+    requires: {skill: 'gunnery', level: 5},
   },
   light_cannon: {
     id: 'light_cannon',
