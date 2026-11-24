@@ -2,7 +2,7 @@ import {expect, test} from '@playwright/test';
 import fc from 'fast-check';
 import {buy, canBuyMore, fit, layoutOf, newGameFitting, owned, parseFitting, SLOT_LAYOUTS, switchHull, unfit, type FittingState} from '../content/fitting';
 import type {HullId} from '../content/hulls';
-import {MARKET_MODULE_IDS, MODULES, type ModuleId} from '../content/modules';
+import {MARKET_MODULE_IDS, MINER_IDS, MODULES, type ModuleId} from '../content/modules';
 import {formatSpeed, PIXELS_PER_KM, topSpeed} from '../content/flight';
 import {effectiveLoad, minerCycleAt, miningNoticePerSec, saleNotice, skillLevels, SKILL_IDS, weaponCycleAt} from '../content/skills';
 
@@ -70,13 +70,20 @@ test('fitting: fit, unfit and boarding another hull never make or lose a module;
       let hull: HullId = 'ferrier';
       for (const a of actions) {
         const before = owned(s);
+        const prev = s;
         ({s, hull} = apply(s, hull, a));
         const after = owned(s);
         const expected = {...before};
         if (a.kind === 'buy' && canBuyMore({hangar: before, fitted: [], loadouts: {}}, a.id)) {
           expected[a.id] = (expected[a.id] ?? 0) + 1;
-          // The Miner MK2 replaces the MK1.
-          if (a.id === 'miner_mk2' && expected.miner_mk1) delete expected.miner_mk1;
+          // A higher miner replaces one lower miner: the fitted one, else the best in the hangar.
+          const rank = MINER_IDS.indexOf(a.id);
+          if (rank > 0) {
+            const lower = MINER_IDS.slice(0, rank);
+            const gone = prev.fitted.find((m): m is ModuleId => m !== null && lower.includes(m)) ?? [...lower].reverse().find((m) => (prev.hangar[m] ?? 0) > 0);
+            if (gone) expected[gone] = (expected[gone] ?? 0) - 1;
+            if (gone && expected[gone] === 0) delete expected[gone];
+          }
         }
         expect(after).toEqual(expected);
         expectWellFormed(s, hull);

@@ -34,7 +34,7 @@ test('catalog: Bulk Hold II is a utility module for 4,000 MARKS behind Cargo Tri
   expect(MODULES.bulk_hold.stats).toEqual({cargoM3: 900, speedPct: -20});
   expect(MODULES.bulk_hold.requires).toBeUndefined();
   expect(MODULES.bulk_hold.maxOwned).toBeUndefined();
-  expect(MARKET_MODULE_IDS).toEqual(['miner_mk2', 'expanded_hold', 'expanded_hold_ii', 'bulk_hold', 'bulk_hold_ii', 'shield_booster', 'shield_booster_ii', 'composite_armor', 'composite_armor_ii', 'fire_control', 'fire_control_ii', 'light_cannon', 'light_cannon_ii', 'lance_driver', 'lance_driver_ii']);
+  expect(MARKET_MODULE_IDS).toEqual(['miner_mk2', 'miner_mk3', 'expanded_hold', 'expanded_hold_ii', 'bulk_hold', 'bulk_hold_ii', 'shield_booster', 'shield_booster_ii', 'composite_armor', 'composite_armor_ii', 'fire_control', 'fire_control_ii', 'light_cannon', 'light_cannon_ii', 'lance_driver', 'lance_driver_ii']);
   expect(missingSkill({cargoTrim: 4}, 'bulk_hold_ii')).toBe('Cargo Trim V');
   expect(missingSkill({cargoTrim: 5}, 'bulk_hold_ii')).toBeNull();
   // Alone it costs the Bulk Hold's 20%; with the Bulk Hold the two add up to 40%.

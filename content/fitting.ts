@@ -7,13 +7,13 @@
 // - A loadout is a wish: switching hulls fills the new hull's slots from it as
 //   far as the hangar allows, and an unfilled slot keeps its wish.
 // - A module's catalog maxOwned caps how many you own (default 1); doubles add up.
-//   The Miner MK2 replaces the MK1.
+//   A higher miner (MK2, MK3) replaces the miner it is bought over.
 // - Saved slots are re-placed by type when a hull's layout changes (step 3 gave
 //   the Gantry a third utility slot, which moved its weapon slot).
 
 import type {HullId} from './hulls';
 import type {ModuleId} from './modules';
-import {MODULES} from './modules';
+import {MINER_IDS, MODULES} from './modules';
 import type {ModuleDef, SlotType, StatId} from './types';
 
 export type Slots = Array<ModuleId | null>;
@@ -128,7 +128,9 @@ export function placeByType(layout: SlotType[], saved: ReadonlyArray<ModuleId | 
 
 /** Whether the pilot may buy another of this module: its catalog maxOwned, default 1. */
 export function canBuyMore(s: FittingState, id: ModuleId): boolean {
-  if (id === 'miner_mk2') return !owns(s, 'miner_mk2');
+  // A miner only upgrades: not one owned already, nor one below the best owned.
+  const rank = MINER_IDS.indexOf(id);
+  if (rank > 0) return !MINER_IDS.slice(rank).some((m) => owns(s, m));
   return (owned(s)[id] ?? 0) < (MODULES[id].maxOwned ?? 1);
 }
 
@@ -182,13 +184,13 @@ export function toLegacy(s: FittingState) {
   const isBooster = (id: ModuleId | null) => Boolean(id && MODULES[id].stats.shieldHpPerSec !== undefined);
   return {
     upgrades: {
-      laserMk2: owns(s, 'miner_mk2'),
+      laserMk2: owns(s, 'miner_mk2') || owns(s, 'miner_mk3'),
       cargoExpanded: owns(s, 'expanded_hold'),
       shieldBoosterHeavy: (Object.keys(MODULES) as ModuleId[]).some((id) => isBooster(id) && owns(s, id)),
       cannon: (Object.keys(MODULES) as ModuleId[]).some((id) => isWeapon(id) && owns(s, id)),
     },
     fittedSlots: {
-      slot1MiningLaser: has('miner_mk1') || has('miner_mk2'),
+      slot1MiningLaser: MINER_IDS.some(has),
       slot2CargoExpander: has('expanded_hold'),
       slot3ShieldBooster: s.fitted.some(isBooster),
       slot4Cannon: s.fitted.some(isWeapon),
@@ -202,20 +204,29 @@ function clone(s: FittingState): FittingState {
   return {hangar: {...s.hangar}, fitted: [...s.fitted], loadouts};
 }
 
-export type BuyResult = {state: FittingState; fitted: boolean};
+/** `replaced` names the lower miner a miner purchase took the place of, if any. */
+export type BuyResult = {state: FittingState; fitted: boolean; replaced?: ModuleId};
 
 /** Buys one module: fitted at once when a slot of its type is free, else to the hangar. */
 export function buy(s: FittingState, hull: HullId, id: ModuleId): BuyResult {
   const n = clone(s);
-  if (id === 'miner_mk2') {
-    // The MK2 replaces the MK1 wherever it is, as the yes/no flag did.
-    const i = n.fitted.indexOf('miner_mk1');
-    if (i >= 0) n.fitted[i] = 'miner_mk2';
-    else if (take(n.hangar, 'miner_mk1')) put(n.hangar, 'miner_mk2');
-    else put(n.hangar, 'miner_mk2');
-    for (const l of Object.values(n.loadouts)) (l as Slots).forEach((m, j, a) => m === 'miner_mk1' && (a[j] = 'miner_mk2'));
+  const rank = MINER_IDS.indexOf(id);
+  if (rank > 0) {
+    // A higher miner replaces a lower one wherever it is, as the MK2's yes/no flag did:
+    // the fitted one first, else the best one in the hangar, and every loadout's wish.
+    const lower = MINER_IDS.slice(0, rank);
+    const i = n.fitted.findIndex((m) => m !== null && lower.includes(m));
+    let replaced: ModuleId | undefined;
+    if (i >= 0) {
+      replaced = n.fitted[i]!;
+      n.fitted[i] = id;
+    } else {
+      replaced = [...lower].reverse().find((m) => take(n.hangar, m));
+      put(n.hangar, id);
+    }
+    for (const l of Object.values(n.loadouts)) (l as Slots).forEach((m, j, a) => m !== null && lower.includes(m) && (a[j] = id));
     n.loadouts[hull] = [...n.fitted];
-    return {state: n, fitted: i >= 0};
+    return {state: n, fitted: i >= 0, replaced};
   }
   const slot = freeSlotFor(n.fitted, hull, id);
   if (slot >= 0) {

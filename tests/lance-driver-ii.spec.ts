@@ -31,7 +31,7 @@ test('catalog: Lance Driver II is a weapon for 3,750 MARKS behind Gunnery V, the
   // The first tier is unchanged: the same cycle, range and Cap, two thirds the damage.
   expect(MODULES.lance_driver.stats).toEqual({damage: 47, cycleSec: 4, rangeKm: 12, capPerCycle: 14});
   expect(MODULES.lance_driver.requires).toEqual({skill: 'gunnery', level: 2});
-  expect(MARKET_MODULE_IDS).toEqual(['miner_mk2', 'expanded_hold', 'expanded_hold_ii', 'bulk_hold', 'bulk_hold_ii', 'shield_booster', 'shield_booster_ii', 'composite_armor', 'composite_armor_ii', 'fire_control', 'fire_control_ii', 'light_cannon', 'light_cannon_ii', 'lance_driver', 'lance_driver_ii']);
+  expect(MARKET_MODULE_IDS).toEqual(['miner_mk2', 'miner_mk3', 'expanded_hold', 'expanded_hold_ii', 'bulk_hold', 'bulk_hold_ii', 'shield_booster', 'shield_booster_ii', 'composite_armor', 'composite_armor_ii', 'fire_control', 'fire_control_ii', 'light_cannon', 'light_cannon_ii', 'lance_driver', 'lance_driver_ii']);
   expect(missingSkill({gunnery: 4}, 'lance_driver_ii')).toBe('Gunnery V');
   expect(missingSkill({gunnery: 5}, 'lance_driver_ii')).toBeNull();
   // Any fitted weapon arms the same Fire controls as the Light Cannon.

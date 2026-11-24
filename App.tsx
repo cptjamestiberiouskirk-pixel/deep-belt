@@ -5384,8 +5384,8 @@ export default function App() {
       }) as {readonly current: Readonly<ReturnType<typeof toLegacy>['fittedSlots']>},
   );
   // The mining laser in slot 1: its catalog yield and cycle drive mining.
-  const minerRef = useRef(minerFor(upgrades.laserMk2));
-  minerRef.current = minerFor(upgrades.laserMk2);
+  const minerRef = useRef(minerFor(ownedModules(fitting)));
+  minerRef.current = minerFor(ownedModules(fitting));
   // Laser Tuning shortens it (content/skills.ts minerCycleAt).
   const minerCycleSec = () => minerCycleAt(minerRef.current.stats.cycleSec ?? 10, skillsRef.current.laserTuning || 0);
   // Yield against the MK1's: 1.5 for the MK2 (+50%), on every ore type.
@@ -13359,8 +13359,8 @@ export default function App() {
         id: `toast_module_hangar_${Date.now()}`,
         title: `${MODULES[moduleId].name} stored`,
         detail:
-          moduleId === 'miner_mk2'
-            ? 'It replaces the Miner MK1 in the hangar. Fit it in Fitting [2].'
+          bought.replaced
+            ? `It replaces the ${MODULES[bought.replaced].name} in the hangar. Fit it in Fitting [2].`
             : `No free ${MODULES[moduleId].slot} slot on this hull: it waits in the hangar. Fit it in Fitting [2].`,
         type: 'info',
       });
@@ -29264,6 +29264,8 @@ export default function App() {
                         price: mod.basePrice,
                         icon: assets[mod.icon]?.src || '',
                         isOwned: !canBuyMore(fitting, id),
+                        // A miner that can't be bought but isn't owned was replaced by a higher one.
+                        ownedLabel: (ownedModules(fitting)[id] ?? 0) > 0 ? 'Owned ✓' : 'Upgraded ✓',
                         ownedCount: ownedModules(fitting)[id] ?? 0,
                         needs: missingSkill(skills, id),
                       };
@@ -29920,7 +29922,7 @@ export default function App() {
                                             fontSize: '11px',
                                             fontWeight: 700,
                                           }}>
-                                          Owned ✓
+                                          {(mod as {ownedLabel?: string}).ownedLabel ?? 'Owned ✓'}
                                         </span>
                                       ) : mod.needs ? (
                                         <span
@@ -31280,7 +31282,7 @@ export default function App() {
                                 <span style={statValueStyle}>
                                   {(() => {
                                     if (!fittedSlots.slot1MiningLaser) return '0 ore / cycle';
-                                    const baseYield = minerFor(upgrades.laserMk2).stats.oreYield ?? 0;
+                                    const baseYield = minerFor(ownedModules(fitting)).stats.oreYield ?? 0;
                                     const skillBonus = Math.round(baseYield * 0.1 * (skills.mining || 0));
                                     const totalYield = baseYield + skillBonus;
                                     const extra = totalYield - (MODULES.miner_mk1.stats.oreYield ?? 0);
@@ -31302,7 +31304,7 @@ export default function App() {
                               <div style={statRowStyle}>
                                 <span style={statLabelStyle}>Mining cycle</span>
                                 <span style={statValueStyle}>
-                                  {fittedSlots.slot1MiningLaser ? `${minerCycleAt(minerFor(upgrades.laserMk2).stats.cycleSec ?? 0, skills.laserTuning || 0).toFixed(1)} s` : 'None'}
+                                  {fittedSlots.slot1MiningLaser ? `${minerCycleAt(minerFor(ownedModules(fitting)).stats.cycleSec ?? 0, skills.laserTuning || 0).toFixed(1)} s` : 'None'}
                                 </span>
                               </div>
 
@@ -36417,7 +36419,7 @@ export default function App() {
                                   <div className="text-xs text-[#F6EED8] pt-1 leading-snug">
                                     <span className="text-[#AEB6CA] block text-[11px]">{def.description}</span>
                                     <span className="text-[#2EC4B6] font-mono-val block text-[11px] mt-0.5">
-                                      {def.getBonusText(curLvl, {miner: minerFor(upgrades.laserMk2), weapon: fittedWith(fitting.fitted, 'damage') ?? MODULES.light_cannon})}
+                                      {def.getBonusText(curLvl, {miner: minerFor(ownedModules(fitting)), weapon: fittedWith(fitting.fitted, 'damage') ?? MODULES.light_cannon})}
                                     </span>
                                   </div>
 

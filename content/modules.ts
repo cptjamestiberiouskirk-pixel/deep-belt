@@ -11,6 +11,7 @@ import type {ModuleDef} from './types';
 export type ModuleId =
   | 'miner_mk1'
   | 'miner_mk2'
+  | 'miner_mk3'
   | 'expanded_hold'
   | 'expanded_hold_ii'
   | 'bulk_hold'
@@ -72,6 +73,24 @@ export const MODULES: Record<ModuleId, ModuleDef> = {
     statBadge: '+50% yield',
     desc: 'High-power mining laser. Cycles in 8s with 75 base extraction.',
     icon: 'module_mining_laser_icon',
+  },
+  // Miner MK3 (the user, 2026-11-24): the mining line's third step, 2.5x the MK2's
+  // price like every other line's step, behind the line's own skill at V. It
+  // replaces the miner owned, as the MK2 does (content/fitting.ts buy).
+  miner_mk3: {
+    id: 'miner_mk3',
+    name: 'Miner MK3',
+    category: 'module',
+    group: 'Mining lasers',
+    tier: 3,
+    volume: 0,
+    basePrice: 3000,
+    slot: 'extraction',
+    stats: {oreYield: 100, cycleSec: 8, capPerCycle: 12},
+    statBadge: '+100% yield',
+    desc: 'Top-tier mining laser. Cycles in 8s with 100 base extraction.',
+    icon: 'module_mining_laser_icon',
+    requires: {skill: 'mining', level: 5},
   },
   expanded_hold: {
     id: 'expanded_hold',
@@ -323,7 +342,11 @@ export function missingSkill(levels: Partial<Record<SkillId, number>>, id: Modul
   return req && (levels[req.skill] ?? 0) < req.level ? prerequisiteText([req]) : null;
 }
 
-/** The module in the mining slot, given whether the MK2 is owned. */
-export function minerFor(ownsMk2: boolean): ModuleDef {
-  return ownsMk2 ? MODULES.miner_mk2 : MODULES.miner_mk1;
+/** The mining lasers, lowest first: a higher one replaces any lower one it is bought over. */
+export const MINER_IDS: readonly ModuleId[] = ['miner_mk1', 'miner_mk2', 'miner_mk3'];
+
+/** The miner whose stats mining uses: the best one owned, fitted or not (the MK1 when none is). */
+export function minerFor(owned: Partial<Record<ModuleId, number>>): ModuleDef {
+  const best = [...MINER_IDS].reverse().find((id) => (owned[id] ?? 0) > 0);
+  return MODULES[best ?? 'miner_mk1'];
 }

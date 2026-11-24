@@ -28,7 +28,7 @@ test('catalog: Shield Booster II is a utility module for 2,400 MARKS behind Shie
   expect(MODULES.shield_booster_ii.maxOwned).toBeUndefined(); // one only
   // The same cycle and Cap as the Booster I, with half as much shield again.
   expect(MODULES.shield_booster.stats).toMatchObject({shieldHpPerSec: 8, cycleSec: 3, capPerCycle: 25});
-  expect(MARKET_MODULE_IDS).toEqual(['miner_mk2', 'expanded_hold', 'expanded_hold_ii', 'bulk_hold', 'bulk_hold_ii', 'shield_booster', 'shield_booster_ii', 'composite_armor', 'composite_armor_ii', 'fire_control', 'fire_control_ii', 'light_cannon', 'light_cannon_ii', 'lance_driver', 'lance_driver_ii']);
+  expect(MARKET_MODULE_IDS).toEqual(['miner_mk2', 'miner_mk3', 'expanded_hold', 'expanded_hold_ii', 'bulk_hold', 'bulk_hold_ii', 'shield_booster', 'shield_booster_ii', 'composite_armor', 'composite_armor_ii', 'fire_control', 'fire_control_ii', 'light_cannon', 'light_cannon_ii', 'lance_driver', 'lance_driver_ii']);
   expect(missingSkill({shieldOp: 4}, 'shield_booster_ii')).toBe('Shield Operation V');
   expect(missingSkill({shieldOp: 5}, 'shield_booster_ii')).toBeNull();
   // It arms the same Boost [3] controls as the Shield Booster.

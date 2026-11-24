@@ -861,6 +861,9 @@ const PACES = [
   {name: 'Miner MK1, no skills', miner: 'miner_mk1', mining: 0, lt: 0},
   {name: 'Miner MK2, no skills', miner: 'miner_mk2', mining: 0, lt: 0},
   {name: 'Miner MK2, Mining V, Laser Tuning V', miner: 'miner_mk2', mining: 5, lt: 5},
+  // Miner MK3 (2026-11-24): it needs Mining V to buy, so "no skills" is a bound only.
+  {name: 'Miner MK3, no skills', miner: 'miner_mk3', mining: 0, lt: 0},
+  {name: 'Miner MK3, Mining V, Laser Tuning V', miner: 'miner_mk3', mining: 5, lt: 5},
 ];
 for (const c of PACES) {
   test(`mining pace: ${c.name}`, async ({page}) => {
