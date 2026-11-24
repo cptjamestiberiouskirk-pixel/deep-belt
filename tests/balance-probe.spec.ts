@@ -794,3 +794,59 @@ for (const level of [0, 5]) {
     record({probe: 'drones', case: `extraction, Drone Operation ${level}`, rises, gaps, ferriteIn50s: rises.at(-1)?.ferrite ?? 0});
   });
 }
+
+// --- Scan and cache (step 37a): a successful scan places the Data Cache at a fixed spot
+// per system. Before the fix it set no cooldown, so a ship parked there could scan, open
+// (+600 MARKS) and scan again every 3.7 s (9,730 MARKS a minute). Now a find cools the
+// scanner down for 60 s. Seconds per round of a hit scan and an open, from the end of one
+// round to the MARKS of the next, pressing P until the scanner is ready.
+async function scanAt(page: Page, windows: Array<[number, number]>) {
+  await expect(async () => {
+    await settle(page);
+    await page.keyboard.press('p');
+    await expect(page.getByText('Core Probe Sweep')).toBeVisible({timeout: 700});
+  }).toPass({timeout: 90_000, intervals: [1000]});
+  await page.evaluate((ws) => new Promise<void>((resolve) => {
+    const pressed: number[] = [];
+    const tick = () => {
+      const [lo, hi] = ws[pressed.length];
+      const a = ((window as any).__DEEP_BELT_SCAN__ as {angle: () => number}).angle();
+      if (a >= lo && a <= hi) {
+        window.dispatchEvent(new KeyboardEvent('keydown', {key: ' ', code: 'Space', bubbles: true}));
+        pressed.push(a);
+        if (pressed.length === ws.length) return resolve();
+      }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }), windows);
+}
+async function openCache(page: Page, marksBefore: number) {
+  await expect(async () => {
+    await page.keyboard.press('e');
+    await expect.poll(async () => (await readSave(page))!.marks, {timeout: 1500}).toBe(marksBefore + 600);
+  }).toPass({timeout: 30_000});
+}
+test('scan farm: rounds of a hit scan and an open, parked at the Data Cache spot', async ({page}) => {
+  test.setTimeout(300_000);
+  // Presses in the middle of each untrained band: every scan hits.
+  const HIT: Array<[number, number]> = [[1.15, 1.35], [3.08, 3.28], [5.09, 5.29]];
+  await openWithSave(page, {...BASE, ...skills({signalAnalysis: 2}), hasProbeLauncher: true, firstCacheOpened: true});
+  await enterGame(page);
+  await undock(page);
+  await scanAt(page, HIT);
+  await expect.poll(async () => Boolean((await readSave(page))!.dataCache), {timeout: 5000}).toBe(true);
+  await warpTo(page, 'Data Cache');
+  await expect(page.getByText('Dropped out of warp at Data Cache.').first()).toBeVisible({timeout: 60_000});
+  await openCache(page, (await readSave(page))!.marks);
+  const rounds: number[] = [];
+  for (let i = 0; i < 2; i++) {
+    const marks0 = (await readSave(page))!.marks;
+    const t0 = Date.now();
+    await scanAt(page, HIT);
+    await openCache(page, marks0);
+    rounds.push(Math.round((Date.now() - t0) / 100) / 10);
+  }
+  const avg = rounds.reduce((a, b) => a + b, 0) / rounds.length;
+  record({probe: 'scan farm', case: 'parked at the Data Cache, every scan hits', rounds, marksPerMinute: Math.round((600 / avg) * 60)});
+});

@@ -176,6 +176,13 @@ export function refineOutputAt(refiningLevel: number): number {
   return BASE_REFINE_OUTPUT + REFINING_BONUS_PER_LEVEL * refiningLevel;
 }
 
+/**
+ * Seconds a successful scan cools the scanner down (step 37a, a fix). Before it, a
+ * ship parked at the Data Cache's fixed spot could scan and open a 600 MARKS cache
+ * every 3.7 s; with it, one cache a minute at most.
+ */
+export const SCAN_SUCCESS_COOLDOWN_SEC = 60;
+
 /** The probe scan sweep's speed in radians a second (one turn in about 2.4 s). */
 export const SCAN_SWEEP_RAD_PER_SEC = 2.6;
 /** The scan sweep's three target bands untrained, in radians from the start of the sweep. */

@@ -104,7 +104,7 @@ import {CargoHoldPanel} from './utils/CargoHoldPanel';
 import {MARKET_CARGO_DESCRIPTIONS} from './content/market';
 import {MarketPanel} from './utils/MarketPanel';
 import {createWarpVisuals, drawWarpFlow} from './utils/warp-visuals';
-import {ARMOR_LAYERING_PCT, BASE_REFINE_OUTPUT, BOOSTER_EFFICIENCY_CUT, boosterCapAt, CARGO_TRIM_CUT, CHARGE_CONTROL_CUT, DRONE_OPERATION_CUT, droneCycleAt, PACKING_SALE_PCT, packedSalePriceAt, effectiveLoad, FERRITE_PER_TRITANIUM, freeFerriteAt, LASER_TUNING_CUT, LOW_PROFILE_FREE_FERRITE, LOW_PROFILE_MINING_CUT, maxArmorAt, minerCycleAt, miningNoticePerSec, noticeFerrite, prerequisiteText, REFINING_BONUS_PER_LEVEL, refineOutputAt, saleNotice, SCAN_BANDS, SCAN_SWEEP_RAD_PER_SEC, scanBandAt, scanWindowSec, SIGNAL_ANALYSIS_WIDEN, SKILL_CATEGORY_ORDER, skillLevels, SKILLS, unmetPrerequisites, weaponCycleAt} from './content/skills';
+import {ARMOR_LAYERING_PCT, BASE_REFINE_OUTPUT, BOOSTER_EFFICIENCY_CUT, boosterCapAt, CARGO_TRIM_CUT, CHARGE_CONTROL_CUT, DRONE_OPERATION_CUT, droneCycleAt, PACKING_SALE_PCT, packedSalePriceAt, effectiveLoad, FERRITE_PER_TRITANIUM, freeFerriteAt, LASER_TUNING_CUT, LOW_PROFILE_FREE_FERRITE, LOW_PROFILE_MINING_CUT, maxArmorAt, minerCycleAt, miningNoticePerSec, noticeFerrite, prerequisiteText, REFINING_BONUS_PER_LEVEL, refineOutputAt, saleNotice, SCAN_BANDS, SCAN_SUCCESS_COOLDOWN_SEC, SCAN_SWEEP_RAD_PER_SEC, scanBandAt, scanWindowSec, SIGNAL_ANALYSIS_WIDEN, SKILL_CATEGORY_ORDER, skillLevels, SKILLS, unmetPrerequisites, weaponCycleAt} from './content/skills';
 import {formatSpeed, FULL_HOLD_THRUST_CUT, flightLimits, PIXELS_PER_KM, topSpeed} from './content/flight';
 import type {ModuleDef} from './content/types';
 import {
@@ -14589,6 +14589,10 @@ export default function App() {
     setIsScanMinigameOpen(false);
     scanFailedRef.current = false;
     setScanFailed(false);
+    // A find cools the scanner down too (step 37a): the cache always lands at the same
+    // spot, so without this a ship parked there could scan and open one every 3.7 s.
+    scanReadyAtRef.current = performance.now() + SCAN_SUCCESS_COOLDOWN_SEC * 1000;
+    startScanCooldownInterval();
     const isVael = currentSystemRef.current === 'Vael';
     const newCache: DataCacheEntity = {
       id: 'data_cache',
@@ -14610,7 +14614,7 @@ export default function App() {
       type: 'success',
     });
     addFloatingText('DATA CACHE LOCATED', playerRef.current.x, playerRef.current.y - 45, '#2EC4B6');
-  }, [setToastNotice]);
+  }, [setToastNotice, startScanCooldownInterval]);
 
   const handleScanFailure = useCallback(() => {
     setIsScanMinigameOpen(false);
@@ -37967,16 +37971,18 @@ export default function App() {
                   }
                   style={{
                     ...actionBtnBaseStyle,
-                    maxWidth: (scanFailed && scanCooldownSec > 0) ? 140 : 96,
-                    ...((scanCooldownSec > 0 || (currentSystem === 'Rift' && riftPulseCooldownSec > 0)) ? {
+                    maxWidth: (currentSystem !== 'Rift' && scanFailed && scanCooldownSec > 0) ? 140 : 96,
+                    // Greyed for the cooldown of what the button does here: the Pulse in the Rift, the scan
+                    // elsewhere. A scan cooldown carried into the Rift (60 s after a find) leaves Pulse ready.
+                    ...((currentSystem === 'Rift' ? riftPulseCooldownSec > 0 : scanCooldownSec > 0) ? {
                       background: '#1E2536',
-                      color: scanFailed ? '#FF6B6B' : '#6B7489',
-                      border: `3px solid ${scanFailed ? '#E63946' : '#3A4560'}`,
+                      color: (currentSystem !== 'Rift' && scanFailed) ? '#FF6B6B' : '#6B7489',
+                      border: `3px solid ${(currentSystem !== 'Rift' && scanFailed) ? '#E63946' : '#3A4560'}`,
                       boxShadow: 'none',
                       cursor: 'not-allowed',
                     } : {}),
                   }}
-                  className={`cartoon-btn ${(scanCooldownSec > 0 || (currentSystem === 'Rift' && riftPulseCooldownSec > 0)) ? '' : 'cartoon-btn-primary'}`}>
+                  className={`cartoon-btn ${(currentSystem === 'Rift' ? riftPulseCooldownSec > 0 : scanCooldownSec > 0) ? '' : 'cartoon-btn-primary'}`}>
                   <div style={btnMainRowStyle}>
                     {currentSystem === 'Rift' ? (
                       riftPulseCooldownSec > 0 ? (
@@ -38004,7 +38010,7 @@ export default function App() {
                   </div>
                   <div style={{
                     ...btnSubLabelStyle,
-                    color: scanFailed && scanCooldownSec > 0 ? '#E63946' : undefined,
+                    color: currentSystem !== 'Rift' && scanFailed && scanCooldownSec > 0 ? '#E63946' : undefined,
                   }}>
                     {currentSystem === 'Rift'
                       ? (riftPulseCooldownSec > 0 ? 'recharging' : 'reveal fog')
