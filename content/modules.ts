@@ -179,7 +179,8 @@ export const MODULES: Record<ModuleId, ModuleDef> = {
   },
   // Step 12: a side-grade to the Shield Booster. Flat armor that uses no Cap and
   // needs no activation, so a Cap-hungry weapon keeps firing; but armor never
-  // regenerates, and the station charges for every point repaired. One only.
+  // regenerates in space. Docking repairs it for free (the user, 2026-11-24: docking
+  // stays free, no repair charge). One only.
   composite_armor: {
     id: 'composite_armor',
     name: 'Composite Armor',
