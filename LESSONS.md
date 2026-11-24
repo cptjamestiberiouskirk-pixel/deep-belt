@@ -13,6 +13,20 @@ Format, checked by `node dev/lessons.mjs --check`. A field's text may go on over
 - Status: open | promoted to PLAYBOOK "<section>" | closed: <why the rule no longer holds>
 ```
 
+## 2026-11-24: Stopping a planted-bug run left the bug in the catalog
+- What went wrong: step 40's planted-bug script (scratchpad step40-mutants.mjs) was stopped with TaskStop while it ran a mutant. The script restores content/modules.ts in a `finally`, but a killed process runs no `finally`, so BULK_HOLD_II_BONUS stayed at 900. The md5 taken before the run showed the mismatch, and the value was put back before anything else ran.
+- Why: I stopped the run to fix a spec without thinking about what a mutant script leaves behind when it is cut off.
+- Rule going forward: a planted-bug run is not stopped while a mutant is applied; if one is stopped, the edited file is checked against the checksum taken before the run (`md5sum -c`) and restored before any other step.
+- Evidence: session d8be0f06 scratchpad pre-mutant40.md5 ("content/modules.ts: FAILED", then "OK" after the fix); commit eebb802.
+- Status: open
+
+## 2026-11-24: A speed test left out the Navigation the gate needs
+- What went wrong: tests/bulk-hold-ii.spec.ts expected 1.41 and 1.06 km/s for the Bulk Hold II on a Ferrier, worked as 88 x 0.8 and 88 x 0.6. The game showed 1.69 and 1.27: the save sets Navigation II, Cargo Trim's prerequisite, and content/flight.ts multiplies top speed by 1 + 0.1 x Navigation. Both tests failed and were rerun.
+- Why: I copied the arithmetic from tests/bulk-hold.spec.ts, whose save has no Navigation, without working out the new save's own skills.
+- Rule going forward: an expected speed or other derived number in a test is worked from every input in that test's own save (skills, hull, modules), with the formula's file named in the comment, not copied from a spec with a different save.
+- Evidence: session d8be0f06 scratchpad specs-40.out ("Expected: Max speed1.41 km/s(-20%)", "Received: Max speed1.69 km/s(-20%)"); commit eebb802.
+- Status: open
+
 ## 2026-11-24: The lessons check ran in the same command as the commit it was for
 - What went wrong: step 36's commit (87a329c) says "the seven specs that pin it" without naming them, which PLAYBOOK "Adding a skill, module or gate" step 1 asks for. The lessons check that listed that section ran in the same Bash command as `git commit` and the push, so its output arrived after both. The commit was already on main, which is not force-pushed, so the message stays as it is.
 - Why: I chained the check onto the commit to save a round trip. A check's output can only change a step that waits for it.
