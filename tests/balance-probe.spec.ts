@@ -40,6 +40,9 @@ const BULK_II = ['miner_mk1', 'bulk_hold_ii', null, 'light_cannon'];
 const BULK_PAIR = ['miner_mk1', 'bulk_hold', 'bulk_hold_ii', 'light_cannon'];
 const GANTRY_TODAY = ['miner_mk1', 'bulk_hold', 'expanded_hold_ii', 'expanded_hold', 'light_cannon'];
 const GANTRY_STACK = ['miner_mk1', 'bulk_hold', 'bulk_hold_ii', 'expanded_hold_ii', 'light_cannon'];
+// Step 43: a Gantry's two Expanded Holds without the Bulk Hold (2,000 + 750 + 500 =
+// 3,250), to haul the same load with and without the Bulk Hold's -20% speed.
+const GANTRY_NO_BULK = ['miner_mk1', 'expanded_hold_ii', 'expanded_hold', null, 'light_cannon'];
 const onHull = (hull?: string) => (hull ? {ownedHulls: ['ferrier', hull], activeHull: hull} : {});
 
 // --- Top speed: hold thrust from a standstill and take the highest speed seen.
@@ -790,6 +793,10 @@ const TRIPS: Array<{name: string; belt: string; station: string; vael?: boolean;
   {name: 'Belt One to Harrow Station, Ferrite, Gantry with Bulk Hold II (5000)', belt: 'Belt One', station: 'Harrow Station Alpha', ore: 'Ferrite', qty: 5000, fitted: GANTRY_STACK, hull: 'gantry'},
   {name: 'Vael Belt to Harrow Station by the gates, Aurite, Gantry today (4150)', belt: 'Vael Belt', station: 'Harrow Station Alpha', vael: true, haul: true, ore: 'Aurite', qty: 4150, fitted: GANTRY_TODAY, hull: 'gantry'},
   {name: 'Vael Belt to Harrow Station by the gates, Aurite, Gantry with Bulk Hold II (5000)', belt: 'Vael Belt', station: 'Harrow Station Alpha', vael: true, haul: true, ore: 'Aurite', qty: 5000, fitted: GANTRY_STACK, hull: 'gantry'},
+  // Step 43: the same 3,250 Aurite on the long haul with and without the Bulk Hold, so
+  // only the -20% speed differs (and how full the hold is: 100% without, 78% with).
+  {name: 'Vael Belt to Harrow Station by the gates, Aurite 3250, Gantry without a Bulk Hold', belt: 'Vael Belt', station: 'Harrow Station Alpha', vael: true, haul: true, ore: 'Aurite', qty: 3250, fitted: GANTRY_NO_BULK, hull: 'gantry'},
+  {name: 'Vael Belt to Harrow Station by the gates, Aurite 3250, Gantry with a Bulk Hold', belt: 'Vael Belt', station: 'Harrow Station Alpha', vael: true, haul: true, ore: 'Aurite', qty: 3250, fitted: GANTRY_TODAY, hull: 'gantry'},
 ];
 async function jump(page: Page, to: string) {
   await expect(async () => {
