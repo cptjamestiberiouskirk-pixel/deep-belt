@@ -106,6 +106,8 @@ const FIGHTS: Array<{name: string; weapon: string; cc: number; booster: boolean;
   {name: 'Lance Driver, Gunnery V', weapon: 'lance_driver', cc: 0, booster: false, gunnery: 5},
   // Step 38: Lance Driver II needs Gunnery V.
   {name: 'Lance Driver II, Gunnery V', weapon: 'lance_driver_ii', cc: 0, booster: false, gunnery: 5},
+  // Step 39: Light Cannon II needs Gunnery V.
+  {name: 'Light Cannon II, Gunnery V', weapon: 'light_cannon_ii', cc: 0, booster: false, gunnery: 5},
   {name: 'Lance Driver', weapon: 'lance_driver', cc: 0, booster: false},
   {name: 'Light Cannon + booster', weapon: 'light_cannon', cc: 0, booster: true},
   {name: 'Lance Driver + booster', weapon: 'lance_driver', cc: 0, booster: true},
@@ -469,7 +471,7 @@ for (const c of WARP_ESCAPES) {
 // --- Fighting a raider wave: sell ore to bring one, then lock each raider from
 // the Overview and fire until both are dead. Gunnery III. Records the fight's
 // length, the HP it cost and the lowest Cap. Step 16 adds the Fire Control Relay.
-const WAVES: Array<{name: string; weapon: string; cc: number; relay: boolean; gu?: number}> = [
+const WAVES: Array<{name: string; weapon: string; cc: number; relay: boolean; gu?: number; mod?: string}> = [
   {name: 'Light Cannon', weapon: 'light_cannon', cc: 0, relay: false},
   {name: 'Light Cannon + Fire Control Relay', weapon: 'light_cannon', cc: 0, relay: true},
   {name: 'Light Cannon, Charge Control V', weapon: 'light_cannon', cc: 5, relay: false},
@@ -480,11 +482,18 @@ const WAVES: Array<{name: string; weapon: string; cc: number; relay: boolean; gu
   {name: 'Light Cannon, Gunnery V', weapon: 'light_cannon', cc: 0, relay: false, gu: 5},
   {name: 'Lance Driver, Gunnery V', weapon: 'lance_driver', cc: 0, relay: false, gu: 5},
   {name: 'Lance Driver II, Gunnery V', weapon: 'lance_driver_ii', cc: 0, relay: false, gu: 5},
+  {name: 'Light Cannon II, Gunnery V', weapon: 'light_cannon_ii', cc: 0, relay: false, gu: 5},
+  // Step 39: with a Fire Control Relay, at Gunnery V.
+  {name: 'Lance Driver II + Fire Control Relay, Gunnery V', weapon: 'lance_driver_ii', cc: 0, relay: true, gu: 5},
+  {name: 'Light Cannon II + Fire Control Relay, Gunnery V', weapon: 'light_cannon_ii', cc: 0, relay: true, gu: 5},
+  // With Relay II, one Lance Driver II shot (137) is more than a raider's 130 HP.
+  {name: 'Lance Driver II + Fire Control Relay II, Gunnery V', weapon: 'lance_driver_ii', cc: 0, relay: true, gu: 5, mod: 'fire_control_ii'},
+  {name: 'Light Cannon II + Fire Control Relay II, Gunnery V', weapon: 'light_cannon_ii', cc: 0, relay: true, gu: 5, mod: 'fire_control_ii'},
 ];
 for (const c of WAVES) {
   test(`raiders: fight, ${c.name}`, async ({page}) => {
     test.setTimeout(240_000);
-    const fitted = ['miner_mk1', c.relay ? 'fire_control' : null, null, c.weapon];
+    const fitted = ['miner_mk1', c.mod ?? (c.relay ? 'fire_control' : null), null, c.weapon];
     await openWithSave(page, {...BASE, ...skills({mining: 2, gunnery: c.gu ?? 3, chargeControl: c.cc}), ...fitting(fitted), cargoFerrite: 600});
     await enterGame(page);
     await page.keyboard.press('1');
@@ -575,6 +584,8 @@ const VAEL_FIGHTS: Array<{name: string; weapon: string; second: string | null; c
   // Step 38: Lance Driver II needs Gunnery V; compare with 'Lance Driver, Gunnery V'.
   {name: 'Light Cannon, Gunnery V', weapon: 'light_cannon', second: null, gu: 5},
   {name: 'Lance Driver II, Gunnery V', weapon: 'lance_driver_ii', second: null, gu: 5},
+  // Step 39: Light Cannon II, also at Gunnery V.
+  {name: 'Light Cannon II, Gunnery V', weapon: 'light_cannon_ii', second: null, gu: 5},
 ];
 type Vael = {isAlive: boolean; shield: number; armor: number; hull: number; speed: number};
 for (const c of VAEL_FIGHTS) {

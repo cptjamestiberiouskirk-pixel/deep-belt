@@ -21,9 +21,12 @@ export type ModuleId =
   | 'fire_control'
   | 'fire_control_ii'
   | 'light_cannon'
+  | 'light_cannon_ii'
   | 'lance_driver'
   | 'lance_driver_ii';
 
+/** Light Cannon II's damage per shot (step 39): half as much again as the Light Cannon's 30. */
+export const LIGHT_CANNON_II_DAMAGE = 45;
 /** Lance Driver II's damage per shot (step 38): half as much again as the Lance Driver's 47, rounded down. */
 export const LANCE_DRIVER_II_DAMAGE = 70;
 
@@ -234,6 +237,24 @@ export const MODULES: Record<ModuleId, ModuleDef> = {
     statBadge: '30 dmg / 3s',
     desc: 'Kinetic turret firing armor-piercing slugs up to 8.0 km optimal range.',
     icon: 'module_cannon_icon',
+  },
+  // Step 39: the Light Cannon's tier step, behind Gunnery V. Half as much damage
+  // again (45, not 30) for the same 3 s cycle, 8 km and 8 Cap: 15 damage/s, under
+  // Lance Driver II's 17.5.
+  light_cannon_ii: {
+    id: 'light_cannon_ii',
+    name: 'Light Cannon II',
+    category: 'module',
+    group: 'Projectile weapons',
+    tier: 2,
+    volume: 0,
+    basePrice: 1500,
+    slot: 'weapon',
+    stats: {damage: LIGHT_CANNON_II_DAMAGE, cycleSec: 3, rangeKm: 8, capPerCycle: 8},
+    statBadge: `${LIGHT_CANNON_II_DAMAGE} dmg / 3s`,
+    desc: `Heavier kinetic turret: ${LIGHT_CANNON_II_DAMAGE} armor-piercing damage per slug up to 8.0 km optimal range.`,
+    icon: 'module_cannon_icon',
+    requires: {skill: 'gunnery', level: 5},
   },
   // Step 6, the first new module: a longer-range weapon behind Gunnery II.
   // Against the Light Cannon: 11.25 damage/s for 10, 12 km for 8, 3.5 Cap/s for 2.7.

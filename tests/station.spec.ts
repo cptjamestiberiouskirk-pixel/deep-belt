@@ -310,8 +310,8 @@ test('market: each module card shows its catalog name, price and stat', async ({
   await page.keyboard.press('1');
   await expect(page.getByText('Sell cargo')).toBeVisible();
   for (const p of PINNED_MODULES) {
-    // The innermost box holding both the name and a Buy button is the module's card.
-    const card = page.locator('div', {hasText: p.name, has: page.getByRole('button', {name: 'Buy'})}).last();
+    // By test id: the text "Light Cannon" also matches the Light Cannon II card (step 39).
+    const card = page.getByTestId(`market-card-${p.id}`);
     await expect(card).toContainText(p.badge);
     await expect(card).toContainText(new RegExp(String(p.price).replace(/\B(?=(\d{3})+$)/g, ',?') + '\\s*MARKS'));
   }

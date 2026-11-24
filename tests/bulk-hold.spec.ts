@@ -18,7 +18,7 @@ test('catalog: the Bulk Hold gives 900 hold for 20% speed, sold after the Expand
   });
   expect(MODULES.bulk_hold.maxOwned).toBeUndefined(); // one only: the slowdown does not stack
   expect(MODULES.bulk_hold.requires).toBeUndefined();
-  expect(MARKET_MODULE_IDS).toEqual(['miner_mk2', 'expanded_hold', 'expanded_hold_ii', 'bulk_hold', 'shield_booster', 'shield_booster_ii', 'composite_armor', 'composite_armor_ii', 'fire_control', 'fire_control_ii', 'light_cannon', 'lance_driver', 'lance_driver_ii']);
+  expect(MARKET_MODULE_IDS).toEqual(['miner_mk2', 'expanded_hold', 'expanded_hold_ii', 'bulk_hold', 'shield_booster', 'shield_booster_ii', 'composite_armor', 'composite_armor_ii', 'fire_control', 'fire_control_ii', 'light_cannon', 'light_cannon_ii', 'lance_driver', 'lance_driver_ii']);
   const withBulk = ['miner_mk1', 'bulk_hold', 'expanded_hold', 'light_cannon'] as const;
   expect(fittedSpeedMult([...withBulk])).toBeCloseTo(0.8);
   expect(fittedTotal([...withBulk], 'cargoM3')).toBe(1400);

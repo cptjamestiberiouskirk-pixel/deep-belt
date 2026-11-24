@@ -32,7 +32,7 @@ test('catalog: Fire Control Relay II is a utility module for 2,750 MARKS behind 
   // The first tier needs no skill.
   expect(MODULES.fire_control.stats).toEqual({damagePct: FIRE_CONTROL_DAMAGE_PCT});
   expect(MODULES.fire_control.requires).toBeUndefined();
-  expect(MARKET_MODULE_IDS).toEqual(['miner_mk2', 'expanded_hold', 'expanded_hold_ii', 'bulk_hold', 'shield_booster', 'shield_booster_ii', 'composite_armor', 'composite_armor_ii', 'fire_control', 'fire_control_ii', 'light_cannon', 'lance_driver', 'lance_driver_ii']);
+  expect(MARKET_MODULE_IDS).toEqual(['miner_mk2', 'expanded_hold', 'expanded_hold_ii', 'bulk_hold', 'shield_booster', 'shield_booster_ii', 'composite_armor', 'composite_armor_ii', 'fire_control', 'fire_control_ii', 'light_cannon', 'light_cannon_ii', 'lance_driver', 'lance_driver_ii']);
   expect(missingSkill({gunnery: 4}, 'fire_control_ii')).toBe('Gunnery V');
   expect(missingSkill({gunnery: 5}, 'fire_control_ii')).toBeNull();
   expect(fittedTotal(RELAY_II, 'damagePct')).toBe(30);
