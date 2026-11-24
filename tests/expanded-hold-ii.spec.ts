@@ -33,7 +33,7 @@ test('catalog: Expanded Hold II is a utility module for 2,125 MARKS behind Navig
   expect(MODULES.expanded_hold.stats).toEqual({cargoM3: EXPANDER_BONUS});
   expect(MODULES.expanded_hold.requires).toBeUndefined();
   expect(MODULES.expanded_hold.maxOwned).toBe(3);
-  expect(MARKET_MODULE_IDS).toEqual(['miner_mk2', 'expanded_hold', 'expanded_hold_ii', 'bulk_hold', 'shield_booster', 'shield_booster_ii', 'composite_armor', 'composite_armor_ii', 'fire_control', 'fire_control_ii', 'light_cannon', 'light_cannon_ii', 'lance_driver', 'lance_driver_ii']);
+  expect(MARKET_MODULE_IDS).toEqual(['miner_mk2', 'expanded_hold', 'expanded_hold_ii', 'bulk_hold', 'bulk_hold_ii', 'shield_booster', 'shield_booster_ii', 'composite_armor', 'composite_armor_ii', 'fire_control', 'fire_control_ii', 'light_cannon', 'light_cannon_ii', 'lance_driver', 'lance_driver_ii']);
   expect(missingSkill({navigation: 4}, 'expanded_hold_ii')).toBe('Navigation V');
   expect(missingSkill({navigation: 5}, 'expanded_hold_ii')).toBeNull();
   // A Ferrier's two utility slots: 1,250 with one of each tier, 1,000 with two of the first.

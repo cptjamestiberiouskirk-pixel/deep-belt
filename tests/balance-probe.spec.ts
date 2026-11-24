@@ -34,9 +34,16 @@ const BULK = ['miner_mk1', 'bulk_hold', null, 'light_cannon'];
 // Step 36: a Ferrier's two utility slots with holds, without and with the II.
 const TWO_HOLDS = ['miner_mk1', 'expanded_hold', 'expanded_hold', 'light_cannon'];
 const HOLD_II = ['miner_mk1', 'expanded_hold', 'expanded_hold_ii', 'light_cannon'];
+// Step 40: Bulk Hold II alone and with the Bulk Hold on a Ferrier; on a Gantry
+// (three utility slots) the biggest hold today and the biggest with the II.
+const BULK_II = ['miner_mk1', 'bulk_hold_ii', null, 'light_cannon'];
+const BULK_PAIR = ['miner_mk1', 'bulk_hold', 'bulk_hold_ii', 'light_cannon'];
+const GANTRY_TODAY = ['miner_mk1', 'bulk_hold', 'expanded_hold_ii', 'expanded_hold', 'light_cannon'];
+const GANTRY_STACK = ['miner_mk1', 'bulk_hold', 'bulk_hold_ii', 'expanded_hold_ii', 'light_cannon'];
+const onHull = (hull?: string) => (hull ? {ownedHulls: ['ferrier', hull], activeHull: hull} : {});
 
 // --- Top speed: hold thrust from a standstill and take the highest speed seen.
-const SPEEDS = [
+const SPEEDS: Array<{name: string; fitted: Array<string | null>; ferrite: number; trim: number; hull?: string}> = [
   {name: 'empty hold', fitted: PLAIN, ferrite: 0, trim: 0},
   {name: 'full hold (600)', fitted: PLAIN, ferrite: 600, trim: 0},
   {name: 'full hold (600), Cargo Trim V', fitted: PLAIN, ferrite: 600, trim: 5},
@@ -46,11 +53,17 @@ const SPEEDS = [
   {name: 'two Expanded Holds, full (1600)', fitted: TWO_HOLDS, ferrite: 1600, trim: 0},
   {name: 'Expanded Hold and II, empty', fitted: HOLD_II, ferrite: 0, trim: 0},
   {name: 'Expanded Hold and II, full (1850)', fitted: HOLD_II, ferrite: 1850, trim: 0},
+  {name: 'Bulk Hold II, full (1950)', fitted: BULK_II, ferrite: 1950, trim: 5},
+  {name: 'Bulk Hold and II, empty', fitted: BULK_PAIR, ferrite: 0, trim: 5},
+  {name: 'Bulk Hold and II, full (2850)', fitted: BULK_PAIR, ferrite: 2850, trim: 5},
+  {name: 'Gantry, Bulk Hold, Expanded Hold II and Expanded Hold, full (4150)', fitted: GANTRY_TODAY, ferrite: 4150, trim: 5, hull: 'gantry'},
+  {name: 'Gantry, Bulk Hold, Bulk Hold II and Expanded Hold II, empty', fitted: GANTRY_STACK, ferrite: 0, trim: 5, hull: 'gantry'},
+  {name: 'Gantry, Bulk Hold, Bulk Hold II and Expanded Hold II, full (5000)', fitted: GANTRY_STACK, ferrite: 5000, trim: 5, hull: 'gantry'},
 ];
 for (const c of SPEEDS) {
   test(`speed: ${c.name}`, async ({page}) => {
     test.setTimeout(120_000);
-    await openWithSave(page, {...BASE, ...skills({cargoTrim: c.trim}), ...fitting(c.fitted), cargoFerrite: c.ferrite});
+    await openWithSave(page, {...BASE, ...skills({cargoTrim: c.trim}), ...fitting(c.fitted), cargoFerrite: c.ferrite, ...onHull(c.hull)});
     await enterGame(page);
     await undock(page);
     await page.waitForTimeout(1500);
@@ -672,6 +685,26 @@ for (const lp of [0, 5]) {
   });
 }
 
+// Step 40: the same for the bigger holds, sold at once.
+for (const c of [{name: '2850 Ferrite (Bulk Hold and II)', fitted: BULK_PAIR, qty: 2850}, {name: '5000 Ferrite (Gantry with Bulk Hold II)', fitted: GANTRY_STACK, qty: 5000, hull: 'gantry'}]) {
+  for (const lp of [0, 5]) {
+    test(`notice: sell ${c.name} at Low Profile ${lp}`, async ({page}) => {
+      test.setTimeout(120_000);
+      await openWithSave(page, {...BASE, ...skills({mining: 2, lowProfile: lp, cargoTrim: 5}), ...fitting(c.fitted), cargoFerrite: c.qty, ...onHull(c.hull)});
+      await enterGame(page);
+      await page.keyboard.press('1');
+      await settle(page);
+      await page.keyboard.press('Enter');
+      await expect.poll(async () => (await readSave(page))!.inventory?.ferrite).toBe(0);
+      const noticeAfterSale = Math.round((await player(page)).notice);
+      await page.keyboard.press('Escape');
+      await undock(page);
+      const raid = await page.getByText(/Raider wave inbound/).first().waitFor({timeout: 20_000}).then(() => true, () => false);
+      record({probe: 'notice', case: `sale of ${c.name}, Low Profile ${lp}`, noticeAfterSale, raidWithin20s: raid});
+    });
+  }
+}
+
 // --- Notice from mining: Notice gained per second while the laser runs, over 40 s at Belt One.
 for (const lp of [0, 5]) {
   test(`notice: mining at Low Profile ${lp}`, async ({page}) => {
@@ -745,11 +778,18 @@ for (const c of PACES) {
 // station, dock, sell everything, undock and warp back, gate jumps included. Mining time
 // per load comes from the cycle (MK1 50 per 10 s, MK2 75 per 8 s); this adds the trip.
 // Low Profile V, so 600 Ferrite sells without a raider wave.
-const TRIPS: Array<{name: string; belt: string; station: string; vael?: boolean; haul?: boolean; ore: string; qty: number}> = [
+const TRIPS: Array<{name: string; belt: string; station: string; vael?: boolean; haul?: boolean; ore: string; qty: number; fitted?: Array<string | null>; hull?: string}> = [
   {name: 'Belt One to Harrow Station, Ferrite', belt: 'Belt One', station: 'Harrow Station Alpha', ore: 'Ferrite', qty: 600},
   {name: 'Cinder Rift to Harrow Station, Prismite', belt: 'Cinder Rift', station: 'Harrow Station Alpha', ore: 'Prismite', qty: 75},
   {name: 'Vael Belt to Vael Station, Aurite', belt: 'Vael Belt', station: 'Vael Station', vael: true, ore: 'Aurite', qty: 600},
   {name: 'Vael Belt to Harrow Station by the gates, Aurite', belt: 'Vael Belt', station: 'Harrow Station Alpha', vael: true, haul: true, ore: 'Aurite', qty: 600},
+  // Step 40: full holds bigger than 600, single and stacked.
+  {name: 'Belt One to Harrow Station, Ferrite, Expanded Hold and II (1850)', belt: 'Belt One', station: 'Harrow Station Alpha', ore: 'Ferrite', qty: 1850, fitted: HOLD_II},
+  {name: 'Belt One to Harrow Station, Ferrite, Bulk Hold and II (2850)', belt: 'Belt One', station: 'Harrow Station Alpha', ore: 'Ferrite', qty: 2850, fitted: BULK_PAIR},
+  {name: 'Belt One to Harrow Station, Ferrite, Gantry today (4150)', belt: 'Belt One', station: 'Harrow Station Alpha', ore: 'Ferrite', qty: 4150, fitted: GANTRY_TODAY, hull: 'gantry'},
+  {name: 'Belt One to Harrow Station, Ferrite, Gantry with Bulk Hold II (5000)', belt: 'Belt One', station: 'Harrow Station Alpha', ore: 'Ferrite', qty: 5000, fitted: GANTRY_STACK, hull: 'gantry'},
+  {name: 'Vael Belt to Harrow Station by the gates, Aurite, Gantry today (4150)', belt: 'Vael Belt', station: 'Harrow Station Alpha', vael: true, haul: true, ore: 'Aurite', qty: 4150, fitted: GANTRY_TODAY, hull: 'gantry'},
+  {name: 'Vael Belt to Harrow Station by the gates, Aurite, Gantry with Bulk Hold II (5000)', belt: 'Vael Belt', station: 'Harrow Station Alpha', vael: true, haul: true, ore: 'Aurite', qty: 5000, fitted: GANTRY_STACK, hull: 'gantry'},
 ];
 async function jump(page: Page, to: string) {
   await expect(async () => {
@@ -761,7 +801,7 @@ for (const c of TRIPS) {
   test(`selling trip: ${c.name}`, async ({page}) => {
     test.setTimeout(420_000);
     const key = c.ore.toLowerCase();
-    await openWithSave(page, {...BASE, ...skills({lowProfile: 5}), ...fitting(PLAIN), missionIndex: 3, missionStatus: 'completed', hasGatePermit: true, [`cargo${c.ore}`]: c.qty});
+    await openWithSave(page, {...BASE, ...skills({lowProfile: 5, cargoTrim: c.fitted ? 5 : 0}), ...fitting(c.fitted ?? PLAIN), missionIndex: 3, missionStatus: 'completed', hasGatePermit: true, [`cargo${c.ore}`]: c.qty, ...onHull(c.hull)});
     await enterGame(page);
     await undock(page);
     if (c.vael) {

@@ -18,7 +18,7 @@ test('catalog: the Bulk Hold gives 900 hold for 20% speed, sold after the Expand
   });
   expect(MODULES.bulk_hold.maxOwned).toBeUndefined(); // one only: the slowdown does not stack
   expect(MODULES.bulk_hold.requires).toBeUndefined();
-  expect(MARKET_MODULE_IDS).toEqual(['miner_mk2', 'expanded_hold', 'expanded_hold_ii', 'bulk_hold', 'shield_booster', 'shield_booster_ii', 'composite_armor', 'composite_armor_ii', 'fire_control', 'fire_control_ii', 'light_cannon', 'light_cannon_ii', 'lance_driver', 'lance_driver_ii']);
+  expect(MARKET_MODULE_IDS).toEqual(['miner_mk2', 'expanded_hold', 'expanded_hold_ii', 'bulk_hold', 'bulk_hold_ii', 'shield_booster', 'shield_booster_ii', 'composite_armor', 'composite_armor_ii', 'fire_control', 'fire_control_ii', 'light_cannon', 'light_cannon_ii', 'lance_driver', 'lance_driver_ii']);
   const withBulk = ['miner_mk1', 'bulk_hold', 'expanded_hold', 'light_cannon'] as const;
   expect(fittedSpeedMult([...withBulk])).toBeCloseTo(0.8);
   expect(fittedTotal([...withBulk], 'cargoM3')).toBe(1400);
@@ -45,7 +45,8 @@ test('bulk hold: bought into a free slot, the hold is 900 bigger, top speed 20% 
   await settle(page);
   await page.keyboard.press('1');
   await expect(page.getByText('Sell cargo')).toBeVisible();
-  const card = page.locator('div', {hasText: 'Bulk Hold', has: page.getByRole('button', {name: 'Buy'})}).last();
+  // By test id: the text "Bulk Hold" also matches the Bulk Hold II card (step 40).
+  const card = page.getByTestId('market-card-bulk_hold');
   await expect(card).toContainText('+900 hold, -20% speed');
   await card.getByRole('button', {name: 'Buy'}).click();
   await expect.poll(async () => (await readSave(page))!.fitting.fitted).toContain('bulk_hold');

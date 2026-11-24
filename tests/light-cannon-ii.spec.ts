@@ -34,7 +34,7 @@ test('catalog: Light Cannon II is a weapon for 1,500 MARKS behind Gunnery V, the
   // Step 38's order: per second it stays under Lance Driver II (15 against 17.5), and it costs less.
   expect(LIGHT_CANNON_II_DAMAGE / 3).toBeLessThan(LANCE_DRIVER_II_DAMAGE / 4);
   expect(MODULES.light_cannon_ii.basePrice).toBeLessThan(MODULES.lance_driver_ii.basePrice);
-  expect(MARKET_MODULE_IDS).toEqual(['miner_mk2', 'expanded_hold', 'expanded_hold_ii', 'bulk_hold', 'shield_booster', 'shield_booster_ii', 'composite_armor', 'composite_armor_ii', 'fire_control', 'fire_control_ii', 'light_cannon', 'light_cannon_ii', 'lance_driver', 'lance_driver_ii']);
+  expect(MARKET_MODULE_IDS).toEqual(['miner_mk2', 'expanded_hold', 'expanded_hold_ii', 'bulk_hold', 'bulk_hold_ii', 'shield_booster', 'shield_booster_ii', 'composite_armor', 'composite_armor_ii', 'fire_control', 'fire_control_ii', 'light_cannon', 'light_cannon_ii', 'lance_driver', 'lance_driver_ii']);
   expect(missingSkill({gunnery: 4}, 'light_cannon_ii')).toBe('Gunnery V');
   expect(missingSkill({gunnery: 5}, 'light_cannon_ii')).toBeNull();
   // Any fitted weapon arms the same Fire controls as the Light Cannon.

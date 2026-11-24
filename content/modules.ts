@@ -14,6 +14,7 @@ export type ModuleId =
   | 'expanded_hold'
   | 'expanded_hold_ii'
   | 'bulk_hold'
+  | 'bulk_hold_ii'
   | 'shield_booster'
   | 'shield_booster_ii'
   | 'composite_armor'
@@ -30,6 +31,8 @@ export const LIGHT_CANNON_II_DAMAGE = 45;
 /** Lance Driver II's damage per shot (step 38): half as much again as the Lance Driver's 47, rounded down. */
 export const LANCE_DRIVER_II_DAMAGE = 70;
 
+/** Bulk Hold II's hold space in m³ (step 40): half as much again as the Bulk Hold's 900. */
+export const BULK_HOLD_II_BONUS = 1350;
 /** Expanded Hold II's hold space in m³ (step 36): half as much again as the first tier's 500. */
 export const EXPANDED_HOLD_II_BONUS = 750;
 /** Composite Armor's armor HP (step 12). */
@@ -120,6 +123,24 @@ export const MODULES: Record<ModuleId, ModuleDef> = {
     statBadge: '+900 hold, -20% speed',
     desc: 'Bolt-on ore bunker: +900 hold units, but the extra mass cuts top speed and thrust by 20%.',
     icon: 'module_cargo_expander_icon',
+  },
+  // Step 40: the Bulk Hold's tier step, behind Cargo Trim V (the skill for a
+  // full hold's slowdown). Half as much space again (1,350, not 900) for the same
+  // 20% speed. One only; fitted with the Bulk Hold the two slowdowns add up.
+  bulk_hold_ii: {
+    id: 'bulk_hold_ii',
+    name: 'Bulk Hold II',
+    category: 'module',
+    group: 'Cargo expanders',
+    tier: 3,
+    volume: 0,
+    basePrice: 4000,
+    slot: 'utility',
+    stats: {cargoM3: BULK_HOLD_II_BONUS, speedPct: -20},
+    statBadge: `+${BULK_HOLD_II_BONUS.toLocaleString('en-US')} hold, -20% speed`,
+    desc: `Heavier ore bunker: +${BULK_HOLD_II_BONUS.toLocaleString('en-US')} hold units, but the extra mass cuts top speed and thrust by 20%.`,
+    icon: 'module_cargo_expander_icon',
+    requires: {skill: 'cargoTrim', level: 5},
   },
   shield_booster: {
     id: 'shield_booster',
