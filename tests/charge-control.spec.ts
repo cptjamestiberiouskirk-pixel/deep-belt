@@ -11,7 +11,7 @@ import {MODULES} from '../content/modules';
 const BASE = {...RICH, milestoneIndustrialistClaimed: true};
 // The four skills a save had before step 7: Charge Control is missing and loads at 0.
 const OLD_SKILLS = (gunnery: number) => ({mining: 0, gunnery, shieldOp: 0, navigation: 0});
-const ZERO = {mining: 0, laserTuning: 0, lowProfile: 0, gunnery: 0, chargeControl: 0, shieldOp: 0, boosterEfficiency: 0, armorLayering: 0, navigation: 0, cargoTrim: 0, haulerPiloting: 0, industrialPiloting: 0, commandPiloting: 0, refining: 0, droneOperation: 0, exoticPacking: 0, signalAnalysis: 0};
+const ZERO = {mining: 0, laserTuning: 0, lowProfile: 0, gunnery: 0, chargeControl: 0, shieldOp: 0, boosterEfficiency: 0, armorLayering: 0, navigation: 0, cargoTrim: 0, haulerPiloting: 0, industrialPiloting: 0, commandPiloting: 0, refining: 0, droneOperation: 0, exoticPacking: 0, signalAnalysis: 0, signalRecovery: 0};
 
 test('catalog: Charge Control is a rank 2 Gunnery skill after Gunnery III, cutting the weapon cycle 4% a level', () => {
   expect(SKILLS.chargeControl).toEqual({

@@ -104,7 +104,7 @@ import {CargoHoldPanel} from './utils/CargoHoldPanel';
 import {MARKET_CARGO_DESCRIPTIONS} from './content/market';
 import {MarketPanel} from './utils/MarketPanel';
 import {createWarpVisuals, drawWarpFlow} from './utils/warp-visuals';
-import {ARMOR_LAYERING_PCT, BASE_REFINE_OUTPUT, BOOSTER_EFFICIENCY_CUT, boosterCapAt, CARGO_TRIM_CUT, CHARGE_CONTROL_CUT, DRONE_OPERATION_CUT, droneCycleAt, PACKING_SALE_PCT, packedSalePriceAt, effectiveLoad, FERRITE_PER_TRITANIUM, freeFerriteAt, LASER_TUNING_CUT, LOW_PROFILE_FREE_FERRITE, LOW_PROFILE_MINING_CUT, maxArmorAt, minerCycleAt, miningNoticePerSec, noticeFerrite, prerequisiteText, REFINING_BONUS_PER_LEVEL, refineOutputAt, saleNotice, SCAN_BANDS, SCAN_SUCCESS_COOLDOWN_SEC, SCAN_SWEEP_RAD_PER_SEC, scanBandAt, scanWindowSec, SIGNAL_ANALYSIS_WIDEN, SKILL_CATEGORY_ORDER, skillLevels, SKILLS, unmetPrerequisites, weaponCycleAt} from './content/skills';
+import {ARMOR_LAYERING_PCT, BASE_REFINE_OUTPUT, BOOSTER_EFFICIENCY_CUT, boosterCapAt, CARGO_TRIM_CUT, CHARGE_CONTROL_CUT, DRONE_OPERATION_CUT, droneCycleAt, PACKING_SALE_PCT, packedSalePriceAt, effectiveLoad, FERRITE_PER_TRITANIUM, freeFerriteAt, LASER_TUNING_CUT, LOW_PROFILE_FREE_FERRITE, LOW_PROFILE_MINING_CUT, maxArmorAt, minerCycleAt, miningNoticePerSec, noticeFerrite, prerequisiteText, REFINING_BONUS_PER_LEVEL, refineOutputAt, saleNotice, SCAN_BANDS, SCAN_SUCCESS_COOLDOWN_SEC, SCAN_SWEEP_RAD_PER_SEC, scanBandAt, scanLockoutSecAt, scanWindowSec, SIGNAL_ANALYSIS_WIDEN, SIGNAL_RECOVERY_CUT_SEC, SKILL_CATEGORY_ORDER, skillLevels, SKILLS, unmetPrerequisites, weaponCycleAt} from './content/skills';
 import {formatSpeed, FULL_HOLD_THRUST_CUT, flightLimits, PIXELS_PER_KM, topSpeed} from './content/flight';
 import type {ModuleDef} from './content/types';
 import {
@@ -1575,6 +1575,14 @@ export const SKILL_DEFINITIONS: SkillDefinition[] = [
     description: `+${Math.round(SIGNAL_ANALYSIS_WIDEN * 100)}% wider target bands in the probe scan sweep, per level`,
     getBonusText: (level: number) =>
       `+${Math.round(SIGNAL_ANALYSIS_WIDEN * 100 * level)}% scan bands (${scanWindowSec(SCAN_BANDS[0], level).toFixed(2)}s to hit ring 1)`,
+  },
+  {
+    id: 'signalRecovery',
+    name: 'Signal Recovery',
+    category: SKILLS.signalRecovery.category,
+    description: `-${SIGNAL_RECOVERY_CUT_SEC}s on the scanner lockout after a lost signal, per level`,
+    getBonusText: (level: number) =>
+      `-${SIGNAL_RECOVERY_CUT_SEC * level}s scan lockout (${scanLockoutSecAt(level)}s after a lost signal)`,
   },
 ];
 
@@ -14620,17 +14628,19 @@ export default function App() {
     setIsScanMinigameOpen(false);
     scanFailedRef.current = true;
     setScanFailed(true);
-    scanReadyAtRef.current = performance.now() + 60000;
+    // 60 s untrained, 6 s less per level of Signal Recovery (step 37); the notices name the same number.
+    const lockoutSec = scanLockoutSecAt(skillsRef.current.signalRecovery || 0);
+    scanReadyAtRef.current = performance.now() + lockoutSec * 1000;
     startScanCooldownInterval();
     gameAudio.playErrorBuzz();
     setToastNotice({
       id: `toast_scan_fail_${Date.now()}`,
       title: 'Signal lost',
-      detail: 'Core probe sweep failed to acquire resonance. Scanner on 60s cooldown.',
+      detail: `Core probe sweep failed to acquire resonance. Scanner on ${lockoutSec}s cooldown.`,
       type: 'danger',
       duration: 6000,
     });
-    addFloatingText('SIGNAL LOST // COOLDOWN 60s', playerRef.current.x, playerRef.current.y - 45, '#FF5A5F');
+    addFloatingText(`SIGNAL LOST // COOLDOWN ${lockoutSec}s`, playerRef.current.x, playerRef.current.y - 45, '#FF5A5F');
   }, [setToastNotice, startScanCooldownInterval]);
 
   const unfitLens = useCallback(() => {

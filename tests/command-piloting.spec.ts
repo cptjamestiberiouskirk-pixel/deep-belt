@@ -11,7 +11,7 @@ import {prerequisiteText, SKILLS, unmetPrerequisites} from '../content/skills';
 
 const BASE = {...RICH, milestoneIndustrialistClaimed: true};
 const SKILLS_AT = (commandPiloting: number, industrialPiloting = 1) => ({
-  skills: {mining: 0, laserTuning: 0, lowProfile: 0, gunnery: 0, chargeControl: 0, shieldOp: 0, boosterEfficiency: 0, armorLayering: 0, navigation: 0, cargoTrim: 0, haulerPiloting: 0, industrialPiloting, commandPiloting, refining: 0, droneOperation: 0, exoticPacking: 0, signalAnalysis: 0},
+  skills: {mining: 0, laserTuning: 0, lowProfile: 0, gunnery: 0, chargeControl: 0, shieldOp: 0, boosterEfficiency: 0, armorLayering: 0, navigation: 0, cargoTrim: 0, haulerPiloting: 0, industrialPiloting, commandPiloting, refining: 0, droneOperation: 0, exoticPacking: 0, signalAnalysis: 0, signalRecovery: 0},
 });
 const PARTS = {cargoQuantumCore: 2, cargoIntegritySeal: 2, cargoThermalGrid: 1, cargoPackedPrismite: 2, cargoPackedRadflux: 1};
 const hull = (id: HullId) => HULL_DEFINITIONS.find((h) => h.id === id)!;

@@ -4,7 +4,7 @@
 //
 // The bonus each level gives stays in App.tsx's SKILL_DEFINITIONS for now.
 
-export type SkillId = 'mining' | 'laserTuning' | 'lowProfile' | 'gunnery' | 'chargeControl' | 'shieldOp' | 'boosterEfficiency' | 'armorLayering' | 'navigation' | 'cargoTrim' | 'haulerPiloting' | 'industrialPiloting' | 'commandPiloting' | 'refining' | 'droneOperation' | 'exoticPacking' | 'signalAnalysis';
+export type SkillId = 'mining' | 'laserTuning' | 'lowProfile' | 'gunnery' | 'chargeControl' | 'shieldOp' | 'boosterEfficiency' | 'armorLayering' | 'navigation' | 'cargoTrim' | 'haulerPiloting' | 'industrialPiloting' | 'commandPiloting' | 'refining' | 'droneOperation' | 'exoticPacking' | 'signalAnalysis' | 'signalRecovery';
 export type SkillCategory = 'Extraction' | 'Gunnery' | 'Defense' | 'Navigation' | 'Industry' | 'Science';
 
 export interface SkillDef {
@@ -73,6 +73,10 @@ export const SKILLS: Record<SkillId, SkillDef> = {
   // where a scan needs 2 hits of 3 inside bands about 0.36 s wide and a failed scan
   // locks the scanner for 60 s. Rank 1, no prerequisites.
   signalAnalysis: {id: 'signalAnalysis', name: 'Signal Analysis', category: 'Science', rank: 1, prerequisites: []},
+  // Step 37: a failed scan locks the scanner for 60 s; each level takes 6 s off
+  // (30 s at V). Rank 2, after Signal Analysis II. It shortens only the wait after
+  // a failure: the bands, the 2-of-3 rule and the Data Cache's 600 MARKS are unchanged.
+  signalRecovery: {id: 'signalRecovery', name: 'Signal Recovery', category: 'Science', rank: 2, prerequisites: [{skill: 'signalAnalysis', level: 2}]},
 };
 
 export const SKILL_IDS = Object.keys(SKILLS) as SkillId[];
@@ -205,6 +209,16 @@ export function scanBandAt(band: {start: number; end: number}, signalAnalysisLev
 export function scanWindowSec(band: {start: number; end: number}, signalAnalysisLevel: number): number {
   const b = scanBandAt(band, signalAnalysisLevel);
   return Math.round(((b.end - b.start) / SCAN_SWEEP_RAD_PER_SEC) * 100) / 100;
+}
+
+/** Seconds a failed scan locks the scanner, untrained. */
+export const SCAN_LOCKOUT_SEC = 60;
+/** Signal Recovery: each level takes this many seconds off the lockout, a flat amount (step 37). */
+export const SIGNAL_RECOVERY_CUT_SEC = 6;
+
+/** The lockout after a failed scan at a Signal Recovery level: 60 s untrained, 30 s at level V. */
+export function scanLockoutSecAt(signalRecoveryLevel: number): number {
+  return SCAN_LOCKOUT_SEC - SIGNAL_RECOVERY_CUT_SEC * signalRecoveryLevel;
 }
 
 /** Cargo Trim: each level cuts the hold's load effect on handling by this share. */

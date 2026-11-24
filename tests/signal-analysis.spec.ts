@@ -9,7 +9,7 @@ import {SCAN_BANDS, SCAN_SWEEP_RAD_PER_SEC, scanBandAt, scanWindowSec, SIGNAL_AN
 
 const BASE = {...RICH, milestoneIndustrialistClaimed: true, hasProbeLauncher: true};
 const SKILLS_AT = (signalAnalysis: number) => ({
-  skills: {mining: 0, laserTuning: 0, lowProfile: 0, gunnery: 0, chargeControl: 0, shieldOp: 0, boosterEfficiency: 0, navigation: 0, cargoTrim: 0, refining: 0, droneOperation: 0, exoticPacking: 0, signalAnalysis},
+  skills: {mining: 0, laserTuning: 0, lowProfile: 0, gunnery: 0, chargeControl: 0, shieldOp: 0, boosterEfficiency: 0, navigation: 0, cargoTrim: 0, refining: 0, droneOperation: 0, exoticPacking: 0, signalAnalysis, signalRecovery: 0},
 });
 
 test('catalog: Signal Analysis is a rank 1 Science skill that widens the scan bands', () => {
@@ -45,7 +45,8 @@ test('skills screen: Signal Analysis shows under Science, needs nothing, and lev
   const science = page.getByTestId('skill-category-Science');
   await expect(science).toContainText('SIGNAL ANALYSIS');
   await expect(science).toContainText('+0% scan bands (0.36s to hit ring 1)');
-  await expect(science.getByText(/^Needs:/)).toHaveCount(0);
+  // Scoped to the card: Signal Recovery, also under Science, needs Signal Analysis II (step 37).
+  await expect(page.getByTestId('skill-card-signalAnalysis').getByText(/^Needs:/)).toHaveCount(0);
   await page.getByTestId('skill-card-signalAnalysis').getByRole('button', {name: 'LVL I (100 MARKS • 1:00)'}).click();
   await expect.poll(async () => (await readSave(page))!.trainingQueue.length).toBe(1);
   const after = (await readSave(page))!;
