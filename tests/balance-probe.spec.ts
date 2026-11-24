@@ -424,16 +424,20 @@ for (const c of [{name: 'empty hold', tritanium: 0}, {name: 'full hold (600 Trit
 // from a sale (Tritanium stays in the hold); the Vael pirate is provoked by a lock and
 // fled once it is inside 6.4 km (the warp to the Vael Belt lands 2 to 3 km from it).
 // It has no leash, so the only way it stops is out of reach. The ship thrusts straight away from the nearest hostile for 45 s.
-const BULK_FLEES: Array<{hostile: 'raiders' | 'vael'; fit: string; fitted: Array<string | null>; tritanium: number; nav: number}> = [];
+const BULK_FLEES: Array<{hostile: 'raiders' | 'vael'; fit: string; fitted: Array<string | null>; tritanium: number; nav: number; ct: number}> = [];
 for (const hostile of ['raiders', 'vael'] as const) {
   for (const f of [{fit: 'no Bulk Hold', fitted: PLAIN, tritanium: 600}, {fit: 'Bulk Hold', fitted: BULK, tritanium: 1500}]) {
-    for (const nav of [0, 2]) BULK_FLEES.push({hostile, ...f, nav});
+    for (const nav of [0, 2]) BULK_FLEES.push({hostile, ...f, nav, ct: 5});
   }
+  // Step 46: the reachable cases where the -20% decides escape (Cargo Trim needs Navigation II,
+  // so the Navigation 0 cases above are bounds only). Full holds: 600 + 900, and 600 + 900 + 1,350.
+  BULK_FLEES.push({hostile, fit: 'Bulk Hold at Cargo Trim III', fitted: BULK, tritanium: 1500, nav: 2, ct: 3});
+  BULK_FLEES.push({hostile, fit: 'both Bulk Holds', fitted: ['miner_mk1', 'bulk_hold', 'bulk_hold_ii', 'light_cannon'], tritanium: 2850, nav: 2, ct: 5});
 }
 for (const c of BULK_FLEES) {
   test(`full-hold flee: ${c.hostile === 'raiders' ? 'raider wave' : 'Vael pirate'}, ${c.fit}, Navigation ${c.nav}`, async ({page}) => {
     test.setTimeout(300_000);
-    await openWithSave(page, {...BASE, ...skills({navigation: c.nav, cargoTrim: 5}), ...fitting(c.fitted), cargoFerrite: c.hostile === 'raiders' ? 240 : 0, cargoTritanium: c.tritanium, ...(c.hostile === 'vael' ? {missionIndex: 3, missionStatus: 'completed', hasGatePermit: true} : {})});
+    await openWithSave(page, {...BASE, ...skills({navigation: c.nav, cargoTrim: c.ct}), ...fitting(c.fitted), cargoFerrite: c.hostile === 'raiders' ? 240 : 0, cargoTritanium: c.tritanium, ...(c.hostile === 'vael' ? {missionIndex: 3, missionStatus: 'completed', hasGatePermit: true} : {})});
     await enterGame(page);
     type Xy = {x: number; y: number; speed: number};
     let hostiles: () => Promise<Xy[]>;
@@ -512,7 +516,7 @@ for (const c of BULK_FLEES) {
     const lost = p.docked || p.hull <= 0;
     record({
       probe: 'full-hold flee',
-      case: `${c.hostile}, ${c.fit}, Navigation ${c.nav}`,
+      case: `${c.hostile}, ${c.fit}, Navigation ${c.nav}, Cargo Trim ${c.ct}`,
       escaped: !lost && gap > 8,
       shipLost: lost,
       startGapKm: startGap === null ? null : Math.round(startGap * 10) / 10,
