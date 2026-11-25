@@ -33,9 +33,9 @@ The run's lessons check doesn't replace this session's: the `check` job prints t
 1. Pick a RunId that is new: `<job>-<yyyyMMdd-HHmmss>`. For `edit`, first write the task to `.code-mode-runs/<RunId>.task.md` with the Write tool: the files to change, the exact change, and what must stay as it is.
 2. Start it with `run_in_terminal` in a new tab (no `tab_id`), cwd = this worktree's absolute path, title `code-mode <job>`, and a literal command line:
 
-   `pwsh -NoProfile -File dev\code-mode.ps1 -Job check -RunId check-20261119-1130 -Words "save test"`
+   `pwsh -NoProfile -File dev\code-mode.ps1 -Job check -RunId check-20261119-1130 -Words 'save test'`
 
-   Add `-TaskFile .code-mode-runs/<RunId>.task.md` for `edit`. `-TimeoutMinutes` defaults to 20.
+   The words follow PLAYBOOK "The lessons check" step 1: plain ASCII letters, digits and hyphens, no word starting with a hyphen, in single quotes. Add `-TaskFile .code-mode-runs/<RunId>.task.md` for `edit`. `-TimeoutMinutes` defaults to 20.
 3. Wait with one background Bash command that exits when the status file appears, never a sleep loop of your own turns:
 
    `for i in $(seq 1 450); do [ -f .code-mode-runs/<RunId>/status.json ] && break; sleep 3; done; cat .code-mode-runs/<RunId>/status.json`

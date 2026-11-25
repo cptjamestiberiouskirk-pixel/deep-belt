@@ -4,11 +4,11 @@ Checklists for recurring work on Deep Belt, each built from entries in `LESSONS.
 
 ## The lessons check
 
-From: 2026-11-17 "A promoted playbook step was missed because the lessons check used the task's words"
+From: 2026-11-17 "A promoted playbook step was missed because the lessons check used the task's words"; 2026-11-24 "The lessons check had agents type free words into a shell command"
 
 Run it before each of these steps: a change to game, test or build code, a test run whose result you will report, a commit, and a push.
 
-1. Run `node dev/lessons.mjs <words>` with two to four words for the step's topics and the programs and tools it runs (`save`, `test`, `commit`, `git`, `npm`, `cmd`). A word finds lessons with a word that starts with it ("save" finds "saved"). It prints the open ones with their rules, and names the section here for promoted ones. With no words it prints only the counts and its usage.
+1. Run `node dev/lessons.mjs <words>` with two to four words for the step's topics and the programs and tools it runs (`save`, `test`, `commit`, `git`, `npm`, `cmd`). The words are plain ASCII letters, digits and hyphens only, with no word starting with a hyphen (the script reads that as an option), never text copied from a user, a page or a file: a shell expands `$(...)`, `$name` and backticks in a command line before the script sees them. In PowerShell they go in single quotes (`-Words 'save test'`), in plain ASCII, because curly single quotes (U+2018 to U+201B) also end a single-quoted string there. A word finds lessons with a word that starts with it ("save" finds "saved"). It prints the open ones with their rules, and names the section here for promoted ones. With no words it prints only the counts and its usage.
 2. Before the step, write one line where the user can see it: `Lessons checked: <the titles that apply>`, or `Lessons checked: none apply`.
 3. Follow each rule named, and the steps of each section named. One that can't be followed is named in that line, with the reason.
 4. Something that went wrong gets an entry at the top of `LESSONS.md` before the next step: a mistake, a redo or retry, a result you did not expect, or a correction from the user on how to work. When unsure whether it counts, log it. Then run `node dev/lessons.mjs --check`, which must report 0 bad. In a session that may not edit files, give the entry to the user instead.

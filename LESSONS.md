@@ -13,6 +13,13 @@ Format, checked by `node dev/lessons.mjs --check`. A field's text may go on over
 - Status: open | promoted to PLAYBOOK "<section>" | closed: <why the rule no longer holds>
 ```
 
+## 2026-11-24: The lessons check had agents type free words into a shell command
+- What went wrong: a read-only audit (Q61) found that PLAYBOOK "The lessons check" step 1 had agents type words they chose into `node dev/lessons.mjs <words>`, and the code-mode skill's example passed them to `pwsh` in double quotes (`-Words "save test"`), where `$(...)`, `$name` and backticks are expanded before the script sees them. No run is known to have been hit; lessons-learned's security review found the same pattern in its own lessons-check step.
+- Why: the step said what the words are for, not which characters may go in them.
+- Rule going forward: topic words typed into a shell command are plain ASCII letters, digits and hyphens only, with no word starting with a hyphen, never text copied from a user, a page or a file; in PowerShell they go in single quotes, in plain ASCII, because curly single quotes (U+2018 to U+201B) also end a single-quoted string there.
+- Evidence: PLAYBOOK.md line 11 and .claude/skills/code-mode/SKILL.md line 36 at commit 9730828; session d8be0f06 note deep-belt-step50-q58-q61.md (Q61); dev/lessons.mjs lines 33-37 read a word that starts with a hyphen as an option; PowerShell 7.7.0's parser read U+2018, U+2019, U+201A and U+201B each as a single quote (2026-11-24).
+- Status: promoted to PLAYBOOK "The lessons check"
+
 ## 2026-11-24: A band edge past the lock range hid behind a test that pressed L under 10 km
 - What went wrong: the step 50 full suite failed the Skiff kill test once: the target panel read "Raider Skiff Pirate · 10.1 km" and never Locked, and the trace held "Target out of range (10.0 km / max 10.0 km)". Measured with the ship parked at the gate, the Skiff sat at 10.08 to 10.12 km in nine samples of ten: the raider loop's in-band bias turns a raider away from its standoff, so it rode its 10.1 km band edge, past the 10 km lock range. Earlier runs passed because the test pressed L while the Skiff was still closing.
 - Why: the design and the tests took the 9.5 km standoff as where it sits, and no test measured where in its band it stays.
