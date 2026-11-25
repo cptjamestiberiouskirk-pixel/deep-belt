@@ -13,6 +13,62 @@ Format, checked by `node dev/lessons.mjs --check`. A field's text may go on over
 - Status: open | promoted to PLAYBOOK "<section>" | closed: <why the rule no longer holds>
 ```
 
+## 2026-11-24: A band edge past the lock range hid behind a test that pressed L under 10 km
+- What went wrong: the step 50 full suite failed the Skiff kill test once: the target panel read "Raider Skiff Pirate · 10.1 km" and never Locked, and the trace held "Target out of range (10.0 km / max 10.0 km)". Measured with the ship parked at the gate, the Skiff sat at 10.08 to 10.12 km in nine samples of ten: the raider loop's in-band bias turns a raider away from its standoff, so it rode its 10.1 km band edge, past the 10 km lock range. Earlier runs passed because the test pressed L while the Skiff was still closing.
+- Why: the design and the tests took the 9.5 km standoff as where it sits, and no test measured where in its band it stays.
+- Rule going forward: a hostile whose band reaches past a range the player needs (lock, weapon) gets a test that samples its distance over time with the ship parked and checks where it stays, not only that it entered the band.
+- Evidence: commit 0350190 (`radialOffKm`; tests/skiff.spec.ts "band:"); session d8be0f06 scratchpad band-1.out (p50 10.1) and step2.out (p50 9.5).
+- Status: open
+
+## 2026-11-24: A warp test could not tell the leash from the selection range
+- What went wrong: step 50's leash planted bug (the Skiff never leaves a fight) passed the warp test. The test warped after the Skiff's first shot, before any hit, so nothing provoked it at the station (a selection provokes only within 20 km) and it went home with or without a leash.
+- Why: the test's setup left a second cause that gives the same result as the code under test.
+- Rule going forward: a test for one cause of a behavior sets up the state where only that cause can produce it (here a hit, so the attacker entry holds it in the fight), and a planted bug of that cause must fail it.
+- Evidence: session d8be0f06 scratchpad mutant-50-leash.out before the change (passed); task b485rpr1t after the test waits for hits > 0 (fails at tests/skiff.spec.ts:149).
+- Status: open
+
+## 2026-11-24: A chained command reported a failed typecheck that never ran
+- What went wrong: `node skiff-50l.mjs && git ls-files --eol App.tsx && npm run -s typecheck > /dev/null 2>&1; echo "typecheck exit $?"` printed "typecheck exit 1". The script had stopped on a double match, so the chain skipped the typecheck and the echo printed the script's code.
+- Why: an echo after `;` reads the last exit code of the whole `&&` chain, whichever command set it.
+- Rule going forward: an exit code that is reported comes from the command run on its own, not from the end of an `&&` chain.
+- Evidence: session d8be0f06, step 50 (the run printed "App.tsx match count 2" before "typecheck exit 1"; the same typecheck run alone gave exit 0).
+- Status: open
+
+## 2026-11-24: A planted bug added with node -e lost its \n escapes
+- What went wrong: adding the deathdrop planted bug to scratchpad mutant-50.mjs with `node -e` turned its `\n` escapes into real line breaks inside single-quoted strings. A dry run of every anchor's match count caught it before any run.
+- Why: the escape went through Bash before node saw it, as in the 2026-11-23 CR lesson.
+- Rule going forward: text with a backslash goes in a file written with the Write tool, a `node -e` included; a fix is checked by reading the bytes back, not by the script's own count.
+- Evidence: session d8be0f06 scratchpad mutant-50.mjs, deathdrop entry (fixed with the Edit tool; the dry run then counted 1 for each of 12 anchors).
+- Status: promoted to PLAYBOOK "Text with backslashes or $ from the Bash tool"
+
+## 2026-11-24: A sed edit turned balance-probe.spec.ts from CRLF to LF
+- What went wrong: in step 50 a Git Bash `sed -i` on tests/balance-probe.spec.ts lost the backslashes in its regex and wrote the file as LF. It was restored with a node script that keeps CRLF.
+- Why: the edit used `sed -i`, which the PLAYBOOK step rules out for every file.
+- Rule going forward: a scripted edit splits lines on an optional CR before LF and writes back with the line ending the file had; Git Bash `sed -i` does not, so any file is edited with the Edit tool or such a script.
+- Evidence: session d8be0f06 scratchpad fix919.mjs; `git ls-files --eol tests/balance-probe.spec.ts` shows `w/crlf` in commit 0350190.
+- Status: promoted to PLAYBOOK "Editing files with a script"
+
+## 2026-11-24: Repeated L presses kept restarting the probe's lock
+- What went wrong: step 50's first Skiff probe never locked: it pressed L on every poll, and each press restarts the 1 s lock (App.tsx handleLockTarget sets `p.lockTimer = 1.0`), so no lock finished.
+- Why: I treated L as a key to press until the lock showed, without checking what a press does while a lock runs.
+- Rule going forward: a key that changes state each time it is pressed is pressed again only after a check that can see the change.
+- Evidence: tests/balance-probe.spec.ts ("Each L restarts the 1 s lock, so press it once and wait for the lock."); tests/skiff.spec.ts lockSkiff.
+- Status: promoted to PLAYBOOK "Keys pressed until a change shows"
+
+## 2026-11-24: The probe read a dropped Skiff as a kill
+- What went wrong: once a jump or a death drops the Skiff, probe rows where the ship jumped away or was lost reported `skiffKilled: true`. The probe read `!isAlive`, which a drop also gives; two of those rows show the ship never fired within reach.
+- Why: the field names an event (a kill) but read a state two events leave.
+- Rule going forward: a probe field for an event reads a mark only that event leaves (a kill starts the 180 s wait: `respawnTimer > 0`), and is rechecked when a change adds another way to reach the same state.
+- Evidence: session d8be0f06 scratchpad probe-50f.jsonl (three rows killed true, fireInReach 0 in two) and probe-50g.jsonl after the fix; commit 0350190.
+- Status: open
+
+## 2026-11-24: A commit message named the wrong commit as a getter's origin
+- What went wrong: the TESTING.md commit draft said the probe hook's vaelPirate() came with the respawn fix (549f63b); `git log -S"vaelPirate: () =>"` showed 222732d. Caught before the commit.
+- Why: I wrote the origin from memory of a commit message that mentioned the getter.
+- Rule going forward: a commit or file named as a change's origin is found with `git log -S` or read before it is written.
+- Evidence: commit 2e464a5's message ("since the Vael Heavy Pirate probe (222732d)").
+- Status: open
+
 ## 2026-11-24: Stopping a planted-bug run left the bug in the catalog
 - What went wrong: step 40's planted-bug script (scratchpad step40-mutants.mjs) was stopped with TaskStop while it ran a mutant. The script restores content/modules.ts in a `finally`, but a killed process runs no `finally`, so BULK_HOLD_II_BONUS stayed at 900. The md5 taken before the run showed the mismatch, and the value was put back before anything else ran.
 - Why: I stopped the run to fix a spec without thinking about what a mutant script leaves behind when it is cut off.

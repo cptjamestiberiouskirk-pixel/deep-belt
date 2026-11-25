@@ -47,7 +47,7 @@ From: 2026-11-15 "A market Enter went to the officer's line, not the focused car
 
 ## Keys pressed until a change shows
 
-From: 2026-11-15 "A key pressed until the save changed skipped a Rift stage too far"; 2026-11-19 "A press-until-it-reads check stopped on the readout's old value"
+From: 2026-11-15 "A key pressed until the save changed skipped a Rift stage too far"; 2026-11-19 "A press-until-it-reads check stopped on the readout's old value"; 2026-11-24 "Repeated L presses kept restarting the probe's lock"
 
 1. A key that changes state each time it is pressed is pressed again only after a check that can see the change, either on the page or by polling the save for longer than the autosave interval.
 2. A loop that presses a key until a readout shows a value waits, after each press, for the readout to change from its value before the press (`expect.poll(...).not.toBe(was)`), then reads.
@@ -63,7 +63,7 @@ From: 2026-11-15 "A test read the save once, right after a toast, and saw old va
 
 ## Text with backslashes or $ from the Bash tool
 
-From: 2026-11-15 "A scripted edit wrote a literal $1 into App.tsx"; 2026-11-17 "A commit message sent through a heredoc lost its backslashes"; 2026-11-23 "A Bash edit wrote a real CR for the text \r into LESSONS.md and PLAYBOOK.md"
+From: 2026-11-15 "A scripted edit wrote a literal $1 into App.tsx"; 2026-11-17 "A commit message sent through a heredoc lost its backslashes"; 2026-11-23 "A Bash edit wrote a real CR for the text \r into LESSONS.md and PLAYBOOK.md"; 2026-11-24 "A planted bug added with node -e lost its \n escapes"
 
 1. Any text that holds backslashes or `$` (a script, a commit message, file contents) is saved with the Write tool and passed by its file (`node file`, `git commit -F file`), not through a Bash heredoc, `sed` or `node -e`. The result is checked by reading the bytes back, not by the script's own count.
 2. A scripted edit to App.tsx counts its matches, and is followed by the type-check and a read of the whole diff before any test run.
@@ -76,7 +76,7 @@ From: 2026-11-15 "Tab never reached a pirate 44 km away under full load"
 
 ## Editing files with a script
 
-From: 2026-11-15 "A sed edit turned App.tsx from CRLF to LF"; 2026-11-19 "A shell append turned .gitignore from CRLF to mixed line endings"; 2026-11-22 "A sed edit turned four test files from CRLF to LF"
+From: 2026-11-15 "A sed edit turned App.tsx from CRLF to LF"; 2026-11-19 "A shell append turned .gitignore from CRLF to mixed line endings"; 2026-11-22 "A sed edit turned four test files from CRLF to LF"; 2026-11-24 "A sed edit turned balance-probe.spec.ts from CRLF to LF"
 
 1. A scripted edit splits lines on an optional CR before LF and writes back with the line ending the file had. Git Bash `sed -i` does not: it writes LF, so App.tsx, and any other file, is edited with the Edit tool or such a script.
 2. Before a test run or commit, `git ls-files --eol <file>` shows the ending the file had before the edit (App.tsx: `w/crlf`), never `w/mixed`. A grep for CR is not that check: `grep -c $'\r$'` counted a CR on every line of an LF file.
