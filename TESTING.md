@@ -14,7 +14,7 @@ A change is verified when it has run and the result was seen, not when it type-c
 
 Pure code in `content/` also has **property tests** in `tests/properties.spec.ts` (fast-check). Each states a rule that must always hold, such as "fitting, unfitting and boarding a hull never make or lose a module" or "any saved fitting loads well formed", tries hundreds of generated inputs, and shrinks a failure to its smallest case. A case a property once found stays pinned in its `examples`.
 
-A number the screen does not show (speed, Cap, the pirate's layers) is read from the read-only probe hook `window.__DEEP_BELT_PROBE__` (`player()`, `pirate()`, `raiders()`, `vaelPirate()`, `skiff()`), set up in App.tsx.
+A number the screen does not show (speed, Cap, the pirate's layers, a hostile's heading) is read from the read-only probe hook `window.__DEEP_BELT_PROBE__` (`player()`, `pirate()`, `raiders()`, `vaelPirate()`, `skiff()`, `ashPirate()`, `riftCorsair()`, `riftGuardians()`), set up in App.tsx. How a hostile turns is read from it every frame by `tests/flight.ts` (`recordFlight`, then `flightStats` for its turn rates and reversals).
 
 ## Cheap checks first
 
