@@ -851,6 +851,150 @@ for (const c of MENDS) {
   });
 }
 
+// --- The Skiff (step 50, content/hostiles.ts): a light raider in Vael that holds 9.5 km,
+// fires from 12 km and flies at a plain Ferrier's own top speed. Starts docked at Vael
+// Station, undocks and warps to the Vael gate (Gate (Harrow)), 8 km from its post. Modes:
+//  fight  - lock it from the Overview and fire from where the ship stopped;
+//  chase  - lock it, approach it (Q) and fire, to see whether the weapon's range is reached;
+//  warp   - once its first bolt lands, warp to Vael Station, and watch 15 s more;
+//  ignore - park at the gate for 120 s and do nothing;
+//  jump   - once its first bolt lands, jump to Harrow (the hauler's way home).
+// The Skiff's own shots, hits and damage come from the probe hook's tally.
+type Skiff = {isAlive: boolean; respawnTimer: number; shots: number; hits: number; damage: number; shield: number; armor: number; hull: number; x: number; y: number; speed: number};
+const SKIFFS: Array<{name: string; weapon: string; nav: number; mode: 'fight' | 'chase' | 'warp' | 'ignore' | 'jump'; gu?: number; trim?: number; ferrite?: number}> = [
+  {name: 'Lance Driver, Gunnery III, Navigation 0, fight', weapon: 'lance_driver', nav: 0, mode: 'fight'},
+  {name: 'Light Cannon, Gunnery III, Navigation 0, chase', weapon: 'light_cannon', nav: 0, mode: 'chase'},
+  {name: 'Light Cannon, Gunnery III, Navigation II, chase', weapon: 'light_cannon', nav: 2, mode: 'chase'},
+  {name: 'Light Cannon, Navigation 0, warp off when hit', weapon: 'light_cannon', nav: 0, mode: 'warp'},
+  {name: 'full hold, Light Cannon, Navigation 0, chase', weapon: 'light_cannon', nav: 0, mode: 'chase', ferrite: 600},
+  {name: 'full hold, Light Cannon, Navigation 0, warp off when hit', weapon: 'light_cannon', nav: 0, mode: 'warp', ferrite: 600},
+  {name: 'full hold, Cargo Trim V, Light Cannon, Navigation II, chase', weapon: 'light_cannon', nav: 2, mode: 'chase', trim: 5, ferrite: 600},
+  {name: 'Light Cannon, Navigation 0, ignore it for 120 s', weapon: 'light_cannon', nav: 0, mode: 'ignore'},
+  {name: 'full hold, Light Cannon, Navigation 0, jump to Harrow when hit', weapon: 'light_cannon', nav: 0, mode: 'jump', ferrite: 600},
+];
+for (const c of SKIFFS) {
+  test(`skiff: ${c.name}`, async ({page}) => {
+    test.setTimeout(360_000);
+    const skiff = () => page.evaluate(() => (window as any).__DEEP_BELT_PROBE__.skiff() as Skiff);
+    const vael = () => page.evaluate(() => (window as any).__DEEP_BELT_PROBE__.vaelPirate() as {isAlive: boolean; x: number; y: number});
+    await openWithSave(page, {
+      ...BASE, ...skills({gunnery: c.gu ?? 3, navigation: c.nav, cargoTrim: c.trim ?? 0}), ...fitting(['miner_mk1', null, null, c.weapon]),
+      missionIndex: 3, missionStatus: 'completed', hasGatePermit: true, currentSystem: 'Vael', isDocked: true,
+      ...(c.ferrite ? {cargoFerrite: c.ferrite} : {}),
+    });
+    await enterGame(page);
+    await undock(page);
+    await expect(page.getByText('Vael System ·')).toBeVisible();
+    await expect.poll(async () => (await skiff()).isAlive, {timeout: 20_000}).toBe(true);
+    await flyTo(page, 'Gate (Harrow)');
+    const reach = c.weapon.startsWith('lance') ? 12 : 8;
+    const p0 = await player(page);
+    const s0 = await skiff();
+    const start = Date.now();
+    const limit = c.mode === 'ignore' ? 120_000 : 180_000;
+    let p = p0;
+    let s = s0;
+    const km = {min: Infinity, max: 0};
+    let secInReach = 0;
+    let vaelNearKm = Infinity;
+    let firstHitSec: number | null = null;
+    let warp: Record<string, unknown> | null = null;
+    let jump: Record<string, unknown> | null = null;
+    let topShip = 0;
+    let secFiringInReach = 0;
+    let secLocked = 0;
+    let topSkiff = 0;
+    while (Date.now() - start < limit && s.isAlive && !p.docked) {
+      await page.waitForTimeout(250);
+      p = await player(page);
+      s = await skiff();
+      if (!s.isAlive || p.docked) break;
+      topShip = Math.max(topShip, p.speed);
+      topSkiff = Math.max(topSkiff, s.speed);
+      const d = Math.hypot(s.x - p.x, s.y - p.y) / PIXELS_PER_KM;
+      km.min = Math.min(km.min, d);
+      km.max = Math.max(km.max, d);
+      if (d <= reach) secInReach += 0.25;
+      if (p.cannonActive && d <= reach) secFiringInReach += 0.25;
+      if (/Raider Skiff[\s\S]*Locked|Locked[\s\S]*Raider Skiff/.test(await targetPanel(page))) secLocked += 0.25;
+      if (process.env.SKIFF_TRACE && Math.round((Date.now() - start) / 250) % 8 === 0) console.log(JSON.stringify({t: Math.round((Date.now() - start) / 1000), km: Math.round(d * 10) / 10, fire: p.cannonActive, cap: Math.round(p.capacitor), panel: (await targetPanel(page)).slice(0, 80), skiffHp: Math.round(s.shield + s.armor + s.hull), skiffSpeed: Math.round(s.speed)}));
+      const v = await vael();
+      if (v.isAlive) vaelNearKm = Math.min(vaelNearKm, Math.hypot(v.x - p.x, v.y - p.y) / PIXELS_PER_KM);
+      if (firstHitSec === null && s.hits > s0.hits) firstHitSec = Math.round((Date.now() - start) / 100) / 10;
+      if (c.mode === 'warp' && firstHitSec !== null) {
+        const before = {hp: p.shield + p.armor + p.hull, hits: s.hits};
+        const t = Date.now();
+        await warpTo(page, 'Vael Station');
+        await expect.poll(async () => (await player(page)).warpState, {timeout: 30_000}).not.toBe('IDLE');
+        const spoolSec = Math.round((Date.now() - t) / 100) / 10;
+        const hitsAtWarp = (await skiff()).hits;
+        await expect(page.getByText('Dropped out of warp at Vael Station.').first()).toBeVisible({timeout: 60_000});
+        await page.waitForTimeout(15_000);
+        p = await player(page);
+        s = await skiff();
+        warp = {
+          spoolSec,
+          hitsWhileSpooling: hitsAtWarp - before.hits,
+          hitsAfterWarpStarted: s.hits - hitsAtWarp,
+          hpLostFromWarpOrder: Math.round(before.hp - (p.shield + p.armor + p.hull)),
+          skiffKmAfter: Math.round(Math.hypot(s.x - p.x, s.y - p.y) / PIXELS_PER_KM),
+        };
+        break;
+      }
+      if (c.mode === 'jump' && firstHitSec !== null) {
+        const hits0 = s.hits;
+        const t = Date.now();
+        await expect(async () => {
+          await page.keyboard.press('j');
+          await expect(page.getByText('Harrow System ·')).toBeVisible({timeout: 3000});
+        }).toPass({timeout: 60_000});
+        jump = {jumpSec: Math.round((Date.now() - t) / 100) / 10, hitsBeforeJump: (await skiff()).hits - hits0};
+        p = await player(page);
+        s = await skiff();
+        break;
+      }
+      if (c.mode === 'fight' || c.mode === 'chase') {
+        if (!/Raider Skiff[\s\S]*Locked|Locked[\s\S]*Raider Skiff/.test(await targetPanel(page))) {
+          const row = page.getByText('Raider Skiff', {exact: true}).first();
+          // The ship may have been lost since the last read: a click that can't land is skipped.
+          if (!(await row.isVisible())) await page.getByText('Ships', {exact: true}).click({timeout: 2000}).catch(() => {});
+          if (await row.isVisible()) {
+            await row.click({timeout: 2000}).catch(() => {});
+            if (c.mode === 'chase') await page.keyboard.press('q');
+            // Each L restarts the 1 s lock, so press it once and wait for the lock.
+            await page.keyboard.press('l');
+            await expect.poll(() => targetPanel(page), {timeout: 2500}).toMatch(/Locked/).catch(() => {});
+          }
+        }
+        if (/Locked/.test(await targetPanel(page)) && !(await player(page)).cannonActive) await page.keyboard.press('2');
+      }
+    }
+    record({
+      probe: 'skiff',
+      case: c.name,
+      // A kill starts its 180 s wait; a jump or a death drops it with no wait.
+      skiffKilled: s.respawnTimer > 0,
+      shipLost: p.docked,
+      sec: Math.round((Date.now() - start) / 1000),
+      firstHitSec,
+      skiffShots: s.shots - s0.shots,
+      skiffHits: s.hits - s0.hits,
+      skiffDamage: s.damage - s0.damage,
+      hpLost: p.docked ? null : Math.round(p0.shield + p0.armor + p0.hull - (p.shield + p.armor + p.hull)),
+      armorLost: p.docked ? null : Math.round(p0.armor - p.armor),
+      hullLost: p.docked ? null : Math.round(p0.hull - p.hull),
+      skiffKm: km.max ? [Math.round(km.min * 10) / 10, Math.round(km.max * 10) / 10] : null,
+      secInWeaponReach: secInReach,
+      secFiringInReach,
+      secLocked,
+      vaelPirateNearestKm: Number.isFinite(vaelNearKm) ? Math.round(vaelNearKm * 10) / 10 : null,
+      topSpeed: {ship: Math.round(topShip), skiff: Math.round(topSkiff)},
+      ...(warp ? {warp} : {}),
+      ...(jump ? {jump} : {}),
+    });
+  });
+}
+
 // --- Notice from a sale: sell a full Ferrier hold of Ferrite, read Notice, then
 // undock and see whether a raider wave comes within 20 s.
 for (const lp of [0, 5]) {

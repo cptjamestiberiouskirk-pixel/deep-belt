@@ -52,6 +52,7 @@ These are the core controls. Press `H` in the game for the full list, which incl
 | `index.tsx` | Entry point; mounts `App` into `#root` |
 | `App.tsx` | The game |
 | `constants.ts` | Game data and tuning constants |
+| `content/` | Catalogs and their tuning numbers (modules, skills, hulls, flight, inventory, lenses, market, fitting, dialogue audio, and hostiles: so far only the Skiff in `hostiles.ts`), with shared types |
 | `SpriteRenderer.ts` | Sprite drawing |
 | `utils/helper.tsx` | Input, audio, asset loading and overlay helpers |
 | `assets/` | Images and audio |

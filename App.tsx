@@ -107,6 +107,7 @@ import {createWarpVisuals, drawWarpFlow} from './utils/warp-visuals';
 import {ARMOR_LAYERING_PCT, ARMOR_MENDING_HP_PER_SEC, armorMendRateAt, BASE_REFINE_OUTPUT, BOOSTER_EFFICIENCY_CUT, boosterCapAt, CARGO_TRIM_CUT, CHARGE_CONTROL_CUT, DRONE_OPERATION_CUT, droneCycleAt, PACKING_SALE_PCT, packedSalePriceAt, effectiveLoad, FERRITE_PER_TRITANIUM, freeFerriteAt, LASER_TUNING_CUT, LOW_PROFILE_FREE_FERRITE, LOW_PROFILE_MINING_CUT, maxArmorAt, minerCycleAt, miningNoticePerSec, noticeFerrite, prerequisiteText, REFINING_BONUS_PER_LEVEL, refineOutputAt, saleNotice, SCAN_BANDS, SCAN_SUCCESS_COOLDOWN_SEC, SCAN_SWEEP_RAD_PER_SEC, scanBandAt, scanLockoutSecAt, scanWindowSec, SIGNAL_ANALYSIS_WIDEN, SIGNAL_RECOVERY_CUT_SEC, SKILL_CATEGORY_ORDER, skillLevels, SKILLS, unmetPrerequisites, weaponCycleAt} from './content/skills';
 import {formatSpeed, FULL_HOLD_THRUST_CUT, flightLimits, PIXELS_PER_KM, topSpeed} from './content/flight';
 import type {ModuleDef} from './content/types';
+import {SKIFF, skiffAggroKm} from './content/hostiles';
 import {
   buy as buyModule,
   canBuyMore,
@@ -5502,6 +5503,15 @@ export default function App() {
 
   // Raider frigates array spawned by Notice heat waves
   const raidersRef = useRef<RaiderPirateEntity[]>([]);
+  // The Skiff (step 50, content/hostiles.ts) lives in raidersRef while it is out; this is
+  // its wait after a kill, counted down in any system. Not saved: a reload brings it back.
+  const skiffRespawnRef = useRef(0);
+  // Its bolts fired and landed this session, for the balance probe only (the Vael pirate
+  // may be firing too, so the ship's HP alone cannot say which one cost what).
+  const skiffTallyRef = useRef({shots: 0, hits: 0, damage: 0});
+  // The system the last frame ran in: the Skiff may come out on the frame the ship
+  // arrives in Vael, even next to its post, as the arrival is a change of scene.
+  const skiffLastSystemRef = useRef<string>('');
 
   // Toast notifications stack (max 3 visible, newest on top)
   const [toasts, setToasts] = useState<ToastNotice[]>([]);
@@ -6264,6 +6274,14 @@ export default function App() {
         return {isAlive: q.isAlive, shield: q.shield, armor: q.armor, hull: q.hull, speed: Math.hypot(q.vx, q.vy), x: q.x, y: q.y, respawnTimer: q.respawnTimer};
       },
       raiders: () => raidersRef.current.filter((r) => r.isAlive).map((r) => ({x: r.x, y: r.y, speed: Math.hypot(r.vx, r.vy)})),
+      skiff: () => {
+        const s = raidersRef.current.find((r) => r.id === SKIFF.id && r.isAlive);
+        return {
+          isAlive: Boolean(s), respawnTimer: skiffRespawnRef.current, ...skiffTallyRef.current,
+          shield: s?.shield ?? 0, armor: s?.armor ?? 0, hull: s?.hull ?? 0,
+          x: s?.x ?? 0, y: s?.y ?? 0, speed: s ? Math.hypot(s.vx, s.vy) : 0,
+        };
+      },
       vaelPirate: () => {
         const q = vaelPirateRef.current;
         return {isAlive: q.isAlive, shield: q.shield, armor: q.armor, hull: q.hull, speed: Math.hypot(q.vx, q.vy), x: q.x, y: q.y, respawnTimer: q.respawnTimer};
@@ -6339,12 +6357,17 @@ export default function App() {
    * Starts a killed pirate's respawn wait, the same for a kill by the ship's
    * weapon and by a defense drone: 180 s for the Belt Two and Vael pirates, 60 s
    * for the Rift Corsair. Others need none: the Ash Drift pirate returns on its
-   * own 90 s countdown, and raiders and Rift guardians do not respawn this way.
+   * own 90 s countdown, and wave raiders and Rift guardians do not respawn this way.
+   * The Skiff (step 50) waits SKIFF.respawnSec in skiffRespawnRef.
    */
   const startRespawnTimer = (hostile: {id: string}) => {
     if (hostile.id === pirateRef.current.id) pirateRef.current.respawnTimer = 180;
     else if (hostile.id === vaelPirateRef.current.id) vaelPirateRef.current.respawnTimer = 180;
     else if (hostile.id === riftPirateRef.current.id) riftPirateRef.current.respawnTimer = 60.0;
+    else if (hostile.id === SKIFF.id) {
+      skiffRespawnRef.current = SKIFF.respawnSec;
+      aggressorIdsRef.current.delete(SKIFF.id);
+    }
   };
 
   // Layout Persistence & Stat Application
@@ -8771,6 +8794,7 @@ export default function App() {
     hasCrossed50Ref.current = false;
     lastRaiderWaveTimeRef.current = -90000;
     raidersRef.current = [];
+    skiffRespawnRef.current = 0;
     setOskCustomDialogue(null);
     setIsScanMinigameOpen(false);
     scanReadyAtRef.current = 0;
@@ -11496,6 +11520,9 @@ export default function App() {
       handleRiftCollapse('Ship destroyed in Rift Horizon');
       return;
     }
+    // A death docks the ship without handleDock's raider clear. The Skiff (step 50) is
+    // dropped here so it comes back whole at its post after the undock; wave raiders stay.
+    raidersRef.current = raidersRef.current.filter((r) => r.id !== SKIFF.id);
     recallAllDrones(true);
     setShowDronesModal(false);
     showDronesModalRef.current = false;
@@ -18494,7 +18521,7 @@ export default function App() {
           patrolAngle: Math.random() * Math.PI * 2,
         };
 
-        raidersRef.current = [raider1, raider2];
+        raidersRef.current = [...raidersRef.current.filter((r) => r.id === SKIFF.id && r.isAlive), raider1, raider2];
         soundManager.playAlert();
         addFloatingText('RAIDER WAVE DETECTED!', p.x, p.y - 40, '#FF5A5F');
 
@@ -19578,13 +19605,14 @@ export default function App() {
                 }
 
                 gameAudio.playExplosion();
-                const isHeavyWreck = (isVael || isTargetAshPirate || isTargetRift || guardianTarget?.kind === 'warden');
+                const isSkiffTarget = activePirateTarget.id === SKIFF.id;
+                const isHeavyWreck = ((isVael && !isSkiffTarget) || isTargetAshPirate || isTargetRift || guardianTarget?.kind === 'warden');
                 createExplosion(activePirateTarget.x, activePirateTarget.y, isHeavyWreck ? 120 : 70, '#ef4444');
 
                   if (guardianTarget) {
                     handleRiftGuardianDestroyedRef.current(guardianTarget, false);
                   } else {
-                    const bounty = (isVael || isTargetAshPirate || isTargetRift) ? 600 : 250;
+                    const bounty = isSkiffTarget ? SKIFF.bounty : ((isVael || isTargetAshPirate || isTargetRift) ? 600 : 250);
                     setMarks((prev) => {
                       const updated = prev + bounty;
                       setGameState((g) => ({...g, score: updated}));
@@ -19608,8 +19636,10 @@ export default function App() {
 
                     setToastNotice({
                       id: `toast_${Date.now()}`,
-                      title: `+${bounty} MARKS // ${isTargetRift ? 'RIFT CORSAIR BOUNTY CLAIMED!' : (isTargetAshPirate ? 'ASH DRIFT BOUNTY CLAIMED!' : (isVael ? 'VAEL BOUNTY CLAIMED!' : 'BOUNTY CLAIMED!'))}`,
-                      detail: isTargetRift
+                      title: `+${bounty} MARKS // ${isSkiffTarget ? 'SKIFF BOUNTY CLAIMED!' : isTargetRift ? 'RIFT CORSAIR BOUNTY CLAIMED!' : (isTargetAshPirate ? 'ASH DRIFT BOUNTY CLAIMED!' : (isVael ? 'VAEL BOUNTY CLAIMED!' : 'BOUNTY CLAIMED!'))}`,
+                      detail: isSkiffTarget
+                        ? 'Raider Skiff neutralized at the Vael gate. Bounty transferred. Wreck detected on sensors.'
+                        : isTargetRift
                         ? 'Rift Corsair neutralized in Cinder Rift. Bounty transferred. Wreck detected on sensors.'
                         : (isTargetAshPirate
                           ? 'Heavy Pirate Frigate neutralized in Ash Drift. Bounty transferred. Wreck detected on sensors.'
@@ -19881,32 +19911,83 @@ export default function App() {
       awayPirate.respawnTimer = Math.max(0, awayPirate.respawnTimer - dt);
     }
 
+    // 8.4 The Skiff (step 50, content/hostiles.ts): its wait after a kill counts down in any
+    // system; it comes out at its post in Vael once the wait is over and the ship is in
+    // Vael, undocked and either just arrived or far enough from the post not to see it
+    // appear. Docking clears raidersRef, so an unkilled Skiff is back at its post, whole,
+    // after an undock. A jump does not clear it, so one left behind is dropped as the ship
+    // arrives in any system (a death is handled in handlePlayerDestruction). The update
+    // returns early while docked, so like the pirates' waits its wait stands still there.
+    if (skiffRespawnRef.current > 0) skiffRespawnRef.current = Math.max(0, skiffRespawnRef.current - dt);
+    const arrivedInSystem = skiffLastSystemRef.current !== currentSystemRef.current;
+    skiffLastSystemRef.current = currentSystemRef.current;
+    if (arrivedInSystem && raidersRef.current.some((r) => r.id === SKIFF.id)) {
+      raidersRef.current = raidersRef.current.filter((r) => r.id !== SKIFF.id);
+    }
+    if (
+      currentSystemRef.current === 'Vael' && !isDocked && skiffRespawnRef.current <= 0 &&
+      !raidersRef.current.some((r) => r.id === SKIFF.id && r.isAlive) &&
+      (arrivedInSystem || Math.hypot(p.x - SKIFF.postX, p.y - SKIFF.postY) > SKIFF.spawnClearKm * PIXELS_PER_KM)
+    ) {
+      // Its id never changes, so a provocation from before its last death is forgotten.
+      aggressorIdsRef.current.delete(SKIFF.id);
+      raidersRef.current = [
+        ...raidersRef.current.filter((r) => r.id !== SKIFF.id),
+        {
+          id: SKIFF.id, name: SKIFF.name, system: 'Vael', x: SKIFF.postX, y: SKIFF.postY, vx: 0, vy: 0,
+          heading: Math.random() * Math.PI * 2,
+          shield: SKIFF.shield, maxShield: SKIFF.shield, armor: SKIFF.armor, maxArmor: SKIFF.armor,
+          hull: SKIFF.hull, maxHull: SKIFF.hull, isAlive: true, fireTimer: 0, patrolAngle: Math.random() * Math.PI * 2,
+        },
+      ];
+    }
+
     // 8.5 Raider Wave Pirates AI & Combat (exact same frigate type and stats as Belt Two)
     for (const raider of raidersRef.current) {
       if (!raider.isAlive || raider.system !== currentSystemRef.current) continue;
       const distUnits = Math.hypot(p.x - raider.x, p.y - raider.y);
       const distanceKm = calcDistanceKm(p.x, p.y, raider.x, raider.y);
-      const isEngaged = (!isDocked && p.warpState === 'IDLE') && (distUnits <= 8500 || distanceKm <= 12.0 || p.targetLockedId === raider.id || selectedTargetId === raider.id);
-      const raiderMaxSpeed = hostileBaseSpeed() * 0.80; // 80% speed of player frigate
+      // The Skiff fights like the Vael pirate (it starts on sight or when provoked) but leaves
+      // the fight once the ship is past its leash; a wave raider hunts the ship anywhere.
+      const isSkiff = raider.id === SKIFF.id;
+      let isEngaged: boolean;
+      if (isSkiff) {
+        const pastLeash = Math.hypot(p.x - SKIFF.postX, p.y - SKIFF.postY) > SKIFF.leashKm * PIXELS_PER_KM;
+        if (pastLeash) aggressorIdsRef.current.delete(raider.id);
+        const provoked = (aggressorIdsRef.current.get(raider.id) ?? 0) > Date.now() || aggressorIdsRef.current.has(raider.id) ||
+          (distanceKm <= HOSTILE_PROVOKE_RANGE_KM && (selectedTargetId === raider.id || p.targetLockedId === raider.id || p.targetLockingId === raider.id)) ||
+          raider.shield < raider.maxShield || raider.armor < raider.maxArmor || raider.hull < raider.maxHull;
+        isEngaged = !pastLeash && !isDocked && p.warpState === 'IDLE' &&
+          (distanceKm <= skiffAggroKm(getShipSignatureKm(activeHullRef.current)) || provoked);
+      } else {
+        isEngaged = (!isDocked && p.warpState === 'IDLE') && (distUnits <= 8500 || distanceKm <= 12.0 || p.targetLockedId === raider.id || selectedTargetId === raider.id);
+      }
+      const raiderMaxSpeed = hostileBaseSpeed() * (isSkiff ? SKIFF.speedShare : 0.80); // 80% speed of player frigate; the Skiff 100%
 
       if (isEngaged) {
         const angleToPlayer = Math.atan2(p.y - raider.y, p.x - raider.x);
         const angleFromPlayer = Math.atan2(raider.y - p.y, raider.x - p.x);
-        const standoffKm = 5.0; // 5.0 km standoff
+        const standoffKm = isSkiff ? SKIFF.standoffKm : 5.0; // 5.0 km standoff; the Skiff 9.5
+        const bandKm = isSkiff ? SKIFF.standoffBandKm : 0.6;
 
-        if (distanceKm > standoffKm + 0.6) {
+        if (distanceKm > standoffKm + bandKm) {
           const diff = normalizeAngleDiff(angleToPlayer - raider.heading);
           raider.heading += Math.sign(diff) * Math.min(Math.abs(diff), 3.5 * dt);
           raider.vx = Math.cos(raider.heading) * raiderMaxSpeed;
           raider.vy = Math.sin(raider.heading) * raiderMaxSpeed;
-        } else if (distanceKm < standoffKm - 0.6) {
+        } else if (distanceKm < standoffKm - bandKm) {
           const diff = normalizeAngleDiff(angleFromPlayer - raider.heading);
           raider.heading += Math.sign(diff) * Math.min(Math.abs(diff), 3.5 * dt);
           raider.vx = Math.cos(raider.heading) * raiderMaxSpeed;
           raider.vy = Math.sin(raider.heading) * raiderMaxSpeed;
         } else {
           const tangentAngle = angleFromPlayer + Math.PI / 2;
-          const radialBias = Math.max(-0.4, Math.min(0.4, (standoffKm - distanceKm) * 0.4));
+          // A positive bias turns the orbit inward, a negative one outward. A wave raider's
+          // bias turns it away from its standoff, so it rides a band edge (4.4 or 5.6 km, both
+          // in lock and weapon range). The Skiff's turns it back toward 9.5 km: riding its
+          // 10.1 km edge kept it past the 10 km lock range (step 50, measured at the Vael gate).
+          const radialOffKm = isSkiff ? distanceKm - standoffKm : standoffKm - distanceKm;
+          const radialBias = Math.max(-0.4, Math.min(0.4, radialOffKm * 0.4));
           const targetHeading = tangentAngle + radialBias;
           const diff = normalizeAngleDiff(targetHeading - raider.heading);
           raider.heading += Math.sign(diff) * Math.min(Math.abs(diff), 2.8 * dt);
@@ -19932,10 +20013,10 @@ export default function App() {
           });
         }
 
-        const canAttack = !isDocked && p.warpState === 'IDLE' && distanceKm <= 8.0;
+        const canAttack = !isDocked && p.warpState === 'IDLE' && distanceKm <= (isSkiff ? SKIFF.fireRangeKm : 8.0);
         if (canAttack) {
           raider.fireTimer += dt;
-          if (raider.fireTimer >= 3.0) {
+          if (raider.fireTimer >= (isSkiff ? SKIFF.fireCycleSec : 3.0)) {
             raider.fireTimer = 0;
             const prowX = raider.x + Math.cos(raider.heading) * 28;
             const prowY = raider.y + Math.sin(raider.heading) * 28;
@@ -19946,6 +20027,7 @@ export default function App() {
             const targetY = p.y + p.vy * travelTime * 0.85;
             const aimAngle = Math.atan2(targetY - prowY, targetX - prowX);
 
+            if (isSkiff) skiffTallyRef.current.shots++;
             projectilesRef.current.push({
               id: `bolt_raider_${Date.now()}_${Math.random()}`,
               source: 'pirate',
@@ -19954,7 +20036,7 @@ export default function App() {
               vx: Math.cos(aimAngle) * boltSpeed,
               vy: Math.sin(aimAngle) * boltSpeed,
               life: 3.0,
-              damage: 8,
+              damage: isSkiff ? SKIFF.boltDamage : 8,
               shooterId: raider.id,
             });
 
@@ -19976,6 +20058,26 @@ export default function App() {
         } else {
           raider.fireTimer = Math.min(raider.fireTimer, 2.0);
         }
+      } else if (isSkiff) {
+        raider.fireTimer = 0;
+        raider.patrolAngle += 0.25 * dt;
+        // Out of a fight it still keeps an undocked ship beyond its own fire range, at full
+        // speed: a ship that chases it past the leash must not meet it on its way home (the
+        // probe found a Light Cannon at Navigation 0 then sat 2.3 km behind it). From 12 km,
+        // not its 8.9 km band edge, because turning about from a homeward heading takes
+        // about a second while the two close at up to 150 px/s (a test saw 4.7 km).
+        const keepOff = !isDocked && distanceKm < SKIFF.fireRangeKm;
+        const patrolPx = SKIFF.patrolRadiusKm * PIXELS_PER_KM;
+        const awayFromPost = Math.hypot(raider.x - SKIFF.postX, raider.y - SKIFF.postY) > patrolPx + 40;
+        const goalX = keepOff ? raider.x + (raider.x - p.x) : awayFromPost ? SKIFF.postX : SKIFF.postX + Math.cos(raider.patrolAngle) * patrolPx;
+        const goalY = keepOff ? raider.y + (raider.y - p.y) : awayFromPost ? SKIFF.postY : SKIFF.postY + Math.sin(raider.patrolAngle) * patrolPx;
+        const diff = normalizeAngleDiff(Math.atan2(goalY - raider.y, goalX - raider.x) - raider.heading);
+        raider.heading += Math.sign(diff) * Math.min(Math.abs(diff), (keepOff ? 3.5 : 2.5) * dt);
+        const cruise = raiderMaxSpeed * (keepOff ? 1 : awayFromPost ? 0.7 : 0.4);
+        raider.vx = Math.cos(raider.heading) * cruise;
+        raider.vy = Math.sin(raider.heading) * cruise;
+        raider.x += raider.vx * dt;
+        raider.y += raider.vy * dt;
       } else {
         raider.fireTimer = 0;
         raider.patrolAngle += 0.25 * dt;
@@ -20470,7 +20572,8 @@ export default function App() {
             checkHostile(ashPirateRef.current);
             checkHostile(riftPirateRef.current);
           }
-          raidersRef.current.forEach(checkHostile);
+          // A raider left in another system (the Skiff at its Vael post) is not in reach.
+          raidersRef.current.forEach((r) => { if (r.system === currentSystemRef.current) checkHostile(r); });
           // Rift guardians, but only those already fighting the pilot: in aggro range,
           // damaged or provoked, as in the guardian AI. A sentinel past its leash is
           // heading home to heal and is left alone.
@@ -20550,7 +20653,9 @@ export default function App() {
                 beltTwoEncounterSpawnedRef.current = false;
               }
 
-              const bounty = (nearestHostile.id === 'pirate_frigate_vael' || nearestHostile.id === 'pirate_frigate_ash' || nearestHostile.id === 'rift_corsair') ? 600 : 250;
+              const bounty = nearestHostile.id === SKIFF.id
+                ? SKIFF.bounty
+                : ((nearestHostile.id === 'pirate_frigate_vael' || nearestHostile.id === 'pirate_frigate_ash' || nearestHostile.id === 'rift_corsair') ? 600 : 250);
               setMarks((prev) => {
                 const updated = prev + bounty;
                 setGameState((g) => ({ ...g, score: updated }));
@@ -20957,6 +21062,10 @@ export default function App() {
           }
           if (bolt.shooterId) {
             aggressorIdsRef.current.set(bolt.shooterId, Date.now() + 60_000);
+          }
+          if (bolt.shooterId === SKIFF.id) {
+            skiffTallyRef.current.hits++;
+            skiffTallyRef.current.damage += bolt.damage;
           }
           lastDamageTimeRef.current = Date.now();
           p.shieldRegenDelayTimer = 4.0;
@@ -27860,6 +27969,10 @@ export default function App() {
                             const isTutorial = item.isTutorial;
                             const isHostile = item.category === 'HOSTILES';
                             const distText = item.category === 'LOCATIONS' && item.distKm <= 1.0 ? 'here' : formatDistance(item.distKm);
+                            // A hostile past the fitted weapon's reach shows its distance in amber (step 50:
+                            // the Skiff holds 9.5 km, past a Light Cannon's 8).
+                            const weaponReachKm = weaponStats().rangeKm ?? 8;
+                            const beyondReach = isHostile && fittedSlots.slot4Cannon && item.distKm > weaponReachKm;
 
                             const isHovered = hoveredEntityId === item.id;
                             const isDeploySite = item.id === 'belt_one_anchor' && cargoStationCore > 0 && !outpostDeployed;
@@ -28146,11 +28259,14 @@ export default function App() {
 
                                 {/* Distance text */}
                                 <span
+                                  data-testid={isHostile ? `overview-distance-${item.id}` : undefined}
+                                  data-beyond-reach={beyondReach ? 'true' : undefined}
+                                  title={beyondReach ? `Beyond your ${fittedWeapon().name}'s ${weaponReachKm} km range` : undefined}
                                   style={{
                                     fontFamily: "'JetBrains Mono', monospace",
                                     fontSize: '12px',
                                     fontWeight: 700,
-                                    color: '#AEB6CA',
+                                    color: beyondReach ? '#FFB547' : '#AEB6CA',
                                     whiteSpace: 'nowrap',
                                     textAlign: 'right',
                                   }}>
