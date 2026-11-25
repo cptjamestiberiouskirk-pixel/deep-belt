@@ -107,7 +107,7 @@ import {createWarpVisuals, drawWarpFlow} from './utils/warp-visuals';
 import {ARMOR_LAYERING_PCT, ARMOR_MENDING_HP_PER_SEC, armorMendRateAt, BASE_REFINE_OUTPUT, BOOSTER_EFFICIENCY_CUT, boosterCapAt, CARGO_TRIM_CUT, CHARGE_CONTROL_CUT, DRONE_OPERATION_CUT, droneCycleAt, PACKING_SALE_PCT, packedSalePriceAt, effectiveLoad, FERRITE_PER_TRITANIUM, freeFerriteAt, LASER_TUNING_CUT, LOW_PROFILE_FREE_FERRITE, LOW_PROFILE_MINING_CUT, maxArmorAt, minerCycleAt, miningNoticePerSec, noticeFerrite, prerequisiteText, REFINING_BONUS_PER_LEVEL, refineOutputAt, saleNotice, SCAN_BANDS, SCAN_SUCCESS_COOLDOWN_SEC, SCAN_SWEEP_RAD_PER_SEC, scanBandAt, scanLockoutSecAt, scanWindowSec, SIGNAL_ANALYSIS_WIDEN, SIGNAL_RECOVERY_CUT_SEC, SKILL_CATEGORY_ORDER, skillLevels, SKILLS, unmetPrerequisites, weaponCycleAt} from './content/skills';
 import {formatSpeed, FULL_HOLD_THRUST_CUT, flightLimits, PIXELS_PER_KM, topSpeed} from './content/flight';
 import type {ModuleDef} from './content/types';
-import {inBandTurn, SKIFF, skiffAggroKm} from './content/hostiles';
+import {SKIFF, skiffAggroKm, standoffTurn, steerHeading} from './content/hostiles';
 import {
   buy as buyModule,
   canBuyMore,
@@ -6271,21 +6271,31 @@ export default function App() {
       },
       pirate: () => {
         const q = pirateRef.current;
-        return {isAlive: q.isAlive, shield: q.shield, armor: q.armor, hull: q.hull, speed: Math.hypot(q.vx, q.vy), x: q.x, y: q.y, respawnTimer: q.respawnTimer};
+        return {isAlive: q.isAlive, shield: q.shield, armor: q.armor, hull: q.hull, speed: Math.hypot(q.vx, q.vy), x: q.x, y: q.y, heading: q.heading, respawnTimer: q.respawnTimer};
       },
-      raiders: () => raidersRef.current.filter((r) => r.isAlive).map((r) => ({x: r.x, y: r.y, speed: Math.hypot(r.vx, r.vy)})),
+      raiders: () => raidersRef.current.filter((r) => r.isAlive).map((r) => ({id: r.id, x: r.x, y: r.y, heading: r.heading, speed: Math.hypot(r.vx, r.vy)})),
       skiff: () => {
         const s = raidersRef.current.find((r) => r.id === SKIFF.id && r.isAlive);
         return {
           isAlive: Boolean(s), respawnTimer: skiffRespawnRef.current, ...skiffTallyRef.current,
           shield: s?.shield ?? 0, armor: s?.armor ?? 0, hull: s?.hull ?? 0,
-          x: s?.x ?? 0, y: s?.y ?? 0, speed: s ? Math.hypot(s.vx, s.vy) : 0,
+          x: s?.x ?? 0, y: s?.y ?? 0, heading: s?.heading ?? 0, speed: s ? Math.hypot(s.vx, s.vy) : 0,
         };
       },
       vaelPirate: () => {
         const q = vaelPirateRef.current;
-        return {isAlive: q.isAlive, shield: q.shield, armor: q.armor, hull: q.hull, speed: Math.hypot(q.vx, q.vy), x: q.x, y: q.y, respawnTimer: q.respawnTimer};
+        return {isAlive: q.isAlive, shield: q.shield, armor: q.armor, hull: q.hull, speed: Math.hypot(q.vx, q.vy), x: q.x, y: q.y, heading: q.heading, respawnTimer: q.respawnTimer};
       },
+      // Where each of the other hostiles is and which way it points (step 52's flight probe).
+      ashPirate: () => {
+        const q = ashPirateRef.current;
+        return {isAlive: q.isAlive, x: q.x, y: q.y, heading: q.heading, speed: Math.hypot(q.vx, q.vy)};
+      },
+      riftCorsair: () => {
+        const q = riftPirateRef.current;
+        return {isAlive: q.isAlive, x: q.x, y: q.y, heading: q.heading, speed: Math.hypot(q.vx, q.vy)};
+      },
+      riftGuardians: () => riftGuardiansRef.current.filter((g) => g.isAlive).map((g) => ({name: g.name, kind: g.kind, x: g.x, y: g.y, heading: g.heading, speed: Math.hypot(g.vx, g.vy)})),
     };
   }, []);
 
@@ -19739,32 +19749,14 @@ export default function App() {
       }
 
       if (isEngaged) {
-        const angleToPlayer = Math.atan2(p.y - pirate.y, p.x - pirate.x);
         const angleFromPlayer = Math.atan2(pirate.y - p.y, pirate.x - p.x);
         const standoffKm = isVael ? 5.8 : 5.0; // 5.0 km standoff distance for Harrow pirate
 
-        if (distanceKm > standoffKm + 0.6) {
-          // Approach towards standoff distance
-          const diff = normalizeAngleDiff(angleToPlayer - pirate.heading);
-          pirate.heading += Math.sign(diff) * Math.min(Math.abs(diff), 3.5 * dt);
-          pirate.vx = Math.cos(pirate.heading) * pirateMaxSpeed;
-          pirate.vy = Math.sin(pirate.heading) * pirateMaxSpeed;
-        } else if (distanceKm < standoffKm - 0.6) {
-          // Back away from player towards standoff distance
-          const diff = normalizeAngleDiff(angleFromPlayer - pirate.heading);
-          pirate.heading += Math.sign(diff) * Math.min(Math.abs(diff), 3.5 * dt);
-          pirate.vx = Math.cos(pirate.heading) * pirateMaxSpeed;
-          pirate.vy = Math.sin(pirate.heading) * pirateMaxSpeed;
-        } else {
-          // Orbit the player, steering back toward the standoff (Requirement 4; step 51)
-          const tangentAngle = angleFromPlayer + Math.PI / 2;
-          const radialBias = inBandTurn(distanceKm, standoffKm);
-          const targetHeading = tangentAngle + radialBias;
-          const diff = normalizeAngleDiff(targetHeading - pirate.heading);
-          pirate.heading += Math.sign(diff) * Math.min(Math.abs(diff), 2.8 * dt);
-          pirate.vx = Math.cos(pirate.heading) * pirateMaxSpeed;
-          pirate.vy = Math.sin(pirate.heading) * pirateMaxSpeed;
-        }
+        // Orbit the player at the standoff, closing from past the band and backing off inside
+        // it, in one continuous turn off the tangent, turned as a ship turns (step 52).
+        steerHeading(pirate, angleFromPlayer + Math.PI / 2 + standoffTurn(distanceKm, standoffKm, 0.6), dt);
+        pirate.vx = Math.cos(pirate.heading) * pirateMaxSpeed;
+        pirate.vy = Math.sin(pirate.heading) * pirateMaxSpeed;
 
         pirate.x += pirate.vx * dt;
         pirate.y += pirate.vy * dt;
@@ -19851,8 +19843,7 @@ export default function App() {
         if (!isVael && distToCenter > 300) {
           // Fly back toward Belt Two center (-1500, 1100)
           const returnAngle = Math.atan2(centerY - pirate.y, centerX - pirate.x);
-          const diff = normalizeAngleDiff(returnAngle - pirate.heading);
-          pirate.heading += Math.sign(diff) * Math.min(Math.abs(diff), 2.5 * dt);
+          steerHeading(pirate, returnAngle, dt);
           pirate.vx = Math.cos(pirate.heading) * (pirateMaxSpeed * 0.7);
           pirate.vy = Math.sin(pirate.heading) * (pirateMaxSpeed * 0.7);
           pirate.x += pirate.vx * dt;
@@ -19862,9 +19853,7 @@ export default function App() {
           const patrolX = centerX + Math.cos(pirate.patrolAngle) * 220;
           const patrolY = centerY + Math.sin(pirate.patrolAngle) * 220;
 
-          const targetHeading = Math.atan2(patrolY - pirate.y, patrolX - pirate.x);
-          const diff = normalizeAngleDiff(targetHeading - pirate.heading);
-          pirate.heading += Math.sign(diff) * Math.min(Math.abs(diff), 1.8 * dt);
+          steerHeading(pirate, Math.atan2(patrolY - pirate.y, patrolX - pirate.x), dt);
 
           pirate.vx = Math.cos(pirate.heading) * (pirateMaxSpeed * 0.4);
           pirate.vy = Math.sin(pirate.heading) * (pirateMaxSpeed * 0.4);
@@ -19965,32 +19954,16 @@ export default function App() {
       const raiderMaxSpeed = hostileBaseSpeed() * (isSkiff ? SKIFF.speedShare : 0.80); // 80% speed of player frigate; the Skiff 100%
 
       if (isEngaged) {
-        const angleToPlayer = Math.atan2(p.y - raider.y, p.x - raider.x);
         const angleFromPlayer = Math.atan2(raider.y - p.y, raider.x - p.x);
         const standoffKm = isSkiff ? SKIFF.standoffKm : 5.0; // 5.0 km standoff; the Skiff 9.5
         const bandKm = isSkiff ? SKIFF.standoffBandKm : 0.6;
 
-        if (distanceKm > standoffKm + bandKm) {
-          const diff = normalizeAngleDiff(angleToPlayer - raider.heading);
-          raider.heading += Math.sign(diff) * Math.min(Math.abs(diff), 3.5 * dt);
-          raider.vx = Math.cos(raider.heading) * raiderMaxSpeed;
-          raider.vy = Math.sin(raider.heading) * raiderMaxSpeed;
-        } else if (distanceKm < standoffKm - bandKm) {
-          const diff = normalizeAngleDiff(angleFromPlayer - raider.heading);
-          raider.heading += Math.sign(diff) * Math.min(Math.abs(diff), 3.5 * dt);
-          raider.vx = Math.cos(raider.heading) * raiderMaxSpeed;
-          raider.vy = Math.sin(raider.heading) * raiderMaxSpeed;
-        } else {
-          const tangentAngle = angleFromPlayer + Math.PI / 2;
-          // Steers back toward the standoff (step 51). The Skiff rode its 10.1 km band edge,
-          // past the 10 km lock range, until step 50 turned it back toward 9.5 km.
-          const radialBias = inBandTurn(distanceKm, standoffKm);
-          const targetHeading = tangentAngle + radialBias;
-          const diff = normalizeAngleDiff(targetHeading - raider.heading);
-          raider.heading += Math.sign(diff) * Math.min(Math.abs(diff), 2.8 * dt);
-          raider.vx = Math.cos(raider.heading) * raiderMaxSpeed;
-          raider.vy = Math.sin(raider.heading) * raiderMaxSpeed;
-        }
+        // Steers back toward the standoff within the band (step 51; the Skiff rode its 10.1 km
+        // edge, past the 10 km lock range, until step 50), in one continuous turn (step 52).
+        // The Skiff turns at its own faster rate (SKIFF.turnRadS): it kites a charging ship.
+        steerHeading(raider, angleFromPlayer + Math.PI / 2 + standoffTurn(distanceKm, standoffKm, bandKm), dt, isSkiff ? SKIFF.turnRadS : undefined);
+        raider.vx = Math.cos(raider.heading) * raiderMaxSpeed;
+        raider.vy = Math.sin(raider.heading) * raiderMaxSpeed;
 
         raider.x += raider.vx * dt;
         raider.y += raider.vy * dt;
@@ -20068,8 +20041,7 @@ export default function App() {
         const awayFromPost = Math.hypot(raider.x - SKIFF.postX, raider.y - SKIFF.postY) > patrolPx + 40;
         const goalX = keepOff ? raider.x + (raider.x - p.x) : awayFromPost ? SKIFF.postX : SKIFF.postX + Math.cos(raider.patrolAngle) * patrolPx;
         const goalY = keepOff ? raider.y + (raider.y - p.y) : awayFromPost ? SKIFF.postY : SKIFF.postY + Math.sin(raider.patrolAngle) * patrolPx;
-        const diff = normalizeAngleDiff(Math.atan2(goalY - raider.y, goalX - raider.x) - raider.heading);
-        raider.heading += Math.sign(diff) * Math.min(Math.abs(diff), (keepOff ? 3.5 : 2.5) * dt);
+        steerHeading(raider, Math.atan2(goalY - raider.y, goalX - raider.x), dt, SKIFF.turnRadS);
         const cruise = raiderMaxSpeed * (keepOff ? 1 : awayFromPost ? 0.7 : 0.4);
         raider.vx = Math.cos(raider.heading) * cruise;
         raider.vy = Math.sin(raider.heading) * cruise;
@@ -20078,7 +20050,7 @@ export default function App() {
       } else {
         raider.fireTimer = 0;
         raider.patrolAngle += 0.25 * dt;
-        raider.heading = Math.atan2(p.y - raider.y, p.x - raider.x);
+        steerHeading(raider, Math.atan2(p.y - raider.y, p.x - raider.x), dt);
         raider.vx = Math.cos(raider.heading) * (raiderMaxSpeed * 0.4);
         raider.vy = Math.sin(raider.heading) * (raiderMaxSpeed * 0.4);
         raider.x += raider.vx * dt;
@@ -20168,29 +20140,12 @@ export default function App() {
         const pirateMaxSpeed = hostileBaseSpeed() * 0.75; // Heavy pirate speed (75% of player)
 
         if (isEngaged) {
-          const angleToPlayer = Math.atan2(p.y - ashPirate.y, p.x - ashPirate.x);
           const angleFromPlayer = Math.atan2(ashPirate.y - p.y, ashPirate.x - p.x);
           const standoffKm = 5.8;
 
-          if (distanceKm > standoffKm + 0.6) {
-            const diff = normalizeAngleDiff(angleToPlayer - ashPirate.heading);
-            ashPirate.heading += Math.sign(diff) * Math.min(Math.abs(diff), 3.5 * dt);
-            ashPirate.vx = Math.cos(ashPirate.heading) * pirateMaxSpeed;
-            ashPirate.vy = Math.sin(ashPirate.heading) * pirateMaxSpeed;
-          } else if (distanceKm < standoffKm - 0.6) {
-            const diff = normalizeAngleDiff(angleFromPlayer - ashPirate.heading);
-            ashPirate.heading += Math.sign(diff) * Math.min(Math.abs(diff), 3.5 * dt);
-            ashPirate.vx = Math.cos(ashPirate.heading) * pirateMaxSpeed;
-            ashPirate.vy = Math.sin(ashPirate.heading) * pirateMaxSpeed;
-          } else {
-            const tangentAngle = angleFromPlayer + Math.PI / 2;
-            const radialBias = inBandTurn(distanceKm, standoffKm);
-            const targetHeading = tangentAngle + radialBias;
-            const diff = normalizeAngleDiff(targetHeading - ashPirate.heading);
-            ashPirate.heading += Math.sign(diff) * Math.min(Math.abs(diff), 2.8 * dt);
-            ashPirate.vx = Math.cos(ashPirate.heading) * pirateMaxSpeed;
-            ashPirate.vy = Math.sin(ashPirate.heading) * pirateMaxSpeed;
-          }
+          steerHeading(ashPirate, angleFromPlayer + Math.PI / 2 + standoffTurn(distanceKm, standoffKm, 0.6), dt);
+          ashPirate.vx = Math.cos(ashPirate.heading) * pirateMaxSpeed;
+          ashPirate.vy = Math.sin(ashPirate.heading) * pirateMaxSpeed;
 
           ashPirate.x += ashPirate.vx * dt;
           ashPirate.y += ashPirate.vy * dt;
@@ -20262,9 +20217,7 @@ export default function App() {
           ashPirate.patrolAngle += 0.25 * dt;
           const patrolX = 3000 + Math.cos(ashPirate.patrolAngle) * 220;
           const patrolY = -2000 + Math.sin(ashPirate.patrolAngle) * 220;
-          const targetHeading = Math.atan2(patrolY - ashPirate.y, patrolX - ashPirate.x);
-          const diff = normalizeAngleDiff(targetHeading - ashPirate.heading);
-          ashPirate.heading += Math.sign(diff) * Math.min(Math.abs(diff), 1.8 * dt);
+          steerHeading(ashPirate, Math.atan2(patrolY - ashPirate.y, patrolX - ashPirate.x), dt);
           ashPirate.vx = Math.cos(ashPirate.heading) * (pirateMaxSpeed * 0.4);
           ashPirate.vy = Math.sin(ashPirate.heading) * (pirateMaxSpeed * 0.4);
           ashPirate.x += ashPirate.vx * dt;
@@ -20297,29 +20250,12 @@ export default function App() {
         const pirateMaxSpeed = hostileBaseSpeed() * 0.75;
 
         if (isEngaged) {
-          const angleToPlayer = Math.atan2(p.y - riftCorsair.y, p.x - riftCorsair.x);
           const angleFromPlayer = Math.atan2(riftCorsair.y - p.y, riftCorsair.x - p.x);
           const standoffKm = 5.8;
 
-          if (distanceKm > standoffKm + 0.6) {
-            const diff = normalizeAngleDiff(angleToPlayer - riftCorsair.heading);
-            riftCorsair.heading += Math.sign(diff) * Math.min(Math.abs(diff), 3.5 * dt);
-            riftCorsair.vx = Math.cos(riftCorsair.heading) * pirateMaxSpeed;
-            riftCorsair.vy = Math.sin(riftCorsair.heading) * pirateMaxSpeed;
-          } else if (distanceKm < standoffKm - 0.6) {
-            const diff = normalizeAngleDiff(angleFromPlayer - riftCorsair.heading);
-            riftCorsair.heading += Math.sign(diff) * Math.min(Math.abs(diff), 3.5 * dt);
-            riftCorsair.vx = Math.cos(riftCorsair.heading) * pirateMaxSpeed;
-            riftCorsair.vy = Math.sin(riftCorsair.heading) * pirateMaxSpeed;
-          } else {
-            const tangentAngle = angleFromPlayer + Math.PI / 2;
-            const radialBias = inBandTurn(distanceKm, standoffKm);
-            const targetHeading = tangentAngle + radialBias;
-            const diff = normalizeAngleDiff(targetHeading - riftCorsair.heading);
-            riftCorsair.heading += Math.sign(diff) * Math.min(Math.abs(diff), 2.8 * dt);
-            riftCorsair.vx = Math.cos(riftCorsair.heading) * pirateMaxSpeed;
-            riftCorsair.vy = Math.sin(riftCorsair.heading) * pirateMaxSpeed;
-          }
+          steerHeading(riftCorsair, angleFromPlayer + Math.PI / 2 + standoffTurn(distanceKm, standoffKm, 0.6), dt);
+          riftCorsair.vx = Math.cos(riftCorsair.heading) * pirateMaxSpeed;
+          riftCorsair.vy = Math.sin(riftCorsair.heading) * pirateMaxSpeed;
 
           riftCorsair.x += riftCorsair.vx * dt;
           riftCorsair.y += riftCorsair.vy * dt;
@@ -20395,8 +20331,7 @@ export default function App() {
 
           if (distToPark > 300) {
             const returnAngle = Math.atan2(parkY - riftCorsair.y, parkX - riftCorsair.x);
-            const diff = normalizeAngleDiff(returnAngle - riftCorsair.heading);
-            riftCorsair.heading += Math.sign(diff) * Math.min(Math.abs(diff), 2.5 * dt);
+            steerHeading(riftCorsair, returnAngle, dt);
             riftCorsair.vx = Math.cos(riftCorsair.heading) * (pirateMaxSpeed * 0.6);
             riftCorsair.vy = Math.sin(riftCorsair.heading) * (pirateMaxSpeed * 0.6);
             riftCorsair.x += riftCorsair.vx * dt;
@@ -20405,9 +20340,7 @@ export default function App() {
             riftCorsair.patrolAngle += 0.20 * dt;
             const patrolX = parkX + Math.cos(riftCorsair.patrolAngle) * 120;
             const patrolY = parkY + Math.sin(riftCorsair.patrolAngle) * 120;
-            const targetHeading = Math.atan2(patrolY - riftCorsair.y, patrolX - riftCorsair.x);
-            const diff = normalizeAngleDiff(targetHeading - riftCorsair.heading);
-            riftCorsair.heading += Math.sign(diff) * Math.min(Math.abs(diff), 1.5 * dt);
+            steerHeading(riftCorsair, Math.atan2(patrolY - riftCorsair.y, patrolX - riftCorsair.x), dt);
             riftCorsair.vx = Math.cos(riftCorsair.heading) * (pirateMaxSpeed * 0.3);
             riftCorsair.vy = Math.sin(riftCorsair.heading) * (pirateMaxSpeed * 0.3);
             riftCorsair.x += riftCorsair.vx * dt;
@@ -20771,9 +20704,7 @@ export default function App() {
           // Leash check: If distance from home post > 30 km, disengage, return toward home post, and rapidly regenerate shield/armor/hull to 40/40/40
           if (distFromHomeKm > leashKm) {
             g.fireTimer = 0;
-            const homeAngle = Math.atan2(g.homeY - g.y, g.homeX - g.x);
-            const diff = normalizeAngleDiff(homeAngle - g.heading);
-            g.heading += Math.sign(diff) * Math.min(Math.abs(diff), 3.0 * dt);
+            steerHeading(g, Math.atan2(g.homeY - g.y, g.homeX - g.x), dt);
             g.vx = Math.cos(g.heading) * sentinelSpeed;
             g.vy = Math.sin(g.heading) * sentinelSpeed;
             g.x += g.vx * dt;
@@ -20793,30 +20724,13 @@ export default function App() {
           const isAggro = distKm <= aggroKm || g.shield < g.maxShield || g.armor < g.maxArmor || g.hull < g.maxHull || isProvoked;
 
           if (isAggro && !isDocked && p.warpState === 'IDLE' && !isRiftModalActive) {
-            const angleToPlayer = Math.atan2(p.y - g.y, p.x - g.x);
             const angleFromPlayer = Math.atan2(g.y - p.y, g.x - p.x);
             const standoffKm = 4.0; // 200 px
 
-            if (distKm > standoffKm + 0.5) {
-              const diff = normalizeAngleDiff(angleToPlayer - g.heading);
-              g.heading += Math.sign(diff) * Math.min(Math.abs(diff), 3.8 * dt);
-              g.vx = Math.cos(g.heading) * sentinelSpeed;
-              g.vy = Math.sin(g.heading) * sentinelSpeed;
-            } else if (distKm < standoffKm - 0.5) {
-              const diff = normalizeAngleDiff(angleFromPlayer - g.heading);
-              g.heading += Math.sign(diff) * Math.min(Math.abs(diff), 3.8 * dt);
-              g.vx = Math.cos(g.heading) * sentinelSpeed;
-              g.vy = Math.sin(g.heading) * sentinelSpeed;
-            } else {
-              // Orbit player at 4.0 km (200 px)
-              const tangentAngle = angleFromPlayer + Math.PI / 2;
-              const radialBias = inBandTurn(distKm, standoffKm);
-              const targetHeading = tangentAngle + radialBias;
-              const diff = normalizeAngleDiff(targetHeading - g.heading);
-              g.heading += Math.sign(diff) * Math.min(Math.abs(diff), 3.0 * dt);
-              g.vx = Math.cos(g.heading) * sentinelSpeed;
-              g.vy = Math.sin(g.heading) * sentinelSpeed;
-            }
+            // Orbit the player at 4.0 km (200 px), in one continuous turn (step 52).
+            steerHeading(g, angleFromPlayer + Math.PI / 2 + standoffTurn(distKm, standoffKm, 0.5), dt);
+            g.vx = Math.cos(g.heading) * sentinelSpeed;
+            g.vy = Math.sin(g.heading) * sentinelSpeed;
 
             g.x += g.vx * dt;
             g.y += g.vy * dt;
@@ -20856,9 +20770,7 @@ export default function App() {
             // Idle hover / slow drift near home post
             g.fireTimer = 0;
             if (distFromHomePx > 100 && !isRiftModalActive) {
-              const homeAngle = Math.atan2(g.homeY - g.y, g.homeX - g.x);
-              const diff = normalizeAngleDiff(homeAngle - g.heading);
-              g.heading += Math.sign(diff) * Math.min(Math.abs(diff), 2.0 * dt);
+              steerHeading(g, Math.atan2(g.homeY - g.y, g.homeX - g.x), dt);
               g.vx = Math.cos(g.heading) * (sentinelSpeed * 0.4);
               g.vy = Math.sin(g.heading) * (sentinelSpeed * 0.4);
               g.x += g.vx * dt;
@@ -20882,8 +20794,7 @@ export default function App() {
           // Stay within 10.0 km (500 px) of Collapse Gate [0, 6000]
           if (distToGateKm > 10.0 && !isRiftModalActive) {
             const angleToGate = Math.atan2(gateY - g.y, gateX - g.x);
-            const diff = normalizeAngleDiff(angleToGate - g.heading);
-            g.heading += Math.sign(diff) * Math.min(Math.abs(diff), 2.5 * dt);
+            steerHeading(g, angleToGate, dt);
             g.vx = Math.cos(g.heading) * wardenSpeed;
             g.vy = Math.sin(g.heading) * wardenSpeed;
             g.x += g.vx * dt;
@@ -20893,20 +20804,18 @@ export default function App() {
             const angleFromPlayer = Math.atan2(g.y - p.y, g.x - p.x);
             const standoffKm = 5.0; // 250 px
 
+            // The Warden keeps its own targets (a plain tangent in its band, with no turn toward
+            // the standoff) and turns through steerHeading like every hostile (step 52).
             if (distKm > standoffKm + 0.6) {
-              const diff = normalizeAngleDiff(angleToPlayer - g.heading);
-              g.heading += Math.sign(diff) * Math.min(Math.abs(diff), 2.5 * dt);
+              steerHeading(g, angleToPlayer, dt);
               g.vx = Math.cos(g.heading) * wardenSpeed;
               g.vy = Math.sin(g.heading) * wardenSpeed;
             } else if (distKm < standoffKm - 0.6) {
-              const diff = normalizeAngleDiff(angleFromPlayer - g.heading);
-              g.heading += Math.sign(diff) * Math.min(Math.abs(diff), 2.5 * dt);
+              steerHeading(g, angleFromPlayer, dt);
               g.vx = Math.cos(g.heading) * wardenSpeed;
               g.vy = Math.sin(g.heading) * wardenSpeed;
             } else {
-              const tangentAngle = angleFromPlayer + Math.PI / 2;
-              const diff = normalizeAngleDiff(tangentAngle - g.heading);
-              g.heading += Math.sign(diff) * Math.min(Math.abs(diff), 2.0 * dt);
+              steerHeading(g, angleFromPlayer + Math.PI / 2, dt);
               g.vx = Math.cos(g.heading) * (wardenSpeed * 0.7);
               g.vy = Math.sin(g.heading) * (wardenSpeed * 0.7);
             }
@@ -21009,9 +20918,7 @@ export default function App() {
             g.isTelegraphing = false;
             const distHome = Math.hypot(g.x - g.homeX, g.y - g.homeY);
             if (distHome > 80 && !isRiftModalActive) {
-              const homeAngle = Math.atan2(g.homeY - g.y, g.homeX - g.x);
-              const diff = normalizeAngleDiff(homeAngle - g.heading);
-              g.heading += Math.sign(diff) * Math.min(Math.abs(diff), 1.8 * dt);
+              steerHeading(g, Math.atan2(g.homeY - g.y, g.homeX - g.x), dt);
               g.vx = Math.cos(g.heading) * (wardenSpeed * 0.4);
               g.vy = Math.sin(g.heading) * (wardenSpeed * 0.4);
               g.x += g.vx * dt;

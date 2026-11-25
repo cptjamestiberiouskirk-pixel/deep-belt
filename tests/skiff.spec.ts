@@ -1,7 +1,7 @@
 import {expect, test, type Page} from '@playwright/test';
 import {enterGame, expectClean, flyTo, openWithSave, readSave, RICH, targetPanel, undock, warpTo, watch} from './helpers';
 import {PIXELS_PER_KM} from '../content/flight';
-import {SKIFF, skiffAggroKm} from '../content/hostiles';
+import {HOSTILE_MAX_TURN_RAD_S, SKIFF, skiffAggroKm} from '../content/hostiles';
 
 // Step 50 of design/content-tree.md (designed in step 49): the Skiff, shown as the Raider
 // Skiff, a light raider in Vael that holds 9.5 km, fires from up to 12 km and flies at a
@@ -57,7 +57,10 @@ const hurtSkiffOnce = async (page: Page) => {
 };
 
 test('catalog: the Skiff is raider-light, holds 9.5 km, fires from 12 km at a plain Ferrier\'s speed', () => {
-  expect(SKIFF).toMatchObject({id: 'raider_skiff', name: 'Raider Skiff', shield: 60, armor: 40, hull: 30, speedShare: 1, standoffKm: 9.5, standoffBandKm: 0.6, fireRangeKm: 12, boltDamage: 8, fireCycleSec: 3, respawnSec: 180, bounty: 300, patrolRadiusKm: 1.2, leashKm: 25, spawnClearKm: 20});
+  expect(SKIFF).toMatchObject({id: 'raider_skiff', name: 'Raider Skiff', shield: 60, armor: 40, hull: 30, speedShare: 1, turnRadS: 3.5, standoffKm: 9.5, standoffBandKm: 0.6, fireRangeKm: 12, boltDamage: 8, fireCycleSec: 3, respawnSec: 180, bounty: 300, patrolRadiusKm: 1.2, leashKm: 25, spawnClearKm: 20});
+  // It turns faster than the other hostiles' 1.5 rad/s: at 1.5 a ship charging it at its own
+  // speed got to 6.2 km, inside a Light Cannon's 8 (step 52's probe).
+  expect(SKIFF.turnRadS).toBeGreaterThan(HOSTILE_MAX_TURN_RAD_S);
   // Its band reaches inside the 10 km lock range, so a lock needs no Sensor hardpoint.
   expect(SKIFF.standoffKm - SKIFF.standoffBandKm).toBeLessThan(10);
   // It starts a fight from its own fire range at the usual 8 km signature; the Shade's 3 km gives 4.5.
