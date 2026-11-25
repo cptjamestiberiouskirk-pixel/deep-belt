@@ -13,6 +13,13 @@ Format, checked by `node dev/lessons.mjs --check`. A field's text may go on over
 - Status: open | promoted to PLAYBOOK "<section>" | closed: <why the rule no longer holds>
 ```
 
+## 2026-11-24: A band test waited 20 s for a pirate that comes 90 s after arrival
+- What went wrong: the Ash Drift band test (tests/hostile-band.spec.ts, step 51) waited 20 s for the heavy pirate's toast and failed before it sampled anything. I had read the Ash Drift timer as starting at 0 on arrival, from the branch that resets it when the ship leaves; the arrival branch sets it to 90 s (App.tsx, "Ash Drift Environment, 90.0s Fixed Countdown").
+- Why: I read one assignment of the timer and took it for the start value without reading the branch the test's own steps run.
+- Rule going forward: a test's wait for a timed event is worked from the code path that the test's own steps run (the arrival branch here), with every assignment of that timer read, not from the first assignment found.
+- Evidence: band-before run 2026-11-24, finished 23:05, "getByText('HOSTILE INBOUND // HEAVY PIRATE') ... Timeout: 20000ms"; App.tsx lines 20098-20101 and 20119-20121.
+- Status: open
+
 ## 2026-11-24: The lessons check had agents type free words into a shell command
 - What went wrong: a read-only audit (Q61) found that PLAYBOOK "The lessons check" step 1 had agents type words they chose into `node dev/lessons.mjs <words>`, and the code-mode skill's example passed them to `pwsh` in double quotes (`-Words "save test"`), where `$(...)`, `$name` and backticks are expanded before the script sees them. No run is known to have been hit; lessons-learned's security review found the same pattern in its own lessons-check step.
 - Why: the step said what the words are for, not which characters may go in them.
