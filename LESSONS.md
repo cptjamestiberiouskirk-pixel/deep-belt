@@ -13,6 +13,34 @@ Format, checked by `node dev/lessons.mjs --check`. A field's text may go on over
 - Status: open | promoted to PLAYBOOK "<section>" | closed: <why the rule no longer holds>
 ```
 
+## 2026-11-25: A flee distance from a chained test case was nearly reported as a Skiff that falls behind
+- What went wrong: step 52's before/after flight table showed the Skiff's median distance in the 'flee' case of tests/hostile-flight.spec.ts at 13.21 km after the change against 10.14 before, past its 12 km fire range, and I nearly reported that a ship fleeing in a straight line now sheds the Skiff. A diagnostic that turned away from a parked start showed both builds keeping pace (10.03 to 10.13 km after, 10.10 to 10.22 before) until the 25 km leash ended the fight, with 3 to 4 bolts in each.
+- Why: the test's 'flee' case starts where its 8 s 'close' case left the ship, so its distances depend on that path and on the leash, not only on the hostile's steering; one run a build cannot separate them.
+- Rule going forward: a distance or other position number read from a case that follows another case in the same session is not reported as a behaviour change until a run from a fresh, fixed start (two runs a build) shows it.
+- Evidence: scratchpad flight-table-52.txt (Skiff flee 10.14 -> 13.21) and the flee diagnostic of 2026-11-25 02:43 to 02:45 (flee52.jsonl, two runs a build).
+- Status: open
+
+## 2026-11-25: A turn cap that a simulation passed let a ship charge to 6.2 km of the Skiff
+- What went wrong: step 52 capped every hostile's turn at 1.5 rad/s. The design review's simulation put a ship charging the Skiff at 8.4 to 8.5 km at nearest; in game (three runs of the 'chase' case of tests/skiff.spec.ts) it got to 6.18, 8.02 and 8.42 km, inside a Light Cannon's 8 km, and the committed test had passed once by luck. The first fix, the ramp past each band edge, still let a same-speed chaser settle at 8.6 km (7.66 once).
+- Why: the simulation started the charge from the middle of the band with the Skiff on its tangent; in game the charge can start while the Skiff is still turning in from its approach, and a turn about at 1.5 rad/s takes 2.4 s.
+- Rule going forward: a change to how a hostile moves is measured in game, over several runs, against each distance its design or tests hold (the Skiff's 8 km), before the design is settled; a simulation's margin is a lead, not the measurement.
+- Evidence: the diagnostic runs of 2026-11-25 01:51 to 02:17 (nearest 6.18, 8.02, 8.42 at 1.5 rad/s; 7.66, 8.54, 8.52, 8.53 with the ramp past the edges; 8.67 to 8.82 with the ramp inside the band, against 8.57 to 8.79 before step 52).
+- Status: open
+
+## 2026-11-25: A reversal limit set before any recording of the wanted flight failed a Sentinel's evade and pursuit
+- What went wrong: tests/hostile-flight.spec.ts first allowed one turn reversal a case. On the new steering the Rift Sentinel reversed twice in the 8 s a ship flew at it: it orbited, turned away, then turned about to follow once the ship had passed, each a smooth arc. The limit was changed to two after the run.
+- Why: the limit was set from recordings of the bug only (10 to 18 reversals a case), not of the flight wanted.
+- Rule going forward: a limit in a test of a new behaviour is set from recordings of both the bug and the intended behaviour; where the fix comes first, its first run's failing cases are read window by window before any limit is changed, and the reason for the change is written beside the limit.
+- Evidence: the diagnostic of 2026-11-25 01:51 (the Sentinel's quarter-second windows: +9, -7 to -71, +20 to +86 degrees a second); tests/hostile-flight.spec.ts, MAX_REVERSALS.
+- Status: open
+
+## 2026-11-25: A test-first run loaded no tests because the spec imported helpers not yet written
+- What went wrong: the first run of tests/hostile-flight.spec.ts (step 52), meant to show its in-game tests fail on the old steering, ran nothing: "SyntaxError: The requested module '../content/hostiles' does not provide an export named 'HOSTILE_MAX_TURN_RAD_S'", then "No tests found", in 7 s.
+- Why: Playwright loads a spec as an ES module, so one missing named export fails the whole file at import; I expected the missing helpers to fail only the unit tests that call them.
+- Rule going forward: a test-first spec that imports names the change will add is run with those names exported (the new helpers, or stubs) and the game code unchanged; the typecheck's "has no exported member" errors on it mean the run will load no tests.
+- Evidence: the run of tests/hostile-flight.spec.ts at 2026-11-25 01:34:35 to 01:34:42, before content/hostiles.ts exported steerHeading (its error text is quoted above).
+- Status: open
+
 ## 2026-11-24: A band test waited 20 s for a pirate that comes 90 s after arrival
 - What went wrong: the Ash Drift band test (tests/hostile-band.spec.ts, step 51) waited 20 s for the heavy pirate's toast and failed before it sampled anything. I had read the Ash Drift timer as starting at 0 on arrival, from the branch that resets it when the ship leaves; the arrival branch sets it to 90 s (App.tsx, "Ash Drift Environment, 90.0s Fixed Countdown").
 - Why: I read one assignment of the timer and took it for the start value without reading the branch the test's own steps run.
