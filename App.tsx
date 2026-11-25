@@ -107,7 +107,7 @@ import {createWarpVisuals, drawWarpFlow} from './utils/warp-visuals';
 import {ARMOR_LAYERING_PCT, ARMOR_MENDING_HP_PER_SEC, armorMendRateAt, BASE_REFINE_OUTPUT, BOOSTER_EFFICIENCY_CUT, boosterCapAt, CARGO_TRIM_CUT, CHARGE_CONTROL_CUT, DRONE_OPERATION_CUT, droneCycleAt, PACKING_SALE_PCT, packedSalePriceAt, effectiveLoad, FERRITE_PER_TRITANIUM, freeFerriteAt, LASER_TUNING_CUT, LOW_PROFILE_FREE_FERRITE, LOW_PROFILE_MINING_CUT, maxArmorAt, minerCycleAt, miningNoticePerSec, noticeFerrite, prerequisiteText, REFINING_BONUS_PER_LEVEL, refineOutputAt, saleNotice, SCAN_BANDS, SCAN_SUCCESS_COOLDOWN_SEC, SCAN_SWEEP_RAD_PER_SEC, scanBandAt, scanLockoutSecAt, scanWindowSec, SIGNAL_ANALYSIS_WIDEN, SIGNAL_RECOVERY_CUT_SEC, SKILL_CATEGORY_ORDER, skillLevels, SKILLS, unmetPrerequisites, weaponCycleAt} from './content/skills';
 import {formatSpeed, FULL_HOLD_THRUST_CUT, flightLimits, PIXELS_PER_KM, topSpeed} from './content/flight';
 import type {ModuleDef} from './content/types';
-import {SKIFF, skiffAggroKm} from './content/hostiles';
+import {inBandTurn, SKIFF, skiffAggroKm} from './content/hostiles';
 import {
   buy as buyModule,
   canBuyMore,
@@ -19756,9 +19756,9 @@ export default function App() {
           pirate.vx = Math.cos(pirate.heading) * pirateMaxSpeed;
           pirate.vy = Math.sin(pirate.heading) * pirateMaxSpeed;
         } else {
-          // Orbit at 5.0 km standoff distance around player (Requirement 4)
+          // Orbit the player, steering back toward the standoff (Requirement 4; step 51)
           const tangentAngle = angleFromPlayer + Math.PI / 2;
-          const radialBias = Math.max(-0.4, Math.min(0.4, (standoffKm - distanceKm) * 0.4));
+          const radialBias = inBandTurn(distanceKm, standoffKm);
           const targetHeading = tangentAngle + radialBias;
           const diff = normalizeAngleDiff(targetHeading - pirate.heading);
           pirate.heading += Math.sign(diff) * Math.min(Math.abs(diff), 2.8 * dt);
@@ -19982,12 +19982,9 @@ export default function App() {
           raider.vy = Math.sin(raider.heading) * raiderMaxSpeed;
         } else {
           const tangentAngle = angleFromPlayer + Math.PI / 2;
-          // A positive bias turns the orbit inward, a negative one outward. A wave raider's
-          // bias turns it away from its standoff, so it rides a band edge (4.4 or 5.6 km, both
-          // in lock and weapon range). The Skiff's turns it back toward 9.5 km: riding its
-          // 10.1 km edge kept it past the 10 km lock range (step 50, measured at the Vael gate).
-          const radialOffKm = isSkiff ? distanceKm - standoffKm : standoffKm - distanceKm;
-          const radialBias = Math.max(-0.4, Math.min(0.4, radialOffKm * 0.4));
+          // Steers back toward the standoff (step 51). The Skiff rode its 10.1 km band edge,
+          // past the 10 km lock range, until step 50 turned it back toward 9.5 km.
+          const radialBias = inBandTurn(distanceKm, standoffKm);
           const targetHeading = tangentAngle + radialBias;
           const diff = normalizeAngleDiff(targetHeading - raider.heading);
           raider.heading += Math.sign(diff) * Math.min(Math.abs(diff), 2.8 * dt);
@@ -20187,7 +20184,7 @@ export default function App() {
             ashPirate.vy = Math.sin(ashPirate.heading) * pirateMaxSpeed;
           } else {
             const tangentAngle = angleFromPlayer + Math.PI / 2;
-            const radialBias = Math.max(-0.4, Math.min(0.4, (standoffKm - distanceKm) * 0.4));
+            const radialBias = inBandTurn(distanceKm, standoffKm);
             const targetHeading = tangentAngle + radialBias;
             const diff = normalizeAngleDiff(targetHeading - ashPirate.heading);
             ashPirate.heading += Math.sign(diff) * Math.min(Math.abs(diff), 2.8 * dt);
@@ -20316,7 +20313,7 @@ export default function App() {
             riftCorsair.vy = Math.sin(riftCorsair.heading) * pirateMaxSpeed;
           } else {
             const tangentAngle = angleFromPlayer + Math.PI / 2;
-            const radialBias = Math.max(-0.4, Math.min(0.4, (standoffKm - distanceKm) * 0.4));
+            const radialBias = inBandTurn(distanceKm, standoffKm);
             const targetHeading = tangentAngle + radialBias;
             const diff = normalizeAngleDiff(targetHeading - riftCorsair.heading);
             riftCorsair.heading += Math.sign(diff) * Math.min(Math.abs(diff), 2.8 * dt);
@@ -20813,7 +20810,7 @@ export default function App() {
             } else {
               // Orbit player at 4.0 km (200 px)
               const tangentAngle = angleFromPlayer + Math.PI / 2;
-              const radialBias = Math.max(-0.4, Math.min(0.4, (standoffKm - distKm) * 0.4));
+              const radialBias = inBandTurn(distKm, standoffKm);
               const targetHeading = tangentAngle + radialBias;
               const diff = normalizeAngleDiff(targetHeading - g.heading);
               g.heading += Math.sign(diff) * Math.min(Math.abs(diff), 3.0 * dt);

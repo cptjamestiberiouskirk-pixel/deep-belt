@@ -113,6 +113,8 @@ for (const trim of [0, 5]) {
 
 // --- The Belt Two pirate fight in a Ferrier, at Gunnery III unless named.
 const FIGHTS: Array<{name: string; weapon: string; cc: number; booster: boolean; gunnery?: number; armor?: boolean; so?: number; be?: number}> = [
+  // Step 51: a new pilot's fit and skills (content/fitting.ts, content/skills.ts).
+  {name: 'Light Cannon, Gunnery 0', weapon: 'light_cannon', cc: 0, booster: false, gunnery: 0},
   {name: 'Light Cannon, Gunnery II', weapon: 'light_cannon', cc: 0, booster: false, gunnery: 2},
   {name: 'Lance Driver, Gunnery II', weapon: 'lance_driver', cc: 0, booster: false, gunnery: 2},
   {name: 'Light Cannon', weapon: 'light_cannon', cc: 0, booster: false},
@@ -600,6 +602,9 @@ for (const c of WARP_ESCAPES) {
 // the Overview and fire until both are dead. Gunnery III. Records the fight's
 // length, the HP it cost and the lowest Cap. Step 16 adds the Fire Control Relay.
 const WAVES: Array<{name: string; weapon: string; cc: number; relay: boolean; gu?: number; mod?: string}> = [
+  // Step 51: a new pilot's Light Cannon, and the Lance Driver at the Gunnery II it needs.
+  {name: 'Light Cannon, Gunnery 0', weapon: 'light_cannon', cc: 0, relay: false, gu: 0},
+  {name: 'Lance Driver, Gunnery II', weapon: 'lance_driver', cc: 0, relay: false, gu: 2},
   {name: 'Light Cannon', weapon: 'light_cannon', cc: 0, relay: false},
   {name: 'Light Cannon + Fire Control Relay', weapon: 'light_cannon', cc: 0, relay: true},
   {name: 'Light Cannon, Charge Control V', weapon: 'light_cannon', cc: 5, relay: false},
@@ -674,6 +679,132 @@ for (const c of WAVES) {
       repairMarks: Math.round((p0.armor - p.armor) * 3 + (p0.hull - p.hull) * 4),
       minCap: Math.round(minCap),
       standoffKm: km.max ? [Math.round(km.min * 10) / 10, Math.round(km.max * 10) / 10] : null,
+    });
+  });
+}
+
+// --- Step 51: getting away from the Belt Two pirate or a raider wave in a new pilot's ship
+// (no skills, Miner MK1 and Light Cannon: content/fitting.ts). Once the first bolt lands:
+//  warp   - warp to Belt One and watch 20 s more (raiders follow anywhere in the system);
+//  jump   - raiders only: warp to the Harrow gate and jump to Vael, where they don't follow.
+//           The Belt Two pirate gives up 20 km from the belt, and the gate is 59 km from it;
+//  ignore - raiders only: park and do nothing until the ship is lost (the Belt Two pirate's
+//           is the holdout above).
+// Hits are counted in the page each frame from the ship's HP. Every pirate and raider bolt
+// does 8, so damage / 8 also counts two bolts that land in the same frame.
+const ESCAPES: Array<{hostile: 'pirate' | 'raiders'; mode: 'warp' | 'jump' | 'ignore'; full: boolean}> = [
+  {hostile: 'pirate', mode: 'warp', full: false},
+  {hostile: 'pirate', mode: 'warp', full: true},
+  {hostile: 'raiders', mode: 'warp', full: false},
+  {hostile: 'raiders', mode: 'warp', full: true},
+  {hostile: 'raiders', mode: 'jump', full: true},
+  {hostile: 'raiders', mode: 'ignore', full: false},
+];
+type Hits = {hits: number; damage: number};
+for (const c of ESCAPES) {
+  const who = c.hostile === 'pirate' ? 'Belt Two pirate' : 'raider wave';
+  const how = c.mode === 'warp' ? 'warp to Belt One' : c.mode === 'jump' ? 'warp to the gate and jump' : 'ignore it';
+  const name = `${who}, ${how}, ${c.full ? 'full hold' : 'empty hold'}`;
+  test(`escape: ${name}`, async ({page}) => {
+    test.setTimeout(360_000);
+    const raidersCase = c.hostile === 'raiders';
+    await openWithSave(page, {
+      ...BASE, ...skills({}), ...fitting(PLAIN), marks: 50_000,
+      // A raider wave comes from a sale; Tritanium is not on the first market card, so it stays in the hold.
+      ...(raidersCase ? {cargoFerrite: 240, cargoTritanium: c.full ? 600 : 0} : {cargoFerrite: c.full ? 600 : 0}),
+      ...(c.mode === 'jump' ? {missionIndex: 3, missionStatus: 'completed', hasGatePermit: true} : {}),
+    });
+    await enterGame(page);
+    if (raidersCase) {
+      await page.keyboard.press('1');
+      await settle(page);
+      await page.keyboard.press('Enter');
+      await expect.poll(async () => (await readSave(page))!.inventory?.ferrite).toBe(0);
+      await page.keyboard.press('Escape');
+      await undock(page);
+      await expect(page.getByText(/Raider wave inbound/).first()).toBeVisible({timeout: 20_000});
+    } else {
+      await undock(page);
+      await flyTo(page, 'Belt Two');
+      // Selected from within sensor reach, it starts the fight.
+      await page.getByText('Ships', {exact: true}).click();
+      await page.getByText('Pirate Frigate', {exact: true}).first().click();
+    }
+    await page.evaluate(() => {
+      const w = ((window as any).__probeHits = {hits: 0, damage: 0, last: null as number | null});
+      const tick = () => {
+        const q = (window as any).__DEEP_BELT_PROBE__.player();
+        const hp = q.shield + q.armor + q.hull;
+        if (w.last !== null && hp < w.last - 0.5) {
+          w.hits++;
+          w.damage += w.last - hp;
+        }
+        w.last = hp;
+        requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    });
+    const hits = () => page.evaluate(() => {
+      const w = (window as any).__probeHits;
+      return {hits: w.hits, damage: Math.round(w.damage)} as Hits;
+    });
+    const start = Date.now();
+    await expect.poll(async () => (await hits()).hits, {timeout: 120_000}).toBeGreaterThan(0);
+    const firstHitSec = Math.round((Date.now() - start) / 100) / 10;
+    const h0 = await hits();
+    const sec = (t: number) => Math.round((Date.now() - t) / 100) / 10;
+    if (c.mode === 'ignore') {
+      const t = Date.now();
+      await expect(page.getByText('Docked · safe')).toBeVisible({timeout: 300_000});
+      const h = await hits();
+      record({probe: 'escape', case: name, firstHitSec, shipLost: true, secFromFirstHitToLoss: sec(t), hits: h.hits, hitsByDamage: Math.round(h.damage / 8)});
+      return;
+    }
+    const order = Date.now();
+    await warpTo(page, c.mode === 'jump' ? 'Harrow Outer Jump Gate' : 'Belt One');
+    await expect.poll(async () => (await player(page)).warpState, {timeout: 30_000}).toBe('WARPING');
+    const alignSec = sec(order);
+    const h1 = await hits();
+    const dest = c.mode === 'jump' ? 'Harrow Outer Jump Gate' : 'Belt One';
+    await expect(page.getByText(`Dropped out of warp at ${dest}.`).first()).toBeVisible({timeout: 90_000});
+    const h2 = await hits();
+    let jump: Record<string, unknown> | null = null;
+    let safe = h2;
+    if (c.mode === 'jump') {
+      const t = Date.now();
+      await expect(async () => {
+        await page.keyboard.press('j');
+        await expect(page.getByText('Vael System ·')).toBeVisible({timeout: 3000});
+      }).toPass({timeout: 60_000});
+      safe = await hits();
+      jump = {jumpSec: sec(t), hitsAtGate: safe.hits - h2.hits};
+    }
+    // In Vael the ship comes out 10.5 km from the Skiff's post (step 50), so the jump case
+    // stops counting there.
+    if (c.mode !== 'jump') await page.waitForTimeout(20_000);
+    const h3 = await hits();
+    const p = await player(page);
+    const near = async () => {
+      if (c.mode === 'jump') return null;
+      const xs: Array<{x: number; y: number}> = raidersCase
+        ? await page.evaluate(() => (window as any).__DEEP_BELT_PROBE__.raiders())
+        : [await pirate(page)].filter((q) => q.isAlive);
+      return xs.length ? Math.round(Math.min(...xs.map((q) => Math.hypot(q.x - p.x, q.y - p.y) / PIXELS_PER_KM)) * 10) / 10 : null;
+    };
+    record({
+      probe: 'escape',
+      case: name,
+      firstHitSec,
+      hitsBeforeOrder: h0.hits,
+      alignSec,
+      hitsWhileAligning: h1.hits - h0.hits,
+      hitsInWarp: h2.hits - h1.hits,
+      ...(jump ? {jump} : {}),
+      hitsFromOrderToSafe: safe.hits - h0.hits,
+      hitsByDamageFromOrderToSafe: Math.round((safe.damage - h0.damage) / 8),
+      hits20sAfter: c.mode === 'jump' ? null : h3.hits - safe.hits,
+      nearestHostileKm20sAfter: await near(),
+      shipLost: p.docked,
     });
   });
 }

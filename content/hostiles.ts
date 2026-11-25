@@ -1,7 +1,8 @@
 // Hostile catalog (design/content-tree.md, section 5, "A hostile that stands off past
 // 8 km", step 49; built in step 50). The Skiff is its first entry. Today's other
 // hostiles still keep their numbers in App.tsx; they move here in later steps, so until
-// then two places hold hostile numbers.
+// then two places hold hostile numbers. The in-band steering is inBandTurn here for every
+// hostile but the Rift Warden, which flies a plain orbit with no turn.
 
 export interface HostileDef {
   /** Starts with `raider_`, so App.tsx isHostileTarget treats it as hostile. */
@@ -80,4 +81,20 @@ export const SKIFF: HostileDef = {
  */
 export function skiffAggroKm(signatureKm: number): number {
   return SKIFF.fireRangeKm * (signatureKm / 8);
+}
+
+/**
+ * The turn, in radians, that a hostile inside its standoff band adds to the tangent of its
+ * orbit around the ship: App.tsx steers it to angleFromPlayer + pi/2 + this, where
+ * angleFromPlayer points from the ship to the hostile. A positive turn bends the orbit
+ * inward and a negative one outward, so a hostile past its standoff turns in, one short of
+ * it turns out, and one at it flies the tangent: it holds its standoff. At most 0.4 rad
+ * (about 23 degrees). Since step 51 every hostile with an in-band turn uses it: the Belt Two
+ * and Vael pirate, the raider loop (wave raiders and the Skiff), the Ash Drift heavy pirate,
+ * the Rift Corsair and the Rift Sentinel. The Rift Warden flies the plain tangent, with no
+ * turn. Before, App.tsx had five copies with the opposite sign, so a hostile rode a band
+ * edge; step 50 had turned around only the Skiff's branch of the raider copy.
+ */
+export function inBandTurn(distanceKm: number, standoffKm: number): number {
+  return Math.max(-0.4, Math.min(0.4, (distanceKm - standoffKm) * 0.4));
 }
