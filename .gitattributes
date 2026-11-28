@@ -4,7 +4,8 @@
 # PLAYBOOK.md and TESTING.md explicitly check that App.tsx stays w/crlf.
 App.tsx text eol=crlf
 
-# Files already checked out with LF in this repository stay LF cleanly.
+# Files already checked out with LF (plus POSIX git hooks) stay LF cleanly.
+dev/hooks/* text eol=lf
 LICENSE text eol=lf
 SpriteRenderer.ts text eol=lf
 design/asset_manifest.json text eol=lf

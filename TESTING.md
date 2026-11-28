@@ -21,9 +21,9 @@ A number the screen does not show (speed, Cap, the pirate's layers, a hostile's 
 1. `npx tsc -p .` and `npm run lint` (oxlint, rules in `.oxlintrc.json`, under a second; CI fails on any finding).
 2. The specs for the feature touched.
 3. The full suite, with its whole output and its exit code kept: `npx playwright test > "$LOG" 2>&1; echo "exit=$?"`, where `$LOG` is a file outside `test-results/` (the scratchpad), then `tail -6 "$LOG"` for the summary. On a failure, read the error in that file before any rerun: a rerun empties `test-results/` (PLAYBOOK "Tests that time out"). Passed plus skipped must equal the total from `npx playwright test --list`.
-4. Push, then the CI run for that commit's full SHA. A CI result counts only for the commit it ran on; a later push makes it stale. CI runs the play-test as 3 shards (`--shard=N/3`, job "Play-test in a browser (shard N of 3)"); a CI result needs all three plus build and deploy green. One job took 23-27 minutes against the 30-minute limit before sharding.
+4. Push, then the CI run for that commit's full SHA. A CI result counts only for the commit it ran on; a later push makes it stale. CI runs the play-test as 3 shards (`--shard=N/3`, job "Play-test in a browser (shard N of 3)"); a CI result needs all three plus build and deploy green. One job took 23-27 minutes against the 30-minute limit before sharding. `dev/hooks/pre-push` (`git config core.hooksPath dev/hooks`) runs `node dev/lessons.mjs --check`, a `w/mixed` line-ending check, a `Verified:` commit-message check, `npm run typecheck` and `npm run lint` before any push leaves the machine.
 
-Port 4173 belongs to the suite. Each run builds and serves the game there fresh; if something is already on the port, the run stops with "already used" rather than test an old build (`PW_REUSE_SERVER=1` reuses it on purpose). Manual play uses port 4174.
+Port 4173 belongs to the suite (`PW_PORT` overrides it when an isolated worktree needs its own port). Each run builds and serves the game there fresh; if something is already on the port, the run stops with "already used" rather than test an old build (`PW_REUSE_SERVER=1` reuses it on purpose). Manual play uses port 4174.
 
 ## Keep tests fast and honest
 

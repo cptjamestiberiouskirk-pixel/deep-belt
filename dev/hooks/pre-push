@@ -1,0 +1,46 @@
+#!/bin/sh
+# Fast pre-push sanity gate for Option 1 (direct pushes to main).
+# Enable once per clone with: git config core.hooksPath dev/hooks
+set -eu
+
+remote="$1"
+
+zero="0000000000000000000000000000000000000000"
+has_updates=0
+
+while read -r _local_ref local_sha _remote_ref remote_sha; do
+  [ -z "${local_sha:-}" ] && continue
+  [ "$local_sha" = "$zero" ] && continue
+  has_updates=1
+
+  if [ "$remote_sha" = "$zero" ]; then
+    commits=$(git rev-list "$local_sha" --not --remotes="$remote")
+  else
+    commits=$(git rev-list "$remote_sha..$local_sha")
+  fi
+
+  for sha in $commits; do
+    if ! git log -n 1 --format=%B "$sha" | grep -q '^Verified: '; then
+      echo "pre-push: commit $sha is missing a 'Verified: ...' line (see TESTING.md)." >&2
+      exit 1
+    fi
+  done
+done
+
+[ "$has_updates" -eq 0 ] && exit 0
+
+echo "pre-push: checking LESSONS.md and PLAYBOOK.md format..."
+node dev/lessons.mjs --check
+
+echo "pre-push: checking tracked line endings for w/mixed..."
+if git ls-files --eol | grep -q 'w/mixed'; then
+  echo "pre-push: mixed line endings (w/mixed) detected:" >&2
+  git ls-files --eol | grep 'w/mixed' >&2
+  exit 1
+fi
+
+echo "pre-push: running typecheck..."
+npm run typecheck
+
+echo "pre-push: running lint..."
+npm run lint

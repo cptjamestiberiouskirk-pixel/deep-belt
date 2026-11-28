@@ -13,6 +13,13 @@ Format, checked by `node dev/lessons.mjs --check`. A field's text may go on over
 - Status: open | promoted to PLAYBOOK "<section>" | closed: <why the rule no longer holds>
 ```
 
+## 2026-11-28: Remove-Item without -Recurse hung a background task on a confirmation prompt
+- What went wrong: background task-76 ran Remove-Item -Force on .claude/worktrees/recursing-austin-edc7b0 (which failed because another process still held its directory handle) and then Remove-Item -Force on the non-empty parent .claude/worktrees, where PowerShell waited silently on an interactive confirmation prompt until the user spotted the stuck task.
+- Why: in PowerShell, Remove-Item -Force without -Recurse prompts for confirmation whenever the target directory still has children, and a background command with no interactive operator never answers stdin.
+- Rule going forward: pass -Recurse -Force -Confirm:$false when removing a directory in non-interactive PowerShell, or run parent-directory cleanup only when the child removal succeeded.
+- Evidence: task-76 on 2026-11-28 (Remove-Item: The process cannot access the file E:\Code\Deep Belt\.claude\worktrees\recursing-austin-edc7b0 because it is being used by another process, followed by task-76 remaining active until cancelled).
+- Status: open
+
 ## 2026-11-28: A sandboxed git worktree remove deleted folders on disk while .git writes failed
 - What went wrong: a single sandboxed command ran git merge --ff-only and git worktree remove --force on four worktrees under .claude/worktrees/; three worktree directories were deleted on disk, while every write under .git/ failed with Permission denied or Invalid argument until git merge and git worktree prune ran outside the sandbox.
 - Why: Antigravity's Windows terminal sandbox allows file changes in the workspace tree while write-protecting .git/, so a git subcommand that updates both the working tree and .git/ can complete only the working-tree half.
