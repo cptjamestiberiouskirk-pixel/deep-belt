@@ -13,6 +13,13 @@ Format, checked by `node dev/lessons.mjs --check`. A field's text may go on over
 - Status: open | promoted to PLAYBOOK "<section>" | closed: <why the rule no longer holds>
 ```
 
+## 2026-11-28: A sandboxed git worktree remove deleted folders on disk while .git writes failed
+- What went wrong: a single sandboxed command ran git merge --ff-only and git worktree remove --force on four worktrees under .claude/worktrees/; three worktree directories were deleted on disk, while every write under .git/ failed with Permission denied or Invalid argument until git merge and git worktree prune ran outside the sandbox.
+- Why: Antigravity's Windows terminal sandbox allows file changes in the workspace tree while write-protecting .git/, so a git subcommand that updates both the working tree and .git/ can complete only the working-tree half.
+- Rule going forward: in Antigravity on Windows, run read-only git checks in the sandbox, and run git commands that write refs, index or worktree metadata (merge, commit, push, branch -d, worktree add/remove/prune) outside the sandbox as single git commands rather than mixed shell chains.
+- Evidence: step 61 output on 2026-11-28 (Unable to create E:/Code/Deep Belt/.git/ORIG_HEAD.lock: Permission denied; failed to delete .git/worktrees/*: Invalid argument after removing three .claude/worktrees folders).
+- Status: open
+
 ## 2026-11-25: A flee distance from a chained test case was nearly reported as a Skiff that falls behind
 - What went wrong: step 52's before/after flight table showed the Skiff's median distance in the 'flee' case of tests/hostile-flight.spec.ts at 13.21 km after the change against 10.14 before, past its 12 km fire range, and I nearly reported that a ship fleeing in a straight line now sheds the Skiff. A diagnostic that turned away from a parked start showed both builds keeping pace (10.03 to 10.13 km after, 10.10 to 10.22 before) until the 25 km leash ended the fight, with 3 to 4 bolts in each.
 - Why: the test's 'flee' case starts where its 8 s 'close' case left the ship, so its distances depend on that path and on the leash, not only on the hostile's steering; one run a build cannot separate them.
